@@ -37,10 +37,7 @@ def inject_debug():
     return dict(isDevelopment=is_development_mode.DEBUG)
 
 
-if is_development_mode.DEBUG:
-    app.config['DEBUG'] = True  # Ensure this is only set for development
-else:
-    app.config['DEBUG'] = False
+app.config['DEBUG'] = bool(is_development_mode.DEBUG)
 
 
 
@@ -52,17 +49,18 @@ def home():
 # manga_entries = ...
 # ids_to_download = ...
 # download_covers_concurrently(ids_to_download, manga_entries)
-    
+
     manga_entries = sqlalchemy_fns.get_manga_list_alchemy()
-      
-    # Identify entries with missing covers and download them
-    ids_to_download = [entry['id_anilist'] for entry in manga_entries if not entry['is_cover_downloaded']]
-    
-    if ids_to_download:
+
+    if ids_to_download := [
+        entry['id_anilist']
+        for entry in manga_entries
+        if not entry['is_cover_downloaded']
+    ]:
         try:
-            successful_ids = download_covers.download_covers_concurrently(ids_to_download, manga_entries)
-            # Bulk update the database to mark the covers as downloaded only for successful ones
-            if successful_ids:
+            if successful_ids := download_covers.download_covers_concurrently(
+                ids_to_download, manga_entries
+            ):
                 sqlalchemy_fns.update_cover_download_status_bulk(successful_ids, True)
         except Exception as e:
             print(f"Error during download or database update: {e}")
@@ -75,7 +73,7 @@ def home():
         # Check if links is a valid JSON array
         title_english = entry.get('title_english')
         title_romaji = entry.get('title_romaji')
-       
+
         try:
             json.loads(links)
             json.loads(genres)
@@ -139,10 +137,15 @@ def sync_with_fastapi():
                 "message": "Failed to sync with FastAPI"
             }), 500
     except requests.exceptions.RequestException as e:
-        return jsonify({
-            "status": "error",
-            "message": "An error occurred while connecting to FastAPI: " + str(e)
-        }), 500
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": f"An error occurred while connecting to FastAPI: {str(e)}",
+                }
+            ),
+            500,
+        )
 
 
 @app.route('/add_bato', methods=['POST'])
@@ -160,17 +163,22 @@ def add_bato_link():
         anilist_id = data.get('anilistId')
         bato_link = data.get('batoLink')  # Make sure to send this from your JS
 
-        
+
 
         # Then, update the manga entry with the provided Bato link
         sqlalchemy_fns.add_bato_link(anilist_id, bato_link)
 
         return jsonify({"message": "Bato link updated successfully."}), 200
     except requests.exceptions.RequestException as e:
-        return jsonify({
-            "status": "error",
-            "message": "An error occurred while adding bato link: " + str(e)
-        }), 500
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": f"An error occurred while adding bato link: {str(e)}",
+                }
+            ),
+            500,
+        )
 
 
     

@@ -24,7 +24,7 @@ def get_manga_list(config, testing=False):
         if connection.is_connected():
             cursor = connection.cursor(dictionary=True)
             # Execute the query to retrieve data
-            
+
             if testing:
                 cursor.execute("SELECT * FROM manga_list2")
             else:
@@ -34,13 +34,7 @@ def get_manga_list(config, testing=False):
 
             # Helper function to handle None values and convert timestamps to datetime
             def parse_timestamp(timestamp):
-                if timestamp is None:
-                    # Assign an old date to None values
-                    return datetime(1900, 1, 1)
-                else:
-                    # Assuming the timestamp is in the correct format, convert it to a datetime object
-                    return timestamp  # Or use datetime.fromtimestamp(timestamp) if it's a Unix timestamp
-
+                return datetime(1900, 1, 1) if timestamp is None else timestamp
 
             # Now let's sort the fetched data before returning it
             manga_list.sort(key=lambda x: parse_timestamp(x['last_updated_on_site']), reverse=True)
