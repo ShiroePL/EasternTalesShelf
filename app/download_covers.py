@@ -67,7 +67,7 @@ def download_covers_concurrently(ids_to_download, manga_entries):
         for future in as_completed(future_to_id):
             image_id = future_to_id[future]
             try:
-                if success := future.result():
+                if future.result():
                     print(f"Successfully downloaded and converted cover for ID {image_id}")
                     successful_ids.append(image_id)
                 else:
