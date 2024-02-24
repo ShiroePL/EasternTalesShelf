@@ -84,9 +84,7 @@ class App:
 
     def start_backup(self):
         id_or_name = self.choice_var.get()  # "1" for ID, "2" for name
-        input_value = self.input_var.get().strip()  # Get the input and strip whitespace
-
-        if input_value:  # Make sure there's input
+        if input_value := self.input_var.get().strip():
             # Call the start_backup function in a new thread to keep the UI responsive
             threading.Thread(target=lambda: self.run_backup_function(id_or_name, input_value), daemon=True).start()
         else:
@@ -129,8 +127,7 @@ class App:
         # Example: Extracting and interpreting the color from the message
         # This is a simplified approach; adjust according to your actual color codes and messages
         color_pattern = re.compile(r'\{([A-Z]+)\}')  # Adjust regex based on actual pattern
-        match = color_pattern.search(message)
-        if match:
+        if match := color_pattern.search(message):
             color_code = match.group(1)
             color = color_map.get(color_code, 'white')  # Default to white if not found
             clean_message = color_pattern.sub("", message)  # Remove the color code from the message
@@ -144,8 +141,7 @@ class App:
         for line in process.stdout:
             self.print_to_terminal(line)
         process.stdout.close()
-        return_code = process.wait()
-        if return_code:
+        if return_code := process.wait():
             self.print_to_terminal(f"Error, check the script. Return code: {return_code}\n")
 
 

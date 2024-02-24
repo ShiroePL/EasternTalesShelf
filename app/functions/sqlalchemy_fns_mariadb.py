@@ -84,10 +84,11 @@ def add_bato_link(id_anilist, bato_link):
     session = Session()
 
     try:
-        # First, check if the column exists and add it if not (this may need to be handled manually or via Alembic migrations)
-        
-        manga_entry = session.query(MangaList).filter_by(id_anilist=id_anilist).first()
-        if manga_entry:
+        if (
+            manga_entry := session.query(MangaList)
+            .filter_by(id_anilist=id_anilist)
+            .first()
+        ):
             manga_entry.bato_link = bato_link
             session.commit()
         else:

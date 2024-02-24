@@ -22,9 +22,7 @@ cursor = connection.cursor()
 cursor.execute("SELECT id_anilist FROM manga_list WHERE is_favourite = 0")
 already_favorites = {row[0] for row in cursor.fetchall()}
 
-while has_next_page:
-    variables_in_api = {'page': page, 'id': user_id}
-    api_request = '''
+api_request = '''
     query ($page: Int, $id: Int) {
         User(id: $id) {
             id
@@ -49,7 +47,9 @@ while has_next_page:
         }
     }
     '''
-    url = 'https://graphql.anilist.co'
+url = 'https://graphql.anilist.co'
+while has_next_page:
+    variables_in_api = {'page': page, 'id': user_id}
     response_from_anilist = requests.post(url, json={'query': api_request, 'variables': variables_in_api})
     parsed_json = json.loads(response_from_anilist.text)
 
