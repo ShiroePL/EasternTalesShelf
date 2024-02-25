@@ -101,11 +101,8 @@ def add_bato_link(id_anilist, bato_link):
     session = get_session()
 
     try:
-        if (
-            manga_entry := session.query(MangaList)
-            .filter_by(id_anilist=id_anilist)
-            .first()
-        ):
+        manga_entry = session.query(MangaList).filter_by(id_anilist=id_anilist).first()
+        if manga_entry:
             manga_entry.bato_link = bato_link
             session.commit()
         else:
