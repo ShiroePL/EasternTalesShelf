@@ -578,6 +578,7 @@ function showDetails(element) {
         // ---------------------------OPERATION ON LINK BUTTONS--------------------
 
         let serviceMap = {
+            'mangaupdates.com': { name: 'MangaUpdates', class: 'sevenseas' },
             'tapas.io': { name: 'Tapas', class: 'tapas' },
             'tappytoon.com': { name: 'Tappytoon', class: 'tappytoon' },
             'www.webtoons.com': { name: 'Webtoons', class: 'webtoons' },
@@ -586,10 +587,24 @@ function showDetails(element) {
             'j-novel.club': { name: 'J-Novel Club', class: 'jnovel' },
             // Add more mappings as needed
         };
-
+        
+        // Assign order based on the position in the object
+        Object.keys(serviceMap).forEach((key, index) => {
+            serviceMap[key].order = index + 1;
+        });
+        
         // Safely parse the JSON string into an array for external links
         try {
             let externalLinks = JSON.parse(externalLinksData || "[]");
+        
+            // Function to find the order of a URL based on serviceMap
+            function findOrder(url) {
+                return Object.keys(serviceMap).find(key => url.includes(key)) ? serviceMap[key].order : Number.MAX_VALUE;
+            }
+        
+            // Sort links based on the dynamically assigned order in serviceMap
+            externalLinks.sort((a, b) => findOrder(a) - findOrder(b));
+        
             let linksContainer = document.getElementById('sidebar-external-links');
         
             if (externalLinks.length === 0) {
@@ -602,7 +617,7 @@ function showDetails(element) {
                     Object.keys(serviceMap).forEach(function(key) {
                         if (url.includes(key)) {
                             let serviceName = serviceMap[key].name;
-                            let linkClass = serviceMap[key].class; // Custom class for serviceMap links
+                            let linkClass = serviceMap[key].class;
                             let button = document.createElement('a');
                             button.href = url;
                             button.textContent = serviceName;
@@ -623,6 +638,7 @@ function showDetails(element) {
             console.error('Parsing error for external-links data:', e);
             document.getElementById('sidebar-external-links').innerHTML = '<h5 class="mb-2">No links available</h5>';
         }
+        
         
 
         // ------------------------------- end of link buttons ---------------------
