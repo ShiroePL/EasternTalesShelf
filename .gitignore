@@ -128,3 +128,4 @@ app/static/covers.zip
 testing_model.py
 app/tkinter_manga_backup.db
 .vscode/settings.json
+test_scrap.py

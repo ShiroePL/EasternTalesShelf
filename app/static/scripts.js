@@ -578,6 +578,7 @@ function showDetails(element) {
         // ---------------------------OPERATION ON LINK BUTTONS--------------------
 
         let serviceMap = {
+            'mangaupdates.com': { name: 'Manga Updates', class: 'mangaupdates' },
             'tapas.io': { name: 'Tapas', class: 'tapas' },
             'tappytoon.com': { name: 'Tappytoon', class: 'tappytoon' },
             'www.webtoons.com': { name: 'Webtoons', class: 'webtoons' },

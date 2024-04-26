@@ -10,6 +10,11 @@ from app.config import Config
 from app.functions import class_mangalist
 from datetime import timedelta, datetime
 from app.functions.class_mangalist import  db_session
+from bs4 import BeautifulSoup
+from urllib.parse import unquote  # To decode URL-encoded characters
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 app = Flask(__name__)
@@ -178,21 +183,60 @@ def sync_with_fastapi():
         )
 
 
+
 @app.route('/add_bato', methods=['POST'])
 @login_required
-def add_bato_link():
+def add_bato_link_route():
     try:
         data = request.get_json()
         anilist_id = data.get('anilistId')
-        bato_link = data.get('batoLink')  # Make sure to send this from your JS
+        bato_link = data.get('batoLink')
 
-        # Then, update the manga entry with the provided Bato link
-        sqlalchemy_fns.add_bato_link(anilist_id, bato_link)
+        logging.info(f"Fetching data from: {bato_link}")
 
-        return jsonify({"message": "Bato link updated successfully."}), 200
+        # Make the HTTP request
+        response = requests.get(bato_link)
+        if response.status_code != 200:
+            logging.error(f"Failed to fetch page, status code: {response.status_code}")
+            return jsonify({"status": "error", "message": "Failed to fetch data."}), 500
+
+
+        # Parse the HTML
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Log the segments where links should be found
+        astro_islands = soup.find_all('astro-island')
+        logging.info(f"Found {len(astro_islands)} 'astro-island' elements")
+
+        extracted_links = []
+        for island in astro_islands:
+            if 'Display_Text_ResInfo' in island['opts']:
+                props = json.loads(island['props'].replace('&quot;', '"'))
+                links_str = props.get('code', [None, None])[1]
+                if links_str:
+                    links = links_str.split('\n')
+                    for link in links:
+                        cleaned_link = link.split('] ')[-1].strip()
+                        cleaned_link = unquote(cleaned_link)
+                        if cleaned_link.isascii():
+                            extracted_links.append(cleaned_link)
+                            logging.info(f"Extracted Link: {cleaned_link}")
+                        else:
+                            logging.info(f"Non-ASCII link skipped: {cleaned_link}")
+                else:
+                    logging.info("No link string found in 'astro-island'.")
+
+        if not extracted_links:
+            logging.info("No ASCII links extracted from page.")
+
+        # Update the database with the new links
+        sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
+        return jsonify({"message": "Manga links updated successfully."}), 200
+
     except Exception as e:
-        app.logger.error(f"An error occurred: {str(e)}")
+        logging.exception("An error occurred during the link extraction process.")
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
+
     
 
 @app.teardown_appcontext
