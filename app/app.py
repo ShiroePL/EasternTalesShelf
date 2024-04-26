@@ -10,6 +10,8 @@ from app.config import Config
 from app.functions import class_mangalist
 from datetime import timedelta, datetime
 from app.functions.class_mangalist import  db_session
+from bs4 import BeautifulSoup
+from urllib.parse import unquote  # To decode URL-encoded characters
 
 
 app = Flask(__name__)
@@ -177,21 +179,39 @@ def sync_with_fastapi():
             500,
         )
 
-
+   
 @app.route('/add_bato', methods=['POST'])
 @login_required
-def add_bato_link():
+def add_bato_link_route():
     try:
         data = request.get_json()
         anilist_id = data.get('anilistId')
-        bato_link = data.get('batoLink')  # Make sure to send this from your JS
+        bato_link = data.get('batoLink')
 
-        # Then, update the manga entry with the provided Bato link
-        sqlalchemy_fns.add_bato_link(anilist_id, bato_link)
+        # Scrape the Batoto page
+        response = requests.get(bato_link)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        astro_islands = soup.find_all('astro-island')
+        extracted_links = []
+        for island in astro_islands:
+            if 'Display_Text_ResInfo' in island['opts']:
+                props = json.loads(island['props'].replace('&quot;', '"'))
+                links_str = props.get('code', [None, None])[1]
+                if links_str:
+                    # Split links and clean them
+                    links = links_str.split('\n')
+                    cleaned_links = [link.split('] ')[-1].strip() for link in links if '] ' in link]
+                    # Decode any percent-encoded characters in the URL
+                    cleaned_links = [unquote(link) for link in cleaned_links]
+                    # Filter out non-ASCII links
+                    ascii_links = [link for link in cleaned_links if link.isascii()]
+                    extracted_links.extend(ascii_links)
 
-        return jsonify({"message": "Bato link updated successfully."}), 200
+        # Update the database with the new links
+        sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
+        return jsonify({"message": "Manga links updated successfully."}), 200
     except Exception as e:
-        app.logger.error(f"An error occurred: {str(e)}")
+        print(f"An error occurred: {str(e)}")
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
     
 
