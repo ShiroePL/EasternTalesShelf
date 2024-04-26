@@ -191,6 +191,7 @@ ALLOWED_DOMAINS = {
 @app.route('/add_bato', methods=['POST'])
 @login_required
 def add_bato_link_route():
+def add_bato_link_route():
     try:
         data = request.get_json()
         anilist_id = data.get('anilistId')
