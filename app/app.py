@@ -16,7 +16,6 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 app = Flask(__name__)
 app.secret_key = Config.flask_secret_key
 app.config['SESSION_COOKIE_HTTPONLY'] = True
