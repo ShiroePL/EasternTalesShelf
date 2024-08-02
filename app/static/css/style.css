@@ -557,6 +557,46 @@ opacity: 1;
     /* Remove padding here if it's not needed */
 }
 
+#side-menu-right {
+    background-color: #343a40; /* Dark background */
+    color: #ffffff; /* White text */
+}
+
+
+#mangaupdates-info {
+    font-family: 'Roboto', sans-serif;
+    display: none; /* Hide the element by default */
+    background-color: #1c1e22; /* Slightly lighter dark background */
+    padding: 0.5rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+
+
+#mangaupdates-info h6 {
+    font-size: 1.14rem;
+    font-family: 'Roboto', sans-serif;
+    color: #007bff;
+    margin-bottom: 10px;
+}
+
+#mangaupdates-info p {
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+/* Apply the same blue color to Manga Updates icons */
+#mangaupdates-info .fas {
+    color: rgb(55, 160, 249); /* Blue color */
+    font-size: 1.2rem; /* Adjust the size of the icons if needed */
+    margin-right: 5px; /* Space between icon and text */
+}
+
+
+
+
 /* Specific styles for 'Show more' link */
 .toggle-link {
     color: #007bff;
@@ -724,7 +764,14 @@ opacity: 1;
     text-align: center; /* Aligns the icon's content */
 }
 
-
+#sidebar-info p.date-info {
+    font-size: 0.8rem; /* Smaller font size for the text */
+    display: flex; /* Use flexbox to align the icon placeholder and text */
+    align-items: center; /* Center the items vertically */
+    margin-bottom: 0.25rem; /* Reduced bottom margin to fit the additional lines */
+    
+    color: #007bff; /* New color for date-info paragraphs */
+}
 /* Style for the placeholder span to mimic the width of the icons */
 .icon-placeholder {
     display: inline-block;
@@ -735,14 +782,7 @@ opacity: 1;
 /* Apply the date-info class to make font size smaller */
 
 
-#sidebar-info p.date-info {
-    font-size: 0.8rem; /* Smaller font size for the text */
-    display: flex; /* Use flexbox to align the icon placeholder and text */
-    align-items: center; /* Center the items vertically */
-    margin-bottom: 0.25rem; /* Reduced bottom margin to fit the additional lines */
-    
-    color: #007bff; /* New color for date-info paragraphs */
-}
+
 /* Keep the icon size consistent */
 .date-info i {
     flex-shrink: 0; /* Prevent the icon from shrinking */

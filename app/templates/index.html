@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" />
 
     <!-- Link to your custom stylesheet -->
-    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 
     <!-- Link to your custom SASS script file -->
    
@@ -256,7 +256,6 @@
     <!-- Notes paragraph initially hidden -->
     
 
-
     <div id="sidebar-external-links" class="list-group mt-3">
         <!-- Links will be inserted here -->
     </div>
@@ -333,8 +332,6 @@
     </div>
 </div>
 
-
-
 <!-- Chatbot Interface -->
 <div id="chatbot" class="chatbot-container">
     <div class="chat-header">Chat with us!</div>
@@ -351,9 +348,6 @@
     </div>
 </div>
 <button class="toggle-chatbot" onclick="toggleChatbot()">☰</button>
-
-
-
 
 
 <!-- Footer -->
@@ -374,12 +368,30 @@
     duration: 1000 // values from 0 to 3000, with step 50ms
   });
 </script>
-<!-- Link to your custom script file -->
-<script src="{{ url_for('static', filename='scripts.js') }}"></script>
+
+<!-- Scripts files -->
+<script src="{{ url_for('static', filename='js/globals.js') }}"></script>
+
+
+<script src="{{ url_for('static', filename='js/aos_stuff.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filters.js') }}"></script>
+<script src="{{ url_for('static', filename='js/eventListeners.js') }}"></script>
+
+<script type="module" src="static/js/RightSidebarUtilities.js"></script>
+<script type="module" src="static/js/RightSidebarDataHandlers.js"></script>
+<script type="module" src="static/js/RightSidebarUIUpdaters.js"></script>
+<script type="module" src="static/js/RightsidebarAnimations.js"></script>
+<script type="module" src="static/js/RightSidebarEventListeners.js"></script>
+<script type="module" src="static/js/RightSidebarMain.js"></script>
+
+<script type="module" src="static/js/UIUpdaters.js"></script>
+
+<!-- Chatbox Related -->
+<script src="static/js/ChatBoxRelated.js"></script>
+
 <script type="text/javascript">
     var loginUrl = "{{ url_for('login') }}";
 </script>
-
 
 </body>
 </html>
