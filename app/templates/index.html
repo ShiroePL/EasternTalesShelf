@@ -219,6 +219,16 @@
         <h5 id="sidebar-title"></h5>
     </div>
     <p id="sidebar-info"></p>
+
+    <!-- New container for MangaUpdates info -->
+    <div id="mangaupdates-info">
+        <h6>Manga Updates Info</h6>
+        <div id="mangaupdates-content">
+            <!-- Dynamic content will be inserted here -->
+        </div>
+    </div>
+
+
     <div id="sidebar-links" class="btn-group" role="group">
         <a href="#" id="link-anilist" class="btn btn-primary" target="_blank">
             <img src="/static/anilist_icon.png" alt="AniList" style="width: 20px; height: auto; vertical-align: middle;"> AniList
@@ -265,13 +275,11 @@
     
 </div>
 
-
-
-
 <!-- Main Content Area -->
 <div id="main">
     <div class="content-area">
         {% for entry in manga_entries %}
+        {% set details = mangaupdates_details | selectattr('anilist_id', 'equalto', entry.id_anilist) | first %}
         <div class="grid-item"
             onclick="showDetails(this)"
             style="background-image: url('/static/covers/{{ entry.id_anilist }}.avif'); background-size: cover; background-position: center;"
@@ -301,17 +309,18 @@
             data-is-favourite = "{{ entry.is_favourite }}"
             data-reread-times = "{{ entry.reread_times }}"
             data-bato-link = "{{ entry.bato_link }}"
+            data-mangaupdates-status="{{ details.status if details else '' }}"
+            data-mangaupdates-licensed="{{ details.licensed if details else '' }}"
+            data-mangaupdates-completed="{{ details.completed if details else '' }}"
+            data-mangaupdates-last-updated="{{ details.last_updated_timestamp if details else '' }}"
             data-aos="fade-up" 
             data-aos-offset="200"
             data-aos-duration="1000">
 
-            
             <div class="grid-item-title">{{ entry.title_english }}</div> <!-- Assuming 'english' is the key for the English title -->
            
             <!-- Score Icon -->
             <div class="score-icon" data-score="{{ entry.score }}" id="score-icon-{{ loop.index }}"></div>
-
-
             <div class="favorite-icon" data-is-favourite="{{ entry.is_favourite }}"></div>
             <div class="reread-cover-icon"  data-reread-times="  {{ entry.reread_times }}"></div>
             

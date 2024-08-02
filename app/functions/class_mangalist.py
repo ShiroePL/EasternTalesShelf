@@ -70,3 +70,14 @@ class Users(Base):
 
     def get_id(self):
         return str(self.id)
+    
+
+class MangaUpdatesDetails(Base):
+    __tablename__ = 'mangaupdates_details'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    series_id = Column(String(255), nullable=False, unique=True)
+    anilist_id = Column(Integer, nullable=False)
+    status = Column(Text, nullable=True)
+    licensed = Column(Boolean, nullable=True)
+    completed = Column(Boolean, nullable=True)
+    last_updated_timestamp = Column(TIMESTAMP, nullable=True)

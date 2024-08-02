@@ -1,10 +1,12 @@
 # Imports
 from datetime import datetime
 import json
+import re
 from sqlalchemy import exc
-from app.functions.class_mangalist import engine, Base, MangaList, db_session
+from app.functions.class_mangalist import engine, Base, MangaList, db_session, MangaUpdatesDetails
 from app.config import is_development_mode
-
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 # Initialize the database
 def initialize_database():
     """ Initialize the database by creating all tables. """
@@ -22,6 +24,19 @@ def get_manga_list_alchemy():
         return []
     finally:
         db_session.remove()  # Correct usage of remove()
+
+def get_manga_details_alchemy():
+    """ Fetch manga details, managing sessions with scoped_session. """
+    try:
+        manga_details_list = db_session.query(MangaUpdatesDetails).all()
+        return manga_details_list
+    except Exception as e:
+        print("Error while fetching from the database:", e)
+        db_session.rollback()
+        return []
+    finally:
+        db_session.remove()  # Correct usage of remove()
+
 
 # Parse timestamps for manga entries
 def parse_timestamp(manga):
@@ -52,11 +67,11 @@ def update_manga_links(id_anilist, bato_link, extracted_links):
 
             # Convert existing links to a list if stored as a string
             existing_links = eval(manga_entry.external_links) if manga_entry.external_links else []
-
+            print("Existing links:", existing_links)
             # Add new MangaUpdates links if they're not already in the existing links
             new_links = [link for link in extracted_links if link not in existing_links]
             updated_links = existing_links + new_links
-
+            print("Updated links:", updated_links)
             # Ensure links are stored with double quotes
             manga_entry.external_links = json.dumps(updated_links)  # This will store list with double quotes
 
@@ -68,6 +83,46 @@ def update_manga_links(id_anilist, bato_link, extracted_links):
         print("Error updating manga links:", e)
     finally:
         db_session.remove()  # Properly remove the session from the scoped_session registry
+
+
+def save_manga_details(details, anilist_id):
+    try:
+        series_id = details.get("series_id")
+        manga_detail = db_session.query(MangaUpdatesDetails).filter_by(series_id=series_id).first()
+
+        last_updated_timestamp = details.get("last_updated", {}).get("timestamp")
+        if last_updated_timestamp:
+            last_updated_timestamp = datetime.fromtimestamp(last_updated_timestamp)
+        
+        status = details.get("status", "")
+        # Replace multiple \n characters with a single \n
+        status = re.sub(r'\n+', '\n', status)
+
+        if not manga_detail:
+            manga_detail = MangaUpdatesDetails(
+                series_id=series_id,
+                anilist_id=anilist_id,
+                status=status,
+                licensed=details.get("licensed"),
+                completed=details.get("completed"),
+                last_updated_timestamp=last_updated_timestamp
+            )
+            db_session.add(manga_detail)
+        else:
+            manga_detail.status = status
+            manga_detail.licensed = details.get("licensed")
+            manga_detail.completed = details.get("completed")
+            manga_detail.last_updated_timestamp = last_updated_timestamp
+            manga_detail.anilist_id = anilist_id
+
+        db_session.commit()
+        logging.info(f"Saved to table: {manga_detail}")
+        logging.info("Manga details saved successfully.")
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error saving manga details: {e}")
+    finally:
+        db_session.remove()
 
 # Ensure the database is initialized on module import
 initialize_database()
