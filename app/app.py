@@ -13,6 +13,8 @@ from app.functions.class_mangalist import  db_session
 from bs4 import BeautifulSoup
 from urllib.parse import unquote  # To decode URL-encoded characters
 import logging
+from app.functions.manga_updates_fns import MangaUpdatesAPI
+from app.functions.sqlalchemy_fns import save_manga_details
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -29,6 +31,7 @@ Users = class_mangalist.Users
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -105,6 +108,7 @@ def set_security_headers(response):
 def home():  
    
     manga_entries = sqlalchemy_fns.get_manga_list_alchemy()
+    mangaupdates_details = sqlalchemy_fns.get_manga_details_alchemy()
     
     
     # Identify entries with missing covers and download them
@@ -140,7 +144,7 @@ def home():
 
     
     # Pass the entries to the template.
-    return render_template('index.html', manga_entries=manga_entries)
+    return render_template('index.html', manga_entries=manga_entries, mangaupdates_details=mangaupdates_details)
 
 
 # Route for handling the log sync functionality
@@ -182,6 +186,8 @@ def sync_with_fastapi():
         )
 
 
+# Initialize MangaUpdatesAPI with your authentication token
+manga_updates_api = MangaUpdatesAPI(auth_token="not_needed")
 
 @app.route('/add_bato', methods=['POST'])
 @login_required
@@ -190,45 +196,29 @@ def add_bato_link_route():
         data = request.get_json()
         anilist_id = data.get('anilistId')
         bato_link = data.get('batoLink')
+        series_name = data.get('seriesname')
 
         logging.info(f"Fetching data from: {bato_link}")
 
-        # Make the HTTP request
         response = requests.get(bato_link)
         if response.status_code != 200:
             logging.error(f"Failed to fetch page, status code: {response.status_code}")
             return jsonify({"status": "error", "message": "Failed to fetch data."}), 500
 
+        extracted_links = manga_updates_api.extract_links_from_bato(response.text)
 
-        # Parse the HTML
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Log the segments where links should be found
-        astro_islands = soup.find_all('astro-island')
-        logging.info(f"Found {len(astro_islands)} 'astro-island' elements")
+        mangaupdates_link = None
+        for link in extracted_links:
+            if 'www.mangaupdates.com' in link:
+                mangaupdates_link = link
+                break
 
-        extracted_links = []
-        for island in astro_islands:
-            if 'Display_Text_ResInfo' in island['opts']:
-                props = json.loads(island['props'].replace('&quot;', '"'))
-                links_str = props.get('code', [None, None])[1]
-                if links_str:
-                    links = links_str.split('\n')
-                    for link in links:
-                        cleaned_link = link.split('] ')[-1].strip()
-                        cleaned_link = unquote(cleaned_link)
-                        if cleaned_link.isascii():
-                            extracted_links.append(cleaned_link)
-                            logging.info(f"Extracted Link: {cleaned_link}")
-                        else:
-                            logging.info(f"Non-ASCII link skipped: {cleaned_link}")
-                else:
-                    logging.info("No link string found in 'astro-island'.")
+        if mangaupdates_link:
+            details = manga_updates_api.get_manga_details(mangaupdates_link, series_name)
+            if details:
+                logging.info(f"Extracted Manga Updates Details: {details}")
+                save_manga_details(details, anilist_id)  # Save manga details to the database
 
-        if not extracted_links:
-            logging.info("No ASCII links extracted from page.")
-
-        # Update the database with the new links
         sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
         return jsonify({"message": "Manga links updated successfully."}), 200
 
@@ -236,7 +226,6 @@ def add_bato_link_route():
         logging.exception("An error occurred during the link extraction process.")
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
-    
 
 @app.teardown_appcontext
 def cleanup(resp_or_exc):
