@@ -6,7 +6,7 @@ services:
     restart: always
     container_name: EasternTalesShelf-website  # Custom container name
     environment:
-      - FLASK_ENV=development  # Set to development or production based on your need
+      - FLASK_ENV  # Set to development or production based on your need
       - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}  # Use Doppler service token for secret injection
     networks:
       - external-containers
