@@ -6,10 +6,8 @@ services:
     restart: always
     container_name: EasternTalesShelf-website  # Custom container name
     environment:
-      - FLASK_ENV
-      - VAULT_ADDR
-      - VAULT_ROLE_ID_shiro_chan_project
-      - VAULT_SECRET_ID_shiro_chan_project
+      - FLASK_ENV=development  # Set to development or production based on your need
+      - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}  # Use Doppler service token for secret injection
     networks:
       - external-containers
       - phpmyadmin_gpt_db
