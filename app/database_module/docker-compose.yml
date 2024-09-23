@@ -5,17 +5,14 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: always
-    container_name: EasternTalesShelf-fastapi-updater  # Custom container name
+    container_name: easterntalesshelf-fastapi-updater  # Custom container name
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun
     environment:
-      - OAUTH_CLIENT_SECRET
-      - VAULT_ADDR=${VAULT_ADDR_tailscale}
-      - VAULT_ROLE_ID_shiro_chan_project
-      - VAULT_SECRET_ID_shiro_chan_project
-      - FLASK_ENV
+      - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}  # Doppler token for secret injection
+      - FLASK_ENV  
     networks:
       - phpmyadmin_gpt_db
     volumes:
