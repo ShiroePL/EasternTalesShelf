@@ -11,6 +11,7 @@ class Config(object):
             cls.db_password = os.getenv('DB_PASSWORD')
             cls.db_name = os.getenv('ANILIST_DB_NAME')
             cls.flask_secret_key = os.getenv('FLASK_SECRET_KEY')
+            cls.fastapi_updater_server_IP = os.getenv('FASTAPI_UPDATER_SERVER_IP') #ip of contaier in docker networks
 
             if os.getenv('FLASK_ENV') == 'production':
                 cls.host_name = os.getenv('DB_HOST_NAME_VPS_CONTENER')
@@ -45,10 +46,9 @@ is_development_boolen = is_development_mode.DEBUG
 
 print("is_development_mode: ", is_development_boolen)
 
-if is_development_boolen:
+if is_development_boolen: # for dev environment
     fastapi_updater_server_IP = "127.0.0.1"
-else:
-    fastapi_updater_server_IP = "eastern-updater-fastapi"
+
 # Database configurations
 database_type = "mariadb"  #  "mariadb" or "sql_lite"
 
