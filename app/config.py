@@ -1,39 +1,29 @@
 import os
 from app.vault_approle_functions import vault_login, read_secret
 
-class Config(object):
-    # ... [other parts of your class] ...
+import os
 
-    # Initialize Vault client and fetch secrets
-    VAULT_ADDR = os.getenv('VAULT_ADDR')
-    ROLE_ID = os.getenv('VAULT_ROLE_ID_shiro_chan_project')
-    SECRET_ID = os.getenv('VAULT_SECRET_ID_shiro_chan_project')
-    VAULT_SECRET_PATH = "secret/data/shiro_chan_project"
-    
+class Config(object):
     @classmethod
-    def fetch_vault_secrets(cls):
+    def fetch_doppler_secrets(cls):
         try:
-            client_token = vault_login(cls.VAULT_ADDR, cls.ROLE_ID, cls.SECRET_ID)
-            secrets = read_secret(cls.VAULT_ADDR, client_token, cls.VAULT_SECRET_PATH)
-            # Set the secrets as class attributes
-            cls.user_name = secrets['db_user_name']
-            cls.db_password = secrets['db_password']
-            cls.db_name = secrets['anilist_db_name']
+            cls.user_name = os.getenv('DB_USER_NAME')
+            cls.db_password = os.getenv('DB_PASSWORD')
+            cls.db_name = os.getenv('ANILIST_DB_NAME')
+            cls.flask_secret_key = os.getenv('FLASK_SECRET_KEY')
 
             if os.getenv('FLASK_ENV') == 'production':
-                cls.host_name = secrets['db_host_name_vps_contener']
+                cls.host_name = os.getenv('DB_HOST_NAME_VPS_CONTENER')
             else:
-                cls.host_name = secrets['db_host_name']
+                cls.host_name = os.getenv('DB_HOST_NAME')
 
-            cls.flask_secret_key = secrets['flask_secret_key']
-
-            print("VARIABLES SET FROM VAULT")
+            print("VARIABLES SET FROM DOPPLER")
         except Exception as e:
-            print("Couldn't set variables from Vault, error:")
+            print("Couldn't set variables from Doppler, error:")
             print(e)
 
-# Outside of your class definition
-Config.fetch_vault_secrets()
+Config.fetch_doppler_secrets()
+
 
         
 class DevelopmentConfig(Config):

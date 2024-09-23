@@ -5,18 +5,17 @@ FROM python:3.10-slim
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# Install system dependencies
+# Install system dependencies and Doppler CLI
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc libc6-dev ffmpeg && \
+    apt-get install -y --no-install-recommends gcc libc6-dev ffmpeg curl gnupg && \
+    curl -Ls https://cli.doppler.com/install.sh | sh && \
     rm -rf /var/lib/apt/lists/*
-
 
 # Set the working directory to /app. This is the root of your project inside the container.
 WORKDIR /app
 
 # Set environment variable to ensure Python recognizes the correct root for imports
 ENV PYTHONPATH=/app
-
 
 # Copy the requirements.txt first to leverage Docker cache
 COPY requirements.txt .
@@ -30,5 +29,5 @@ COPY . .
 # Adjust PYTHONPATH if necessary
 ENV PYTHONPATH=/app
 
-# Adjust the CMD to reflect the new structure and execute the app
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "4", "app.app:app"]
+# Use Doppler to inject secrets and run Gunicorn to serve your app
+CMD ["doppler", "run", "--", "gunicorn", "--bind", "0.0.0.0:80", "--workers", "4", "app.app:app"]
