@@ -160,6 +160,7 @@ def sync_with_fastapi():
     try:
         # Replace the URL with your actual FastAPI server address
         url = f"http://{fastapi_updater_server_IP}:8057/sync"
+        print(f"Connecting to FastAPI at: {url}")
         response = requests.post(url, timeout=10)
 
         if response.status_code == 200:
