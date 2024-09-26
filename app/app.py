@@ -15,8 +15,16 @@ from urllib.parse import unquote  # To decode URL-encoded characters
 import logging
 from app.functions.manga_updates_fns import MangaUpdatesAPI
 from app.functions.sqlalchemy_fns import save_manga_details
-
+from scrapy.crawler import CrawlerRunner
+from crochet import setup, wait_for
+from app.functions.sqlalchemy_fns import update_manga_links, save_manga_details
+from app.functions.manga_updates_spider import MangaUpdatesSpider
+import re
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+# Setup for Scrapy to work asynchronously with Flask
+setup()
 
 app = Flask(__name__)
 app.secret_key = Config.flask_secret_key
@@ -187,8 +195,30 @@ def sync_with_fastapi():
         )
 
 
-# Initialize MangaUpdatesAPI with your authentication token
-manga_updates_api = MangaUpdatesAPI(auth_token="not_needed")
+#  anilist_id = data.get('anilistId')
+# (MangaUpdatesSpider, bato_link=bato_link, anilist_id=anilist_id)
+
+def extract_links_from_bato(html_content):
+    soup = BeautifulSoup(html_content, 'html.parser')
+    astro_islands = soup.find_all('astro-island')
+    extracted_links = []
+    
+    for island in astro_islands:
+        if 'Display_Text_ResInfo' in island.get('opts', ''):
+            props = json.loads(island['props'].replace('&quot;', '"'))
+            links_str = props.get('code', [None, None])[1]
+            if links_str:
+                links = links_str.split('\n')
+                for link in links:
+                    cleaned_link = link.split('] ')[-1].strip()
+                    cleaned_link = unquote(cleaned_link)
+                    url_match = re.search(r'https?://[^\s]+', cleaned_link)
+                    if url_match:
+                        url = url_match.group(0)
+                        if all(ord(char) < 128 for char in url):
+                            extracted_links.append(url)
+                            logging.info(f"Extracted Link: {url}")
+    return extracted_links
 
 @app.route('/add_bato', methods=['POST'])
 @login_required
@@ -201,31 +231,51 @@ def add_bato_link_route():
 
         logging.info(f"Fetching data from: {bato_link}")
 
+        # Fetch the Bato page
         response = requests.get(bato_link)
         if response.status_code != 200:
             logging.error(f"Failed to fetch page, status code: {response.status_code}")
             return jsonify({"status": "error", "message": "Failed to fetch data."}), 500
 
-        extracted_links = manga_updates_api.extract_links_from_bato(response.text)
+        # Extract links from Bato page
+        extracted_links = extract_links_from_bato(response.text)
+        logging.info(f"Extracted Links: {extracted_links}")
 
+        # Look for the MangaUpdates link
         mangaupdates_link = None
         for link in extracted_links:
             if 'www.mangaupdates.com' in link:
                 mangaupdates_link = link
                 break
 
-        if mangaupdates_link:
-            details = manga_updates_api.get_manga_details(mangaupdates_link, series_name)
-            if details:
-                logging.info(f"Extracted Manga Updates Details: {details}")
-                save_manga_details(details, anilist_id)  # Save manga details to the database
+        if not mangaupdates_link:
+            return jsonify({"status": "error", "message": "MangaUpdates link not found."}), 500
+        
+        logging.info(f"MangaUpdates Link: {mangaupdates_link}")
 
+        # Run the Scrapy spider with the MangaUpdates link
+        runner = CrawlerRunner()
+        crawl = runner.crawl(MangaUpdatesSpider, start_url=mangaupdates_link, anilist_id=anilist_id)
+
+        # Wait for the spider to finish
+        crawl.addBoth(lambda _: runner.stop())
+
+        # Wait for results and handle database update
+        @wait_for(timeout=30)
+        def process_crawl():
+            crawl.result()
+
+        process_crawl()
+
+        # Update the database with all extracted links (including MangaUpdates link)
         sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
+
         return jsonify({"message": "Manga links updated successfully."}), 200
 
     except Exception as e:
         logging.exception("An error occurred during the link extraction process.")
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
+
 
 
 @app.teardown_appcontext

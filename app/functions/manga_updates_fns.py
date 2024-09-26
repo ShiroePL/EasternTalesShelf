@@ -1,81 +1,13 @@
 import requests
-from urllib.parse import urlparse, unquote, parse_qs
+from urllib.parse import unquote
 from bs4 import BeautifulSoup
 import json
 import re
 import logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class MangaUpdatesAPI:
-    def __init__(self, auth_token):
-        self.auth_token = auth_token
-        self.headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.auth_token}"
-        }
-
-    def extract_series_name(self, url):
-        logging.info(f"Extracting series name from {url}")
-        parsed_url = urlparse(url)
-        query_params = parse_qs(parsed_url.query)
-        
-        if 'id' in query_params:
-            logging.info("URL contains 'id' parameter, returning None.")
-            return None
-        else:
-            series_name = parsed_url.path.split('/')[-1]
-            return series_name
-
-    def search_series(self, series_name):
-        logging.info(f"Searching for {series_name}")
-        api_url = "https://api.mangaupdates.com/v1/series/search"
-        data = {"search": series_name}
-        response = requests.post(api_url, json=data, headers=self.headers)
-        results = response.json().get("results", [])
-        
-        for result in results:
-            record = result.get("record", {})
-            if record.get("title").lower().replace(' ', '-') == series_name.lower():
-                return record.get("series_id")
-        
-        # If no exact match, return the first result's series_id
-        if results:
-            logging.info(f"No exact match found, returning first result's series_id: {results[0].get('record', {}).get('series_id')}")
-            return results[0].get("record", {}).get("series_id")
-        return None
-
-    def get_series_details(self, series_id):
-        logging.info(f"Getting details for series {series_id}")
-        api_url = f"https://api.mangaupdates.com/v1/series/{series_id}?unrenderedFields=true"
-        response = requests.get(api_url, headers=self.headers)
-        details = response.json()
-        
-        return {
-            "series_id": details.get("series_id"),
-            "status": details.get("status"),
-            "licensed": details.get("licensed"),
-            "completed": details.get("completed"),
-            "last_updated": {
-                "timestamp": details.get("last_updated", {}).get("timestamp")                
-            }
-        }
-
-    def get_manga_details(self, url, series_name=None):
-        extracted_series_name = self.extract_series_name(url)
-        
-        if extracted_series_name is None:
-            if series_name is None:
-                raise ValueError("Series name is required when URL contains 'id' parameter")
-        else:
-            series_name = extracted_series_name
-
-        series_id = self.search_series(series_name)
-        if not series_id:
-            return None
-        
-        details = self.get_series_details(series_id)
-        return details
-    
     def extract_links_from_bato(self, html_content):
         soup = BeautifulSoup(html_content, 'html.parser')
         astro_islands = soup.find_all('astro-island')
@@ -96,3 +28,59 @@ class MangaUpdatesAPI:
                                 extracted_links.append(url)
                                 logging.info(f"Extracted Link: {url}")
         return extracted_links
+
+    def get_manga_details(self, mangaupdates_link):
+        # Fetch the MangaUpdates page
+        response = requests.get(mangaupdates_link)
+        if response.status_code != 200:
+            logging.error(f"Failed to fetch MangaUpdates page: {response.status_code}")
+            return None
+
+        html_content = response.text
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Find all 'div' elements with class 'sCat'
+        sCat_elements = soup.find_all('div', class_='sCat')
+
+        # Initialize a dictionary to store the details
+        details = {
+            "status_in_country_of_origin": None,
+            "licensed_in_english": None,
+            "completely_scanlated": None,
+            "last_updated": None
+        }
+
+        # Loop through the sCat elements to find the desired fields
+        for sCat in sCat_elements:
+            # Get the text from sCat
+            sCat_text = sCat.get_text(strip=True).lower()
+            
+            # The sContent is the next sibling
+            sContent = sCat.find_next_sibling('div', class_='sContent')
+            if not sContent:
+                continue
+            
+            # Get the text from sContent
+            sContent_text = sContent.get_text(separator=' ', strip=True)  # separator=' ' to handle <BR> tags
+
+            # Match for different categories (case insensitive, flexible formatting)
+            if 'status in country of origin' in sCat_text:
+                details['status_in_country_of_origin'] = sContent_text
+            elif 'licensed (in english)' in sCat_text:
+                details['licensed_in_english'] = sContent_text
+            elif 'completely scanlated?' in sCat_text:
+                details['completely_scanlated'] = sContent_text
+            elif 'last updated' in sCat_text:
+                details['last_updated'] = sContent_text
+
+        # Clean up the details dictionary by removing None values
+        details = {k: v for k, v in details.items() if v is not None}
+
+        if details:
+            logging.info(f"Extracted Manga Details: {details}")
+            return details
+        else:
+            logging.error("Could not find the desired details in the MangaUpdates page.")
+            return None
+
+

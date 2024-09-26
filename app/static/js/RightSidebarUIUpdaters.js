@@ -68,19 +68,20 @@ export function updateSidebarInfo(data) {
 export function updateMangaUpdatesInfo(data) {
     let mangaUpdatesHTML = '';
     const mangaUpdatesContentElement = $('#mangaupdates-content');
-    const mangaUpdatesInfoElement = $('#mangaupdates-info');
 
     if (data.mangaupdates_status) {
-        // Replace multiple newline characters with a single <br> tag
-        let formattedStatus = data.mangaupdates_status.replace(/\n+/g, '<br>');
+        // Replace newline characters with <br> tags for HTML display
+        let formattedStatus = data.mangaupdates_status.replace(/\n/g, '<br>');
     
         // Search for specific words and wrap them in spans with different colors
         formattedStatus = formattedStatus.replace(/Complete/g, '<span style="color: rgb(40, 167, 69);">Complete</span>');
         formattedStatus = formattedStatus.replace(/Ongoing/g, '<span style="color: rgb(255, 193, 7);">Ongoing</span>');
-        formattedStatus = formattedStatus.replace(/Status/g, '<span style="color: rgb(55, 160, 249);">Status</span>');
-        mangaUpdatesHTML += `<p id="mangaupdates-status" class="m-1"><i class="fas fa-info-circle"></i> Status: ${formattedStatus}</p>`;
+        
+        
+        // Build HTML for the status
+        mangaUpdatesHTML += `<p id="mangaupdates-status" class="m-1"><i class="fas fa-info-circle"></i> <span style="color: rgb(55, 160, 249);">Status:</span> ${formattedStatus}</p>`;
     }
-    
+
     if (data.mangaupdates_licensed) {
         mangaUpdatesHTML += `<p id="mangaupdates-licensed" class="m-1"><i class="fas fa-certificate"></i> Licensed: ${data.mangaupdates_licensed}</p>`;
     }
@@ -97,10 +98,8 @@ export function updateMangaUpdatesInfo(data) {
     } else {
         mangaUpdatesContentElement.html(''); // Clear the content if there's no data
     }
-
-    // Handle visibility
-    
 }
+
 
 
 export function updateSidebarDescription(data) {

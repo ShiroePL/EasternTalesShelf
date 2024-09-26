@@ -61,32 +61,41 @@ opacity: 1;
 }
 
 
-
+/* 3D Effect on Grid Items */
 .grid-item {
     margin: 10px;
     padding: 20px;
-    border: 2px solid transparent; /* Default border, can be overridden by specific classes */
+    border: 2px solid transparent;
     border-radius: .25rem;
     position: relative;
-    color: #0742f4; /* This makes the text color white for contrast */
+    color: #0742f4;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 257px;
-    width: 184px; /* Set a fixed height or use other responsive techniques */
-    transition: transform .2s, border-color .2s; /* Add border-color transition */
-}
-
-.grid-item:hover {
-    transform: scale(1.05);
+    width: 184px;
+    transform: perspective(1000px) rotateY(30deg); /* Slight 3D rotation */
+    box-shadow: 0 10px 10px rgba(0, 0, 0, 5.2); /* Subtle shadow */
     
 }
-.grid-item:hover .grid-item-title {
-    background-color: rgba(0, 0, 0, 0.7); /* Slightly darker on hover */
-    color: #e0e0e0; /* Light grey text on hover */
+
+/* This is for elements when they fade out (slower animation) */
+.fade-out {
+    transition: opacity 2s ease, transform 2s ease; /* Slower fade-out duration */
+    opacity: 0;
+    transform: perspective(1000px) rotateY(30deg); /* Reapply the 3D rotation */
 }
+
+
+/* Scale up and rotate slightly more on hover */
+.grid-item:hover {
+    transform: perspective(1000px) rotateY(0deg) scale(1.5); /* Rotate to front and scale slightly */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3); /* Enhance shadow on hover */
+}
+
+/* Stats Popup - Smooth Appearance */
 .grid-item .stats {
-    display: none;
+    display: flex;
     position: absolute;
     background: rgba(0, 0, 0, 0.75);
     color: white;
@@ -94,19 +103,21 @@ opacity: 1;
     border-radius: .25rem;
     font-family: 'Roboto', sans-serif;
     padding: 5px 10px;
-    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(20px); /* Initial hidden state, slightly pushed down */
+    transition: opacity 0.4s ease, transform 0.4s ease; /* Smooth transition for stats */
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    visibility: hidden; /* Prevent interaction when hidden */
 }
 
-
+/* Stats appear with a slide and fade-in effect */
 .grid-item:hover .stats {
-    display: flex;
-    /* Position your stats element according to your preference */
-    
-    
-   
+    opacity: 1;
+    transform: translateY(0); /* Slide stats into place */
+    visibility: visible;
 }
-/* Custom styles for different hover states */
+
+/* Custom hover state backgrounds for different statuses */
 .grid-item.border-completed:hover .stats {
     background: rgba(9, 224, 9, 0.8);
 }
