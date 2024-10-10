@@ -46,13 +46,14 @@ window.addEventListener('resize', () => {
 });
 
 
+// Add the 'fade-out' class when the item scrolls out of view (for a slower effect)
+document.addEventListener('aos:out', ({ detail }) => {
+    console.log('animated out', detail);
+    detail.classList.add('fade-out'); // Apply the slow fade-out effect
+});
+
+// Remove the 'fade-out' class when the item comes into view
 document.addEventListener('aos:in', ({ detail }) => {
     console.log('animated in', detail);
-    // You could trigger a layout update here, if necessary
-    // For example, if you're using a layout library or need to manually update the footer position
-  });
-  
-document.addEventListener('aos:out', ({ detail }) => {
-console.log('animated out', detail);
-// Handle the animation out event
+    detail.classList.remove('fade-out'); // Remove the slow fade-out effect
 });

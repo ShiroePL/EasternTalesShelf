@@ -87,42 +87,57 @@ def update_manga_links(id_anilist, bato_link, extracted_links):
 
 def save_manga_details(details, anilist_id):
     try:
-        series_id = details.get("series_id")
-        manga_detail = db_session.query(MangaUpdatesDetails).filter_by(series_id=series_id).first()
-
-        last_updated_timestamp = details.get("last_updated", {}).get("timestamp")
-        if last_updated_timestamp:
-            last_updated_timestamp = datetime.fromtimestamp(last_updated_timestamp)
         
-        status = details.get("status", "")
-        # Replace multiple \n characters with a single \n
-        status = re.sub(r'\n+', '\n', status)
 
+        # Query by anilist_id instead of series_id
+        manga_detail = db_session.query(MangaUpdatesDetails).filter_by(anilist_id=anilist_id).first()
+
+        # Extract and clean the status
+        status = details.get('status_in_country_of_origin', '')
+        status = re.sub(r'\n+', '\n', status)  # Replace multiple \n characters with a single \n
+
+        # Convert "Yes" and "No" into boolean values for licensed and completed
+        licensed_value = details.get('licensed_in_english', '').lower()
+        completed_value = details.get('completely_scanlated', '').lower()
+
+        licensed = licensed_value == 'yes'  # True if 'Yes', else False
+        completed = completed_value == 'yes'  # True if 'Yes', else False
+
+        # Extract and convert the last_updated timestamp
+        last_updated_timestamp = details.get('last_updated', '')
+
+
+        # If no entry exists, create a new one
         if not manga_detail:
             manga_detail = MangaUpdatesDetails(
-                series_id=series_id,
                 anilist_id=anilist_id,
                 status=status,
-                licensed=details.get("licensed"),
-                completed=details.get("completed"),
+                licensed=licensed,
+                completed=completed,
                 last_updated_timestamp=last_updated_timestamp
             )
             db_session.add(manga_detail)
         else:
+            # Update the existing record with new data
             manga_detail.status = status
-            manga_detail.licensed = details.get("licensed")
-            manga_detail.completed = details.get("completed")
+            manga_detail.licensed = licensed
+            manga_detail.completed = completed
             manga_detail.last_updated_timestamp = last_updated_timestamp
-            manga_detail.anilist_id = anilist_id
 
+        # Commit the transaction to save changes
         db_session.commit()
-        logging.info(f"Saved to table: {manga_detail}")
-        logging.info("Manga details saved successfully.")
+        
+        logging.info(f"Manga details saved successfully. Details: status: {status}, licensed: {licensed}, completed: {completed}, last_updated: {last_updated_timestamp}")
     except Exception as e:
+        # Rollback in case of an error
         db_session.rollback()
         logging.error(f"Error saving manga details: {e}")
     finally:
+        # Close the session
         db_session.remove()
+
+
+
 
 # Ensure the database is initialized on module import
 initialize_database()
