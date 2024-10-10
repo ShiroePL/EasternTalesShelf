@@ -65,6 +65,9 @@ export function updateSidebarInfo(data) {
     $('#sidebar-info').html(sidebarInfoHTML);
 }
 
+
+
+
 export function updateMangaUpdatesInfo(data) {
     let mangaUpdatesHTML = '';
     const mangaUpdatesContentElement = $('#mangaupdates-content');
