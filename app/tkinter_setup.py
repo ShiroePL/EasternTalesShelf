@@ -22,7 +22,7 @@ color_map = {
     "\033[37m": 'white',
     "\033[0m": 'white',  # Reset to default
 }
-database_path = 'anilist_db.db'
+database_path = 'app/anilist_db.db'
 
 def check_database_exists():
     return os.path.exists(database_path)

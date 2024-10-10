@@ -349,22 +349,18 @@ class PythonInstallerApp:
         # Initially hide all entries and images as 'Create DB' is set to 'No'
         self.for_mariadb_db_fn(self)
         self.create_db_or_not_fn(self)
-
-    # Getter method for DB name
-    def get_db_name(self):
-        return self.db_name_input.get()
-
-    # Getter method for DB name
-    def get_db_name(self):
-        return self.db_password_input.get()
-
-    # Getter method for Username
-    def get_username(self):
-        return self.db_username_input.get()
+        
     
-    def get_username(self):
-        return self.username_input.get()
-
+    # gerrer method for all values from inputs and radio buttons
+    def get_all_values(self):
+        return {
+            "db_name": self.db_name_input.get(),
+            "db_password": self.db_password_input.get(),
+            "db_username": self.db_username_input.get(),
+            "username_or_id": self.username_input.get(),
+            "create_db_radiobutton": self.create_db_variable.get(),
+            "db_type_radiobutton": self.db_type_variable.get()
+        }
 
 if __name__ == "__main__":
     window = Tk()

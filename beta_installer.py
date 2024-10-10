@@ -8,6 +8,7 @@ import sqlite3
 import winreg
 from installer_gui_elements import PythonInstallerApp
 from take_full_manga_list_sqllite_tkinter import start_backup
+import concurrent.futures
 
 DARK_BG = "#2D2D2D"
 DARK_TEXT = "#EAEAEA"
@@ -26,7 +27,7 @@ color_map = {
     "\033[0m": 'white',  # Reset to default
 }
 
-database_path = 'anilist_db.db'
+database_path = 'app/anilist_db.db'
 
 def check_database_exists():
     return os.path.exists(database_path)
@@ -45,8 +46,8 @@ def validate_database_structure():
 class PythonInstaller:
     def __init__(self, root):
         # Initialize GUI using the class from installer_gui.py
-        self.gui = PythonInstallerApp(root, self.start_backup)
-        
+        self.gui = PythonInstallerApp(root, self.run_installation)
+         
         # Store Python paths
         self.python_paths = {}
         self.selected_python_path = None
@@ -54,8 +55,7 @@ class PythonInstaller:
         # Scan for Python versions on startup
         self.scan_for_python_versions()
 
-        # Bind the install button to start installation
-        #self.gui.install_button.configure(command=self.start_backup)
+       
 
 
 
@@ -84,7 +84,6 @@ class PythonInstaller:
 
             self.gui.install_button.configure(state="normal")
         else:
-            self.update_output("No Python installation found. Please install Python 3.10 or higher to proceed.")
             self.gui.install_button.configure(state="disabled")
 
     def check_common_python_locations(self, found_python_paths):
@@ -118,28 +117,36 @@ class PythonInstaller:
             major, minor = match.groups()
             return f"Python {major}.{minor}"
         return None
+    
 
-    def start_backup(self):
-        print("Install button clicked, starting backup...")
-        if self.selected_python_path:
-            
-            input_value = self.gui.get_username()
+    
 
-            if input_value:  # Make sure there's input
-                # Call the start_backup function in a new thread to keep the UI responsive
-                threading.Thread(target=lambda: self.run_backup_function(input_value), daemon=True).start()
-            else:
-                tk.messagebox.showerror("Error", "You need to enter a value!")
+    
 
-    def run_backup_function(self, input_value):
-        # Modify this to call start_backup with a logger function
+
+    def run_requirements_installation_process(self):
         try:
-            # Pass a lambda or wrapper function as the logger argument
-            start_backup(input_value, self.update_output)
-            self.update_output("Backup process completed successfully.\n")
-        except Exception as e:
-            self.update_output(f"Error during backup process: {e}\n")
+            command = [self.selected_python_path, "install_requirements.py"]
+            process = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
 
+            for stdout_line in iter(process.stdout.readline, ""):
+                self.update_output(stdout_line)
+
+            for stderr_line in iter(process.stderr.readline, ""):
+                self.update_output(f"ERROR: {stderr_line}")
+
+            process.stdout.close()
+            process.stderr.close()
+            process.wait()
+            self.update_output("Installation Complete!\n")
+        except Exception as e:
+            self.update_output(f"Error: {str(e)}\n")
+
+    
+
+    
     def update_output(self, message):
         self.gui.output_text.configure(state='normal')
         tag_name = None  # Initialize tag_name to None
@@ -158,6 +165,113 @@ class PythonInstaller:
         self.gui.output_text.insert(tk.END, "\n")  # Ensure newline at the end
         self.gui.output_text.configure(state='disabled')
         self.gui.output_text.see(tk.END)
+
+    def start_backup_fn(self):
+        self.update_output("Running backup function...\n")
+
+        # Define the path to the virtual environment Python interpreter
+        venv_python = os.path.join("venv", "Scripts", "python.exe") if os.name == "nt" else os.path.join("venv", "bin", "python")
+
+        # Taking the values from the GUI
+        values = self.gui.get_all_values()
+
+        input_value = values['username_or_id']
+        db_type = values['db_type_radiobutton']
+
+        if not input_value:
+            tk.messagebox.showerror("Error", "You need to enter a value!")
+            return
+
+        # Run the backup in a separate thread
+        threading.Thread(target=self._run_backup_process, args=(venv_python, input_value, db_type), daemon=True).start()
+
+    def _run_backup_process(self, venv_python, input_value, db_type):
+        try:
+            command = [venv_python, "take_full_manga_list_sqllite_tkinter.py", "--input_value", input_value, "--db_type", db_type]
+            
+            # Copy the current environment and set the encoding to UTF-8
+            env = os.environ.copy()
+            env['PYTHONIOENCODING'] = 'utf-8'
+
+            process = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
+            )
+
+            # Read stdout and stderr as bytes and then decode manually
+            for stdout_line in iter(process.stdout.readline, b""):
+                decoded_line = stdout_line.decode('utf-8', errors='replace')
+                self.update_output(decoded_line.strip())
+
+            for stderr_line in iter(process.stderr.readline, b""):
+                decoded_line = stderr_line.decode('utf-8', errors='replace')
+                self.update_output(f"ERROR: {decoded_line.strip()}")
+
+            process.stdout.close()
+            process.stderr.close()
+            process.wait()
+
+            if process.returncode == 0:
+                self.update_output("Backup process completed successfully.\n")
+            else:
+                self.update_output(f"Backup process failed with return code {process.returncode}.\n")
+
+        except Exception as e:
+            self.update_output(f"Error during backup process: {str(e)}\n")
+
+
+            
+
+
+    def run_installation(self):
+        ## taking the values from the GUI
+        values = self.gui.get_all_values()
+        print(f"Values: {values}")
+
+        if self.selected_python_path:
+            self.update_output(f"Starting installation with {self.selected_python_path}...\n")
+
+            ## Check if 'venv' directory already exists
+            if os.path.exists("venv"):
+                self.update_output("Virtual environment already exists. Skipping installation.\n")
+                print("Virtual environment already exists. Skipping installation.\n")
+            else:
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    # Run the actual installation and wait for it to complete
+                    future = executor.submit(self.run_requirements_installation_process)
+                    concurrent.futures.wait([future])
+
+                self.update_output("Successfully installed requirements in virtual environment\n")
+                print("Successfully installed requirements in virtual environment.\n")
+
+            ## we makng ifs if user chose to crate db, and what type , file or mariadb
+
+            if values['create_db_radiobutton'] == 'Yes':
+                self.update_output("You chose to create a database.\n")
+
+                if values['db_type_radiobutton'] == 'file':
+                    self.update_output("We will create a file database. SQllite\n")
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future_backup = executor.submit(self.start_backup_fn)
+                        concurrent.futures.wait([future_backup])
+                        
+                    self.update_output("Database created.\n")
+                else:
+                    self.update_output("We will create a MariaDB database.\n")
+                    self.update_output("Database created.\n")
+                
+            else:
+                self.update_output("You chose not to create a database.\n")
+                
+            
+
+            
+
+        else:
+            self.update_output("No Python installation found. Please install Python 3.10 or higher to proceed.")
+            self.gui.install_button.configure(state="disabled")
+
+        
+
 
 if __name__ == "__main__":
     root = tk.Tk()
