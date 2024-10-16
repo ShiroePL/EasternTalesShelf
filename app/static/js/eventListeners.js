@@ -44,7 +44,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Sync button element not found!');
     }
 
-    // Code for Bato button, which will add a Bato link to the currently focused entry and scrap for manga updates info
     document.getElementById('addBatoLinkButton').addEventListener('click', function() {
         if (currentAnilistId) {
             let batoLink = prompt("Please enter the Bato link for this entry:", "http://");
@@ -64,7 +63,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     console.log('Success:', data);
                     alert('Bato link added successfully!');
-                    window.location.reload(); // Reload the page
+                    
+                    // Wait a bit before reloading or check if the data is updated
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000); // Adjust the delay as necessary (1000ms = 1 second)
+                    
                 })
                 .catch((error) => {
                     console.error('Error:', error);
@@ -77,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('No entry is focused currently.');
         }
     });
+    
 
 
     const mangaEntries = document.querySelectorAll('.grid-item');

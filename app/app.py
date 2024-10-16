@@ -16,10 +16,12 @@ import logging
 from app.functions.manga_updates_fns import MangaUpdatesAPI
 from app.functions.sqlalchemy_fns import save_manga_details
 from scrapy.crawler import CrawlerRunner
-from crochet import setup, wait_for
+from crochet import setup, wait_for, run_in_reactor
 from app.functions.sqlalchemy_fns import update_manga_links, save_manga_details
 from app.functions.manga_updates_spider import MangaUpdatesSpider
 import re
+
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
@@ -253,19 +255,10 @@ def add_bato_link_route():
         
         logging.info(f"MangaUpdates Link: {mangaupdates_link}")
 
-        # Run the Scrapy spider with the MangaUpdates link
-        runner = CrawlerRunner()
-        crawl = runner.crawl(MangaUpdatesSpider, start_url=mangaupdates_link, anilist_id=anilist_id)
-
-        # Wait for the spider to finish
-        crawl.addBoth(lambda _: runner.stop())
-
-        # Wait for results and handle database update
-        @wait_for(timeout=30)
-        def process_crawl():
-            crawl.result()
-
-        process_crawl()
+        # Run the Scrapy spider with the MangaUpdates link and wait for results
+        result = run_crawl(mangaupdates_link, anilist_id)
+        if not result:
+            return jsonify({"status": "error", "message": "Failed to complete crawl."}), 500
 
         # Update the database with all extracted links (including MangaUpdates link)
         sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
@@ -275,6 +268,25 @@ def add_bato_link_route():
     except Exception as e:
         logging.exception("An error occurred during the link extraction process.")
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
+
+
+@run_in_reactor
+def run_crawl(start_url, anilist_id):
+    runner = CrawlerRunner()
+    deferred = runner.crawl(MangaUpdatesSpider, start_url=start_url, anilist_id=anilist_id)
+    
+    def on_success(result):
+        logging.info("Crawl completed successfully.")
+        return result
+
+    def on_failure(failure):
+        logging.error(f"Crawl failed: {failure.getErrorMessage()}")
+        return None
+
+    deferred.addCallback(on_success)
+    deferred.addErrback(on_failure)
+    
+    return deferred
 
 
 
