@@ -65,8 +65,11 @@ package-lock.json
 package.json
 eslint.config.js
 
+# for the installer
+wfp_installer  
 
-
+# anilist database
+anilist_db.db
 
 # Flask stuff:
 instance/
