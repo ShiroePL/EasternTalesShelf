@@ -1,70 +1,143 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Fetch the saved color settings and apply them on page load
-    fetch('/get_color_settings')
-        .then(response => response.json())
-        .then(data => {
-            console.log("Loaded color settings from server:", data); // Debugging
-            applyColorSettings(data);
+    setTimeout(() => {
+        fetchAndApplySettings();
+    }, 100)
+    
 
-            // Show the body after applying colors
-            document.body.style.visibility = 'visible';
-        })
-        .catch(error => console.error('Error loading color settings:', error));
-
-
-    const colorPickerButton = document.getElementById('colorPickerButton');
-    const colorPickerModal = new bootstrap.Modal(document.getElementById('colorPickerModal'));
-    const saveColorSettingsButton = document.getElementById('saveColorSettings');
-
-    colorPickerButton.addEventListener('click', function() {
-        colorPickerModal.show();
+    function fetchAndApplySettings() {
+        fetch('/get_color_settings')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Unauthorized');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Loaded color settings from server:", data);
+                applyColorSettings(data);
+                updateColorCircles(data);
+                document.body.style.visibility = 'visible';
+            })
+            .catch(error => {
+                console.error('Error loading color settings:', error);
+                applyDefaultColorSettings();
+                updateColorCircles();
+                document.body.style.visibility = 'visible';
+            });
+    }
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 
-    saveColorSettingsButton.addEventListener('click', function() {
-        // Directly retrieve values from the input fields
-        const backgroundColor = document.getElementById('backgroundColor').value || '#24282d';
-        const primaryColor = document.getElementById('primaryColor').value || '#007bff';
-        const secondaryColor = document.getElementById('secondaryColor').value || '#343a40';
-        const textColor = document.getElementById('textColor').value || '#ffffff';
-        const borderColor = document.getElementById('borderColor').value || '#3e3e3e';
-    
-        const colorSettings = {
-            backgroundColor,
-            primaryColor,
-            secondaryColor,
-            textColor,
-            borderColor
-        };
-    
-        // Immediately apply the new colors to the page using the input values
-        applyColorSettings(colorSettings);
-    
-        // Then proceed to save the color settings to the backend
-        fetch('/save_color_settings', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(colorSettings)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Close the modal only after the settings have been saved successfully
-                colorPickerModal.hide();
-            } else {
-                alert('Failed to save color settings.');
+    // Color Circles Click Event
+    var colorCircles = document.querySelectorAll('.color-circle');
+    var individualColorPickerModal = new bootstrap.Modal(document.getElementById('individualColorPickerModal'));
+
+    colorCircles.forEach(function(circle) {
+        circle.addEventListener('click', function() {
+            var colorSetting = this.getAttribute('data-color-setting');
+            if (colorSetting) {
+                openColorPickerModal(colorSetting);
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while saving color settings.');
         });
     });
+
+    function applyDefaultColorSettings() {
+        const defaultSettings = {
+            backgroundColor: '#24282d',
+            primaryColor: '#007bff',
+            secondaryColor: '#343a40',
+            textColor: '#ffffff',
+            borderColor: '#3e3e3e'
+        };
+        applyColorSettings(defaultSettings);
+        updateColorCircles(defaultSettings);
+    }
+
+    function openColorPickerModal(colorSetting) {
+        var colorSettingsMap = {
+            backgroundColor: 'Background Color',
+            primaryColor: 'Primary Color',
+            secondaryColor: 'Secondary Color',
+            textColor: 'Text Color',
+            borderColor: 'Border Color'
+        };
     
+        // Update the modal label
+        var modalTitle = document.getElementById('individualColorPickerModalLabel');
+        modalTitle.textContent = 'Select ' + colorSettingsMap[colorSetting];
     
+        // Update the color picker label
+        var colorPickerLabel = document.getElementById('colorPickerLabel');
+        colorPickerLabel.textContent = colorSettingsMap[colorSetting] + ':';
     
+        // Convert camelCase to kebab-case for accessing the CSS variable
+        var cssVarName = '--' + colorSetting.replace(/([A-Z])/g, "-$1").toLowerCase();
     
+        // Set the current color value from CSS variable
+        var currentColor = getComputedStyle(document.documentElement).getPropertyValue(cssVarName).trim();
+        
+        // Set the color picker input to the current color value (if it exists), otherwise default to white
+        document.getElementById('individualColorInput').value = currentColor || '#ffffff';
+    
+        // Store the colorSetting in a data attribute
+        document.getElementById('individualColorInput').setAttribute('data-color-setting', colorSetting);
+    
+        individualColorPickerModal.show();
+    }
+    
+
+    document.getElementById('saveIndividualColorSettings').addEventListener('click', function() {
+        var colorInput = document.getElementById('individualColorInput');
+        var colorSetting = colorInput.getAttribute('data-color-setting');
+        var selectedColor = colorInput.value;
+
+        // Fetch current color settings to update only the selected one
+        fetch('/get_color_settings')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch current color settings');
+                }
+                return response.json();
+            })
+            .then(currentSettings => {
+                // Update the selected color while keeping other settings intact
+                currentSettings[colorSetting] = selectedColor;
+
+                // Apply the updated settings to the page
+                applyColorSettings(currentSettings);
+                updateColorCircles(currentSettings);
+
+                // Save the updated settings to the backend
+                fetch('/save_color_settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(currentSettings)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Close the modal
+                        individualColorPickerModal.hide();
+                    } else {
+                        alert('Failed to save color settings.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while saving color settings.');
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching current settings:', error);
+                alert('An error occurred while fetching current color settings.');
+            });
+    });
 
     function applyColorSettings(settings) {
         console.log("Applying color settings:", settings); // Debugging to see what is being applied
@@ -86,7 +159,18 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Border color applied:", settings.borderColor || settings.border_color || '#3e3e3e');
     }
     
+
+    function updateColorCircles(settings) {
+        const colorSettings = ['backgroundColor', 'primaryColor', 'secondaryColor', 'textColor', 'borderColor'];
     
+        colorSettings.forEach(setting => {
+            const circleElement = document.getElementById(setting + 'Circle');
+            if (circleElement) {
+                const colorValue = settings && settings[setting] ? settings[setting] : getComputedStyle(document.documentElement).getPropertyValue('--' + setting).trim();
+                circleElement.style.backgroundColor = colorValue;
+            }
+        });
+    }
     
     
 });

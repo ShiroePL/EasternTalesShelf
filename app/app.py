@@ -300,13 +300,19 @@ def save_color_settings():
     try:
         data = request.get_json()
         user_id = current_user.id
+
+        # Load current settings
+        current_settings = load_color_settings()
+
+        # Update current settings with new values, keeping others intact
         color_settings = {
-            'background_color': data.get('backgroundColor'),
-            'primary_color': data.get('primaryColor'),
-            'secondary_color': data.get('secondaryColor'),
-            'text_color': data.get('textColor'),
-            'border_color': data.get('borderColor')
+            'background_color': data.get('backgroundColor', current_settings.get('background_color')),
+            'primary_color': data.get('primaryColor', current_settings.get('primary_color')),
+            'secondary_color': data.get('secondaryColor', current_settings.get('secondary_color')),
+            'text_color': data.get('textColor', current_settings.get('text_color')),
+            'border_color': data.get('borderColor', current_settings.get('border_color'))
         }
+
         save_user_color_settings(user_id, color_settings)
         return jsonify({'success': True}), 200
     except Exception as e:
@@ -336,12 +342,22 @@ def load_color_settings():
         save_user_color_settings(user_id, default_settings)
         return default_settings
 
-
-
 @app.route('/get_color_settings', methods=['GET'])
 @login_required
 def get_color_settings():
-    return jsonify(load_color_settings())
+    settings = load_color_settings()
+    print("Loaded color settings from JSON:", settings)  # Debug statement
+    response_settings = {
+        'backgroundColor': settings.get('background_color'),
+        'primaryColor': settings.get('primary_color'),
+        'secondaryColor': settings.get('secondary_color'),
+        'textColor': settings.get('text_color'),
+        'borderColor': settings.get('border_color')
+    }
+    print("Sending color settings to frontend:", response_settings)  # Debug statement
+    return jsonify(response_settings)
+
+
 
 
 @app.teardown_appcontext
