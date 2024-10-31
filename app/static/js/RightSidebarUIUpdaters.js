@@ -4,20 +4,33 @@ import { animateHeartBurstWithParticles, startHeartsFlowingEffect, animateReread
 
 export function updateSidebarCover(data) {
     let coverImage = '/static/covers/' + data.anilistId + '.avif';
+
+    // Track the current active ID to avoid unnecessary animations
+    let clickedAnilistId_for_hearts = data.anilistId;
+
+    // Set the cover image for the sidebar
     $('#sidebar-cover').attr('src', coverImage).attr('alt', data.title);
 
     if (data.is_favorite === 1) {
+        // If the favorite icon does not exist, append it
         if ($('#sidebar-favorite-icon').length === 0) {
             $('#cover-container').append('<i id="sidebar-favorite-icon" class="fas fa-heart"></i>');
         }
 
-        // Wait for next event loop tick to ensure DOM updates are processed
-        setTimeout(function() {
-            animateHeartBurstWithParticles();
-        }, 0);
-    
-        startHeartsFlowingEffect();
-        
+        // Only trigger animations if we are opening a new title
+        if (!$('#side-menu-right').hasClass('active') || currentActiveAnilistId !== clickedAnilistId_for_hearts) {
+            // Set the new current active ID
+            currentActiveAnilistId = clickedAnilistId_for_hearts;
+
+            // Trigger the heart animation with a small delay to allow for smooth transition
+            setTimeout(function() {
+                animateHeartBurstWithParticles();
+            }, 200);
+            
+            // Start flowing hearts effect
+            startHeartsFlowingEffect();
+        }
+
 
     } else {
         $('#sidebar-favorite-icon').remove();
@@ -30,7 +43,11 @@ export function updateSidebarCover(data) {
                 <span class="reread-count">${data.reread_times}</span>
             </div>`;
         $('#cover-container').append(rereadDisplayOriginal);
-        animateRereadIcon('#sidebar-reread-icon');
+        
+        setTimeout(function() {
+            animateRereadIcon('#sidebar-reread-icon');
+            
+        }, 200);
     }
     
 }

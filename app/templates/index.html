@@ -233,6 +233,10 @@
         </div>
     </div>
 
+    <!-- New icon to close the right side menu -->
+    <div id="close-menu-icon" class="position-absolute" style="top: 10px; left: 10px; cursor: pointer;">
+        <i class="fas fa-arrow-left"></i>
+    </div>
 
     <div id="sidebar-links" class="btn-group" role="group">
         <a href="#" id="link-anilist" class="btn btn-primary" target="_blank">
@@ -399,6 +403,13 @@
 
 <script type="text/javascript">
     var loginUrl = "{{ url_for('login') }}";
+</script>
+
+<script>
+    // Add click event listener to the new icon
+    document.getElementById('close-menu-icon').addEventListener('click', function() {
+        document.getElementById('side-menu-right').classList.remove('active');
+    });
 </script>
 
 </body>

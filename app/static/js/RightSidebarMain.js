@@ -1,6 +1,5 @@
-// Import other modules
 import { initializeAnimations, startAnimationSequence } from './RightsidebarAnimations.js';
-import { typeWriter} from './RightSidebarUtilities.js';
+import { typeWriter } from './RightSidebarUtilities.js';
 
 import {
     updateSidebarCover,
@@ -16,7 +15,6 @@ import {
 
 export function showDetails(element) {
     resetAnimationsAndTimers();
-    
 
     currentAnilistId = $(element).data('anilist-id');
     currentSeriesName = $(element).data('title');
@@ -46,6 +44,8 @@ export function showDetails(element) {
         typeWriter(data.title, 'sidebar-title', 40);
         $('#sidebar-title').fadeIn(300);
     }, 650);
+
+    
 }
 
 function extractDataFromElement(element) {

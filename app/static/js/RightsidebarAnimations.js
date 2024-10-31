@@ -59,6 +59,9 @@ function handleShowNotesVisibility() {
     }
 }
 
+export function closeRightSideMenu() {
+    $('#side-menu-right').removeClass('active');
+}
 
 export function animateHeartBurstWithParticles() {
     let heart = $('#sidebar-favorite-icon');
