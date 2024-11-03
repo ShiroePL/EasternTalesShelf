@@ -1,7 +1,4 @@
-// Loader listening for enter press on chatInput
 document.addEventListener('DOMContentLoaded', function() {
-
-
     // JavaScript to toggle the description with animation
     $(document).on('click', '#sidebar-toggle', function() {
         let content = $('#sidebar-description');
@@ -27,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-
     $(document).on('click', '#sidebar-shownotes', function() {
         let notes = $('#sidebar-notes');
         notes.toggleClass('expanded'); // This toggles the visibility
@@ -41,4 +37,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-}); // end of DOMContentLoaded listener
+    // Add event listener for the new icon to close the right side menu with a sliding animation
+    $(document).on('click', '#close-menu-icon', function() {
+        $('#side-menu-right').removeClass('active');
+        currentActiveAnilistId = null;
+    });
+
+    // Ensure the event listener for the same title click includes logic to close the right side menu with a sliding animation
+    let currentActiveAnilistId = null;
+
+    $(document).on('click', '.grid-item', function() {
+        let clickedAnilistId = $(this).data('anilist-id');
+        
+        let sideMenu = $('#side-menu-right');
+
+        // Explicit check if 'active' class is present
+        if (sideMenu.hasClass('active')) {
+
+            if (currentActiveAnilistId === clickedAnilistId) {
+                sideMenu.removeClass('active');
+                currentActiveAnilistId = null; // Clear the active ID since we closed the menu
+            } else {
+                currentActiveAnilistId = clickedAnilistId; // Update to the new active ID
+            }
+        } else {
+            
+            sideMenu.addClass('active');
+            currentActiveAnilistId = clickedAnilistId; // Set active ID
+        }
+        // Additional debug - Check again after making changes to the class list
+        setTimeout(() => {
+            
+        }, 100); // Small delay to ensure the class list is updated and logged after changes
+    });
+});

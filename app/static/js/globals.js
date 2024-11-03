@@ -3,7 +3,7 @@ let mangaupdates_status = null;
 let mangaupdates_licensed = null;
 let mangaupdates_completed = null;
 let mangaupdates_last_updated = null; 
-
+let currentActiveAnilistId = null;
 
 // for addBatoLinkButton 
 let currentAnilistId = null; // This will store the currently focused entry's AniList ID

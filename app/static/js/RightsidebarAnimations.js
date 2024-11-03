@@ -59,6 +59,9 @@ function handleShowNotesVisibility() {
     }
 }
 
+export function closeRightSideMenu() {
+    $('#side-menu-right').removeClass('active');
+}
 
 export function animateHeartBurstWithParticles() {
     let heart = $('#sidebar-favorite-icon');
@@ -72,7 +75,7 @@ export function animateHeartBurstWithParticles() {
       .to(heart, { rotation: 0, duration: 0.1 })
       .to(heart, { scale: 2, duration: 0.1, ease: "power1.in" })
       // Only call createParticles here, remove onComplete from the timeline itself
-      .add(createParticles, "-=0.1") // Add particles at the end of scaling up
+      .add(createParticles, "-=0.05") // Add particles at the end of scaling up
       .to(heart, { scale: 1, duration: 0.3, ease: "elastic.out(1, 0.3)" });
 
     function createParticles() {
@@ -93,8 +96,8 @@ export function animateHeartBurstWithParticles() {
 
             // Animate particle
             gsap.to(particle, {
-                x: (Math.random() - 0.5) * 600, // Wider spread
-                y: (Math.random() - 0.5) * 600, // Wider spread
+                x: (Math.random() - 0.5) * 500, // Wider spread
+                y: (Math.random() - 0.5) * 500, // Wider spread
                 opacity: 0,
                 duration: 1 + Math.random(), // Random duration
                 ease: "power1.out",
