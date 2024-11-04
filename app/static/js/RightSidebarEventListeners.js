@@ -65,9 +65,6 @@ document.addEventListener('DOMContentLoaded', function() {
             sideMenu.addClass('active');
             currentActiveAnilistId = clickedAnilistId; // Set active ID
         }
-        // Additional debug - Check again after making changes to the class list
-        setTimeout(() => {
-            
-        }, 100); // Small delay to ensure the class list is updated and logged after changes
+        
     });
 });
