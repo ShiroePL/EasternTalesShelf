@@ -1,7 +1,7 @@
 import app.download_covers as download_covers
 from app.functions import sqlalchemy_fns as sqlalchemy_fns
 from flask import Flask, render_template, jsonify, request, url_for, redirect
-from flask_login import LoginManager, login_user, login_required, logout_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import json
 from app.config import is_development_mode, fastapi_updater_server_IP
 import os
@@ -9,7 +9,7 @@ import requests
 from app.config import Config
 from app.functions import class_mangalist
 from datetime import timedelta, datetime
-from app.functions.class_mangalist import  db_session
+from app.functions.class_mangalist import db_session
 from bs4 import BeautifulSoup
 from urllib.parse import unquote  # To decode URL-encoded characters
 import logging
@@ -152,9 +152,11 @@ def home():
             title_english = title_romaji
             entry['title_english'] = title_romaji  # Don't forget to update the entry dict as well
 
+    # Load user-specific color settings
+    color_settings = load_color_settings()
     
-    # Pass the entries to the template.
-    return render_template('index.html', manga_entries=manga_entries, mangaupdates_details=mangaupdates_details)
+    # Pass the entries and color settings to the template.
+    return render_template('index.html', manga_entries=manga_entries, mangaupdates_details=mangaupdates_details, color_settings=color_settings)
 
 
 # Route for handling the log sync functionality
@@ -291,6 +293,78 @@ def run_crawl(start_url, anilist_id):
     deferred.addErrback(on_failure)
     
     return deferred
+
+@app.route('/save_color_settings', methods=['POST'])
+@login_required
+def save_color_settings():
+    try:
+        data = request.get_json()
+        user_id = current_user.id
+
+        # Load current settings
+        current_settings = load_color_settings()
+
+        # Update current settings with new values, keeping others intact
+        color_settings = {
+            'background_color': data.get('backgroundColor', current_settings.get('background_color')),
+            'primary_color': data.get('primaryColor', current_settings.get('primary_color')),
+            'secondary_color': data.get('secondaryColor', current_settings.get('secondary_color')),
+            'text_color': data.get('textColor', current_settings.get('text_color')),
+            'border_color': data.get('borderColor', current_settings.get('border_color'))
+        }
+
+        save_user_color_settings(user_id, color_settings)
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        logging.exception("An error occurred while saving color settings.")
+        return jsonify({'success': False, 'message': 'Failed to save color settings.'}), 500
+
+def save_user_color_settings(user_id, color_settings):
+    # Create directory if it doesn't exist
+    settings_dir = os.path.join('app', 'user_settings')
+    os.makedirs(settings_dir, exist_ok=True)
+    
+    # Save the color settings to a file or database
+    settings_path = os.path.join(settings_dir, f'user_color_settings_{user_id}.json')
+    with open(settings_path, 'w') as f:
+        json.dump(color_settings, f)
+
+def load_color_settings():
+    user_id = current_user.id if current_user.is_authenticated else 'default'
+    settings_dir = os.path.join('app', 'user_settings')
+    settings_path = os.path.join(settings_dir, f'user_color_settings_{user_id}.json')
+    
+    try:
+        with open(settings_path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Use default color settings if the file is missing
+        default_settings = {
+            'background_color': '#24282d',
+            'primary_color': '#007bff',
+            'secondary_color': '#343a40',
+            'text_color': '#ffffff',
+            'border_color': '#3e3e3e'
+        }
+        # Save these defaults if no settings file exists
+        save_user_color_settings(user_id, default_settings)
+        return default_settings
+
+@app.route('/get_color_settings', methods=['GET'])
+@login_required
+def get_color_settings():
+    settings = load_color_settings()
+    print("Loaded color settings from JSON:", settings)  # Debug statement
+    response_settings = {
+        'backgroundColor': settings.get('background_color'),
+        'primaryColor': settings.get('primary_color'),
+        'secondaryColor': settings.get('secondary_color'),
+        'textColor': settings.get('text_color'),
+        'borderColor': settings.get('border_color')
+    }
+    print("Sending color settings to frontend:", response_settings)  # Debug statement
+    return jsonify(response_settings)
+
 
 
 

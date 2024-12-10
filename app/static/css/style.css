@@ -1,7 +1,32 @@
+:root {
+    --background-color: #24282d;
+    --primary-color: #007bff;
+    --secondary-color: #343a40;
+    --text-color: #ffffff;
+    --border-color: #3e3e3e;
+    --hover-color: #005dc0;
+    --favorite-color: red;
+    --reread-color: #007bff;
+    --completed-color: rgb(40, 167, 69);
+    --planning-color: rgb(255, 193, 7);
+    --current-color: rgb(14, 159, 212);
+    --paused-color: rgb(224, 33, 8);
+    --mangaupdates-status-color: rgb(55, 160, 249);
+    --mangaupdates-completed-color: rgb(40, 167, 69);
+    --mangaupdates-licensed-color: #007bff;
+    --mangaupdates-last-updated-color: #007bff;
+    --mangaupdates-info-bg: #1c1e22;
+    --mangaupdates-info-shadow: rgba(0, 0, 0, 0.1);
+    --mangaupdates-info-border-radius: 5px;
+    --mangaupdates-info-padding: 0.5rem;
+    --mangaupdates-info-margin-bottom: 1rem;
+    --mangaupdates-info-box-shadow: inset 0 2px 4px var(--mangaupdates-info-shadow);
+}
+
 body, html {
     height: 100%; /* Make sure the page height is full */
     margin: 0; /* Reset default margin */
-    background-color: #24282d;
+    background-color: var(--background-color);
 }
 
 
@@ -16,10 +41,10 @@ opacity: 1;
 .custom-popover {
     --bs-popover-max-width: 500px;
     --bs-popover-border-color: #673ab7; /* Example color for border */
-    --bs-popover-header-bg: #007bff; /* Blue background for header */
-    --bs-popover-header-color: #ffffff; /* White text for header */
-    --bs-popover-body-bg: #343a40; /* Dark background for body */
-    --bs-popover-body-color: #343a40; /* White text for body */
+    --bs-popover-header-bg: var(--primary-color); /* Blue background for header */
+    --bs-popover-header-color: var(--text-color); /* White text for header */
+    --bs-popover-body-bg: var(--secondary-color); /* Dark background for body */
+    --bs-popover-body-color: var(--secondary-color); /* White text for body */
     --bs-popover-body-padding-x: 1rem;
     --bs-popover-body-padding-y: .5rem;
 }
@@ -27,16 +52,16 @@ opacity: 1;
   
 /* Custom dark theme for modal */
 .modal-content-dark {
-    background-color: #343a40; /* Dark grey */
-    color: #ffffff; /* White text color */
+    background-color: var(--secondary-color); /* Dark grey */
+    color: var(--text-color); /* White text color */
 }
 
 .modal-header-dark {
-    border-bottom: 1px solid #474f55; /* Slightly lighter dark grey for some contrast */
+    border-bottom: 1px solid var(--border-color); /* Slightly lighter dark grey for some contrast */
 }
 
 .modal-body-dark {
-    background-color: #343a40; /* Match modal content */
+    background-color: var(--secondary-color); /* Match modal content */
 }
 
 .btn-close-white {
@@ -46,7 +71,7 @@ opacity: 1;
 /* Custom styles for input fields in the dark-themed modal */
 .modal-content-dark .form-control {
     background-color: #495057; /* Darker grey background for input fields */
-    color: #ffffff; /* White text color for input text */
+    color: var(--text-color); /* White text color for input text */
     border: 0px solid #495057; /* Slightly lighter border color for contrast */
 }
 
@@ -57,7 +82,7 @@ opacity: 1;
 }
 
 .modal-content-dark .form-label {
-    color: #ffffff; /* Ensure labels are also white for visibility */
+    color: var(--text-color); /* Ensure labels are also white for visibility */
 }
 
 
@@ -211,7 +236,7 @@ opacity: 1;
     display: flex;
     justify-content: center;
     align-items: center;
-    color: rgb(235, 19, 94);
+    color: var(--favorite-color);
     text-shadow: 0 0 10px rgb(235, 19, 123);
     font-size: 30px;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -229,7 +254,7 @@ opacity: 1;
     justify-content: center;
     align-items: center;
     color: white; /* Example color, adjust as needed */
-    background-color: #007bff; /* Soft pink background with transparency */
+    background-color: var(--reread-color); /* Soft pink background with transparency */
     text-shadow: none; /* Remove text shadow for better legibility */
     font-size: 16px; /* Adjust based on the size of your icon and text */
     transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -311,7 +336,7 @@ opacity: 1;
 /* Style for the input field */
 #side-menu .form-control {
     background-color: #2b2b2b; /* Darker background */
-    border: 1px solid #3e3e3e; /* Subtle border */
+    border: 1px solid var(--border-color); /* Subtle border */
     color: white; /* White text */
 }
 
@@ -321,7 +346,7 @@ opacity: 1;
     -moz-appearance: none; /* Removes default styling */
     appearance: none; /* Removes default styling */
     background-color: #2b2b2b; /* Darker background */
-    border: 1px solid #3e3e3e; /* Subtle border */
+    border: 1px solid var(--border-color); /* Subtle border */
     color: white; /* White text */
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="white"><polygon points="0,0 20,0 10,10"/></svg>'); /* Custom arrow */
     background-repeat: no-repeat;
@@ -333,7 +358,7 @@ opacity: 1;
 /* Style for the checkboxes */
 #side-menu .form-check-input {
     background-color: #2b2b2b; /* Darker background */
-    border-color: #3e3e3e; /* Subtle border */
+    border-color: var(--border-color); /* Subtle border */
 }
 
 /* Style for the labels */
@@ -344,7 +369,7 @@ opacity: 1;
 /* Subheadings */
 #side-menu h5 {
     margin-top: 1rem; /* Spacing before each section heading */
-    border-bottom: 1px solid #3e3e3e; /* Subtle separator */
+    border-bottom: 1px solid var(--border-color); /* Subtle separator */
     padding-bottom: 0.5rem; /* Spacing from the separator */
 }
 
@@ -390,7 +415,7 @@ opacity: 1;
 
 .status-count {
     float: right; /* Align count to the right */
-    background-color: #007bff; /* Blue background for the count */
+    background-color: var(--primary-color); /* Blue background for the count */
     color: white; /* White text color */
     padding: 0.1rem 0.5rem; /* Padding inside the count */
     border-radius: 10px; /* Rounded corners for the count */
@@ -449,14 +474,14 @@ opacity: 1;
 /* Primary styles for buttons */
 #side-menu-right .btn-primary {
     color: white; /* Text color */
-    background-color: #007bff; /* Background color */
+    background-color: var(--primary-color); /* Background color */
     
     /* The rest of the primary button styles */
 }
 
 /* Hover state for primary buttons */
 #side-menu-right .btn-primary:hover {
-    background-color: #005dc0; /* Darker background color on hover */
+    background-color: var(--hover-color); /* Darker background color on hover */
     /* Other hover styles if necessary */
 }
 
@@ -569,19 +594,19 @@ opacity: 1;
 }
 
 #side-menu-right {
-    background-color: #343a40; /* Dark background */
-    color: #ffffff; /* White text */
+    background-color: var(--secondary-color); /* Dark background */
+    color: var(--text-color); /* White text */
 }
 
 
 #mangaupdates-info {
     font-family: 'Roboto', sans-serif;
     display: none; /* Hide the element by default */
-    background-color: #1c1e22; /* Slightly lighter dark background */
-    padding: 0.5rem;
-    border-radius: 5px;
-    margin-bottom: 1rem;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    background-color: var(--mangaupdates-info-bg); /* Slightly lighter dark background */
+    padding: var(--mangaupdates-info-padding);
+    border-radius: var(--mangaupdates-info-border-radius);
+    margin-bottom: var(--mangaupdates-info-margin-bottom);
+    box-shadow: var(--mangaupdates-info-box-shadow);
 }
 
 
@@ -589,7 +614,7 @@ opacity: 1;
 #mangaupdates-info h6 {
     font-size: 1.14rem;
     font-family: 'Roboto', sans-serif;
-    color: #007bff;
+    color: var(--primary-color);
     margin-bottom: 10px;
 }
 
@@ -600,7 +625,7 @@ opacity: 1;
 
 /* Apply the same blue color to Manga Updates icons */
 #mangaupdates-info .fas {
-    color: rgb(55, 160, 249); /* Blue color */
+    color: var(--mangaupdates-status-color); /* Blue color */
     font-size: 1.2rem; /* Adjust the size of the icons if needed */
     margin-right: 5px; /* Space between icon and text */
 }
@@ -610,7 +635,7 @@ opacity: 1;
 
 /* Specific styles for 'Show more' link */
 .toggle-link {
-    color: #007bff;
+    color: var(--primary-color);
     cursor: pointer;
     font-size: 0.875rem;
     transition: color 0.3s ease;
@@ -620,7 +645,7 @@ opacity: 1;
 
 /* Specific styles for 'Show Notes' link */
 .notes-toggle {
-    color: #007bff;
+    color: var(--primary-color);
     cursor: pointer;
     font-size: 0.875rem;
     transition: color 0.3s ease;
@@ -632,7 +657,7 @@ opacity: 1;
 /* Hover effects */
 .toggle-link:hover, .notes-toggle:hover {
     text-decoration: underline;
-    color: #005dc0;
+    color: var(--hover-color);
 }
 
 /* Notes content style */
@@ -673,7 +698,7 @@ opacity: 1;
 /* Ensure the sidebar is initially hidden */
 .sidebar-hidden {
     transform: translateX(100%);
-    background-color: #343a40; /* Background color */
+    background-color: var(--secondary-color); /* Background color */
 }
 
 
@@ -681,7 +706,7 @@ opacity: 1;
 /* Class to be added via JavaScript to slide in */
 .sidebar-visible {
     transform: translateX(0);
-    background-color: #343a40; /* Background color */
+    background-color: var(--secondary-color); /* Background color */
 }
 
 
@@ -691,7 +716,7 @@ opacity: 1;
     margin-bottom: 1rem; /* Adds space below the image */
 }
 #sidebar-favorite-icon {
-    color: red;
+    color: var(--favorite-color);
     position: absolute;
     bottom: 25px;
     right: 10px;
@@ -715,7 +740,7 @@ opacity: 1;
 }
 
 #sidebar-reread-icon .fas {
-    color: rgb(55, 160, 249); /* Color of the rotating arrow */
+    color: var(--mangaupdates-status-color); /* Color of the rotating arrow */
     position: absolute;
     font-size: 2rem; /* Adjust the size of the arrow */
     animation: rotate 2s linear infinite;
@@ -755,21 +780,21 @@ opacity: 1;
 
 #sidebar-info {
     font-family: 'Roboto', sans-serif;
-    background-color: #1c1e22; /* Or any other color that suits your design */
-    padding: 0.5rem;
-    border-radius: 5px;
-    margin-bottom: 1rem;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    background-color: var(--mangaupdates-info-bg); /* Or any other color that suits your design */
+    padding: var(--mangaupdates-info-padding);
+    border-radius: var(--mangaupdates-info-border-radius);
+    margin-bottom: var(--mangaupdates-info-margin-bottom);
+    box-shadow: var(--mangaupdates-info-box-shadow);
 }
 
 #sidebar-info p {
     margin-bottom: 0.5rem;
     line-height: 1.5;
-    color: #fff; /* Adjust text color if needed */
+    color: var(--text-color); /* Adjust text color if needed */
 }
 
 #sidebar-info i {
-    color: #007bff; /* Icon color */
+    color: var(--primary-color); /* Icon color */
     margin-right: 0.5rem;
     width: 1.5em; /* Ensures the icons align nicely with the text */
     text-align: center; /* Aligns the icon's content */
@@ -781,7 +806,7 @@ opacity: 1;
     align-items: center; /* Center the items vertically */
     margin-bottom: 0.25rem; /* Reduced bottom margin to fit the additional lines */
     
-    color: #007bff; /* New color for date-info paragraphs */
+    color: var(--primary-color); /* New color for date-info paragraphs */
 }
 /* Style for the placeholder span to mimic the width of the icons */
 .icon-placeholder {
@@ -814,7 +839,7 @@ opacity: 1;
     margin-left: auto;
     margin-right: auto;
     max-width: calc(100% - 2 * 250px); /* Assuming the sidebar is 250px */
-    background-color: #24282d;
+    background-color: var(--background-color);
 }
 
 
@@ -832,14 +857,14 @@ body::-webkit-scrollbar {
 }
   
 body::-webkit-scrollbar-track {
-    background: #24282d;
+    background: var(--background-color);
     border-radius: 10px;       /* color of the tracking area */
 }
 
 body::-webkit-scrollbar-thumb {
-background-color: #007bff;    /* color of the scroll thumb */
+background-color: var(--primary-color);    /* color of the scroll thumb */
 border-radius: 20px;       /* roundness of the scroll thumb */
-border: 3px solid #24282d;  /* creates padding around scroll thumb */
+border: 3px solid var(--background-color);  /* creates padding around scroll thumb */
 }
 
 
@@ -905,7 +930,7 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
 
 /* Header styling */
 .chat-header {
-    background-color: #007BFF;
+    background-color: var(--primary-color);
     color: white;
     padding: 10px 20px;
     text-align: center;
@@ -934,7 +959,7 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
 }
 
 .chat-bubble.bot {
-    background-color: #007BFF; /* Bot message color */
+    background-color: var(--primary-color); /* Bot message color */
     align-self: flex-start; /* Align bot messages to left */
 }
 
@@ -978,7 +1003,7 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
     padding: 8px 15px;
     border: none;
     border-radius: 4px;
-    background-color: #007BFF;
+    background-color: var(--primary-color);
     color: white;
     cursor: pointer;
 }
@@ -988,7 +1013,7 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
     position: fixed;
     bottom: 10px;
     right: 10px;
-    background-color: #007BFF;
+    background-color: var(--primary-color);
     color: white;
     border: none;
     border-radius: 50%;
@@ -1008,23 +1033,23 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
 
 
 .grid-item.border-completed {
-    border-color: rgb(40, 167, 69); /* green for completed */
+    border-color: var(--completed-color); /* green for completed */
 }
 
 .grid-item.border-current {
-    border-color: rgb(14, 159, 212); 
+    border-color: var(--current-color); 
 }
 
 .grid-item.border-paused {
-    border-color: rgb(224, 33, 8);
+    border-color: var(--paused-color);
 }
 
 .grid-item.border-planning {
-    border-color: rgb(255, 193, 7); 
+    border-color: var(--planning-color); 
 }
 .bg-dark-custom {
-    background-color: #343a40 !important; /* Dark background color, use !important to override Bootstrap's styles */
-    color: #ffffff !important; /* Light text color for contrast, use !important to override */
+    background-color: var(--secondary-color) !important; /* Dark background color, use !important to override Bootstrap's styles */
+    color: var(--text-color) !important; /* Light text color for contrast, use !important to override */
 }
 .bg-dark-custom .text-muted {
     color: #cccccc !important; /* Lighter text color for contrast */
@@ -1033,19 +1058,19 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
 
 /* Applies color to the icons in the status filter options */
 #list-status-filter .status-option[data-value="COMPLETED"] i {
-    color: rgb(40, 167, 69); /* green for completed */
+    color: var(--completed-color); /* green for completed */
 }
 
 #list-status-filter .status-option[data-value="CURRENT"] i {
-    color: rgb(14, 159, 212); /* blue for current/reading */
+    color: var(--current-color); /* blue for current/reading */
 }
 
 #list-status-filter .status-option[data-value="PAUSED"] i {
-    color: rgb(224, 33, 8); /* red for paused */
+    color: var(--paused-color); /* red for paused */
 }
 
 #list-status-filter .status-option[data-value="PLANNING"] i {
-    color: rgb(255, 193, 7); /* yellow for planning */
+    color: var(--planning-color); /* yellow for planning */
 }
 
 
@@ -1117,4 +1142,23 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
     height: auto; /* Keeps the aspect ratio of the flag */
     object-fit: cover; /* Ensures the image covers the area, useful for non-square images */
     border-radius: 4px; /* Rounds the corners of the flag images */
+}
+
+
+.color-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-left: 8px;
+    cursor: pointer;
+    border: 1px solid #fff;
+}
+
+.color-circle.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+body {
+    visibility: hidden;
 }
