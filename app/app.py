@@ -202,24 +202,28 @@ def sync_with_fastapi():
 
 def extract_links_from_bato(html_content):
     soup = BeautifulSoup(html_content, 'html.parser')
-    astro_islands = soup.find_all('astro-island')
     extracted_links = []
     
-    for island in astro_islands:
-        if 'Display_Text_ResInfo' in island.get('opts', ''):
-            props = json.loads(island['props'].replace('&quot;', '"'))
-            links_str = props.get('code', [None, None])[1]
-            if links_str:
-                links = links_str.split('\n')
-                for link in links:
-                    cleaned_link = link.split('] ')[-1].strip()
-                    cleaned_link = unquote(cleaned_link)
-                    url_match = re.search(r'https?://[^\s]+', cleaned_link)
-                    if url_match:
-                        url = url_match.group(0)
-                        if all(ord(char) < 128 for char in url):
-                            extracted_links.append(url)
-                            logging.info(f"Extracted Link: {url}")
+    # Look for the new "Extra info" section
+    extra_info = soup.find('div', class_='mt-5 space-y-3')
+    if extra_info:
+        # Find all links in the prose/limit-html section
+        links_div = extra_info.find('div', class_='limit-html-p')
+        if links_div:
+            # Get all links
+            links = links_div.find_all('a', attrs={'data-trust': '0'})
+            for link in links:
+                url = link.text.strip()  # The URL is now in the text content
+                if url.startswith('http'):
+                    extracted_links.append(url)
+                    logging.info(f"Extracted Link: {url}")
+    
+    # Log if no links were found
+    if not extracted_links:
+        logging.warning("No links were extracted from the Bato page")
+        logging.debug("Page content structure:")
+        logging.debug(extra_info)
+    
     return extracted_links
 
 @app.route('/add_bato', methods=['POST'])
@@ -231,7 +235,7 @@ def add_bato_link_route():
         bato_link = data.get('batoLink')
         series_name = data.get('seriesname')
 
-        logging.info(f"Fetching data from: {bato_link}")
+        logging.info(f"Processing Bato link for {series_name} (AniList ID: {anilist_id})")
 
         # Fetch the Bato page
         response = requests.get(bato_link)
@@ -243,6 +247,9 @@ def add_bato_link_route():
         extracted_links = extract_links_from_bato(response.text)
         logging.info(f"Extracted Links: {extracted_links}")
 
+        # Update the database with the Bato link and any extracted links
+        sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
+
         # Look for the MangaUpdates link
         mangaupdates_link = None
         for link in extracted_links:
@@ -250,24 +257,21 @@ def add_bato_link_route():
                 mangaupdates_link = link
                 break
 
-        if not mangaupdates_link:
-            return jsonify({"status": "error", "message": "MangaUpdates link not found."}), 500
-        
-        logging.info(f"MangaUpdates Link: {mangaupdates_link}")
+        # If MangaUpdates link is found, run the spider
+        if mangaupdates_link:
+            logging.info(f"MangaUpdates Link found: {mangaupdates_link}")
+            result = run_crawl(mangaupdates_link, anilist_id)
+            if not result:
+                logging.warning("Failed to complete MangaUpdates crawl, but continuing...")
 
-        # Run the Scrapy spider with the MangaUpdates link and wait for results
-        result = run_crawl(mangaupdates_link, anilist_id)
-        if not result:
-            return jsonify({"status": "error", "message": "Failed to complete crawl."}), 500
-
-        # Update the database with all extracted links (including MangaUpdates link)
-        sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
-
-        return jsonify({"message": "Manga links updated successfully."}), 200
+        return jsonify({
+            "message": "Bato link added successfully" + 
+                      (" and MangaUpdates data retrieved" if mangaupdates_link else ", but no MangaUpdates link found")
+        }), 200
 
     except Exception as e:
         logging.exception("An error occurred during the link extraction process.")
-        return jsonify({"status": "error", "message": "An internal error occurred."}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @run_in_reactor
