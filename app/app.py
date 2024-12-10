@@ -320,14 +320,22 @@ def save_color_settings():
         return jsonify({'success': False, 'message': 'Failed to save color settings.'}), 500
 
 def save_user_color_settings(user_id, color_settings):
+    # Create directory if it doesn't exist
+    settings_dir = os.path.join('app', 'user_settings')
+    os.makedirs(settings_dir, exist_ok=True)
+    
     # Save the color settings to a file or database
-    with open(f'user_color_settings_{user_id}.json', 'w') as f:
+    settings_path = os.path.join(settings_dir, f'user_color_settings_{user_id}.json')
+    with open(settings_path, 'w') as f:
         json.dump(color_settings, f)
 
 def load_color_settings():
     user_id = current_user.id if current_user.is_authenticated else 'default'
+    settings_dir = os.path.join('app', 'user_settings')
+    settings_path = os.path.join(settings_dir, f'user_color_settings_{user_id}.json')
+    
     try:
-        with open(f'user_color_settings_{user_id}.json', 'r') as f:
+        with open(settings_path, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
         # Use default color settings if the file is missing
