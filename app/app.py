@@ -256,19 +256,40 @@ def add_bato_link_route():
     try:
         data = request.get_json()
         anilist_id = data.get('anilistId')
-        bato_link = data.get('batoLink')
+        input_link = data.get('batoLink')
         series_name = data.get('seriesname')
 
-        logging.info(f"Processing Bato link for {series_name} (AniList ID: {anilist_id})")
-        logging.info(f"Bato Link: {bato_link}")
+        logging.info(f"Processing link for {series_name} (AniList ID: {anilist_id})")
+        logging.info(f"Input Link: {input_link}")
 
-        # Add headers to mimic a browser
+        # Check if it's a MangaUpdates link
+        if 'mangaupdates' in input_link.lower():
+            logging.info("MangaUpdates link detected, processing directly")
+            # Store the MangaUpdates link in external_links
+            sqlalchemy_fns.update_manga_links(anilist_id, None, [input_link])
+            
+            # Run the spider directly
+            result = run_crawl(input_link, anilist_id)
+            if not result:
+                logging.warning("Failed to complete MangaUpdates crawl")
+                return jsonify({
+                    "status": "partial_success",
+                    "message": "MangaUpdates link saved but failed to retrieve data",
+                }), 200
+
+            return jsonify({
+                "status": "success",
+                "message": "MangaUpdates link added and data retrieved successfully",
+                "extractedLinks": [input_link]
+            }), 200
+
+        # If it's not a MangaUpdates link, process as Bato link
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
 
         # Fetch the Bato page
-        response = requests.get(bato_link, headers=headers)
+        response = requests.get(input_link, headers=headers)
         if response.status_code != 200:
             logging.error(f"Failed to fetch page, status code: {response.status_code}")
             return jsonify({"status": "error", "message": "Failed to fetch data."}), 500
@@ -282,9 +303,9 @@ def add_bato_link_route():
         logging.info(f"Extracted Links: {extracted_links}")
 
         # Update the database with the Bato link and any extracted links
-        sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
+        sqlalchemy_fns.update_manga_links(anilist_id, input_link, extracted_links)
 
-        # Look for the MangaUpdates link with more flexible matching
+        # Look for the MangaUpdates link
         mangaupdates_link = None
         for link in extracted_links:
             if 'mangaupdates.com' in link.lower():
@@ -298,8 +319,6 @@ def add_bato_link_route():
             result = run_crawl(mangaupdates_link, anilist_id)
             if not result:
                 logging.warning("Failed to complete MangaUpdates crawl, but continuing...")
-        else:
-            logging.warning("No MangaUpdates link found in extracted links")
 
         return jsonify({
             "status": "success",
