@@ -206,26 +206,50 @@ def extract_links_from_bato(html_content):
     soup = BeautifulSoup(html_content, 'html.parser')
     extracted_links = []
     
-    # Look for the new "Extra info" section
+    # Try multiple potential locations for links
+    # 1. Try the current method (Extra info section)
     extra_info = soup.find('div', class_='mt-5 space-y-3')
     if extra_info:
-        # Find all links in the prose/limit-html section
         links_div = extra_info.find('div', class_='limit-html-p')
         if links_div:
             # Get all links
             links = links_div.find_all('a', attrs={'data-trust': '0'})
             for link in links:
-                url = link.text.strip()  # The URL is now in the text content
+                url = link.text.strip()
                 if url.startswith('http'):
                     extracted_links.append(url)
-                    logging.info(f"Extracted Link: {url}")
-    
-    # Log if no links were found
+                    logging.info(f"Found link in extra info section: {url}")
+
+    # 2. Try finding links in any div with class containing 'limit-html'
     if not extracted_links:
+        limit_html_divs = soup.find_all('div', class_=lambda x: x and 'limit-html' in x)
+        for div in limit_html_divs:
+            links = div.find_all('a')
+            for link in links:
+                url = link.get('href') or link.text.strip()
+                if url and url.startswith('http'):
+                    extracted_links.append(url)
+                    logging.info(f"Found link in limit-html div: {url}")
+
+    # 3. Look for any text that contains mangaupdates.com
+    if not extracted_links:
+        text_nodes = soup.find_all(text=True)
+        for text in text_nodes:
+            if 'mangaupdates.com' in text:
+                # Try to extract URL using regex
+                urls = re.findall(r'https?://(?:www\.)?mangaupdates\.com[^\s<>"\']+', text)
+                for url in urls:
+                    extracted_links.append(url)
+                    logging.info(f"Found MangaUpdates link in text: {url}")
+
+    # Log the results
+    if extracted_links:
+        logging.info(f"Successfully extracted {len(extracted_links)} links")
+    else:
         logging.warning("No links were extracted from the Bato page")
-        logging.debug("Page content structure:")
-        logging.debug(extra_info)
-    
+        logging.debug("Page structure:")
+        logging.debug(soup.prettify()[:1000])  # Log first 1000 chars of the HTML structure
+
     return extracted_links
 
 @app.route('/add_bato', methods=['POST'])
@@ -238,12 +262,22 @@ def add_bato_link_route():
         series_name = data.get('seriesname')
 
         logging.info(f"Processing Bato link for {series_name} (AniList ID: {anilist_id})")
+        logging.info(f"Bato Link: {bato_link}")
+
+        # Add headers to mimic a browser
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
 
         # Fetch the Bato page
-        response = requests.get(bato_link)
+        response = requests.get(bato_link, headers=headers)
         if response.status_code != 200:
             logging.error(f"Failed to fetch page, status code: {response.status_code}")
             return jsonify({"status": "error", "message": "Failed to fetch data."}), 500
+
+        # Log the response content type and length
+        logging.info(f"Response Content-Type: {response.headers.get('content-type')}")
+        logging.info(f"Response Length: {len(response.text)} bytes")
 
         # Extract links from Bato page
         extracted_links = extract_links_from_bato(response.text)
@@ -252,27 +286,32 @@ def add_bato_link_route():
         # Update the database with the Bato link and any extracted links
         sqlalchemy_fns.update_manga_links(anilist_id, bato_link, extracted_links)
 
-        # Look for the MangaUpdates link
+        # Look for the MangaUpdates link with more flexible matching
         mangaupdates_link = None
         for link in extracted_links:
-            if 'www.mangaupdates.com' in link:
+            if 'mangaupdates.com' in link.lower():
                 mangaupdates_link = link
+                logging.info(f"Found MangaUpdates link: {link}")
                 break
 
         # If MangaUpdates link is found, run the spider
         if mangaupdates_link:
-            logging.info(f"MangaUpdates Link found: {mangaupdates_link}")
+            logging.info(f"Running crawler for MangaUpdates link: {mangaupdates_link}")
             result = run_crawl(mangaupdates_link, anilist_id)
             if not result:
                 logging.warning("Failed to complete MangaUpdates crawl, but continuing...")
+        else:
+            logging.warning("No MangaUpdates link found in extracted links")
 
         return jsonify({
+            "status": "success",
             "message": "Bato link added successfully" + 
-                      (" and MangaUpdates data retrieved" if mangaupdates_link else ", but no MangaUpdates link found")
+                      (" and MangaUpdates data retrieved" if mangaupdates_link else ", but no MangaUpdates link found"),
+            "extractedLinks": extracted_links
         }), 200
 
     except Exception as e:
-        logging.exception("An error occurred during the link extraction process.")
+        logging.exception("An error occurred during the link extraction process:")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

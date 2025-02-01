@@ -25,6 +25,19 @@ def get_manga_list_alchemy():
     finally:
         db_session.remove()  # Correct usage of remove()
 
+def fetch_all_records():
+    """ Fetch all records from the database. """
+    try:
+        all_records = db_session.query(MangaList).all()
+        return all_records
+    except Exception as e:
+        print("Error while fetching from the database:", e)
+        db_session.rollback()
+        return []
+    finally:
+        db_session.remove()  # Correct usage of remove()
+
+
 def get_manga_details_alchemy():
     """ Fetch manga details, managing sessions with scoped_session. """
     try:
@@ -68,12 +81,23 @@ def update_manga_links(id_anilist, bato_link, extracted_links):
             # Convert existing links to a list if stored as a string
             existing_links = eval(manga_entry.external_links) if manga_entry.external_links else []
             print("Existing links:", existing_links)
-            # Add new MangaUpdates links if they're not already in the existing links
-            new_links = [link for link in extracted_links if link not in existing_links]
+            
+            # Create a set of existing links for O(1) lookup
+            existing_links_set = set(existing_links)
+            
+            # Only add new links that aren't already in the set
+            new_links = []
+            for link in extracted_links:
+                if link not in existing_links_set:
+                    new_links.append(link)
+                    existing_links_set.add(link)  # Add to set to prevent duplicates within extracted_links
+            
+            # Combine existing and new links
             updated_links = existing_links + new_links
             print("Updated links:", updated_links)
+            
             # Ensure links are stored with double quotes
-            manga_entry.external_links = json.dumps(updated_links)  # This will store list with double quotes
+            manga_entry.external_links = json.dumps(updated_links)
 
             db_session.commit()
         else:
