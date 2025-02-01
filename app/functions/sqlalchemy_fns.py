@@ -76,7 +76,9 @@ def update_manga_links(id_anilist, bato_link, extracted_links):
         # Use db_session to access the scoped session
         manga_entry = db_session.query(MangaList).filter_by(id_anilist=id_anilist).first()
         if manga_entry:
-            manga_entry.bato_link = bato_link
+            # Only update bato_link if one is provided
+            if bato_link is not None:
+                manga_entry.bato_link = bato_link
 
             # Convert existing links to a list if stored as a string
             existing_links = eval(manga_entry.external_links) if manga_entry.external_links else []

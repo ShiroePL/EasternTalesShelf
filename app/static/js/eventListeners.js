@@ -46,8 +46,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('addBatoLinkButton').addEventListener('click', function() {
         if (currentAnilistId) {
-            let batoLink = prompt("Please enter the Bato link for this entry:", "http://");
-            if (batoLink !== null && batoLink !== "") {
+            let link = prompt("Please enter a Bato.to or MangaUpdates link for this entry:", "http://");
+            if (link !== null && link !== "") {
                 fetch('/add_bato', {
                     method: 'POST',
                     headers: {
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     body: JSON.stringify({
                         anilistId: currentAnilistId,
-                        batoLink: batoLink,
+                        batoLink: link,
                         seriesname: currentSeriesName
                     })
                 })
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error('Error:', error);
                     alert('An error occurred: ' + error.message);
                 });
-            } else if (batoLink === "") {
+            } else if (link === "") {
                 alert('No link entered. Please enter a valid Bato link.');
             }
         } else {
