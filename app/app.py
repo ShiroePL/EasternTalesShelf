@@ -207,18 +207,16 @@ def extract_links_from_bato(html_content):
     extracted_links = []
     
     # Try multiple potential locations for links
-    # 1. Try the current method (Extra info section)
-    extra_info = soup.find('div', class_='mt-5 space-y-3')
-    if extra_info:
-        links_div = extra_info.find('div', class_='limit-html-p')
-        if links_div:
-            # Get all links
-            links = links_div.find_all('a', attrs={'data-trust': '0'})
-            for link in links:
-                url = link.text.strip()
-                if url.startswith('http'):
-                    extracted_links.append(url)
-                    logging.info(f"Found link in extra info section: {url}")
+    # 1. Try finding all limit-html-p divs
+    limit_html_p_divs = soup.find_all('div', class_='limit-html-p')
+    for div in limit_html_p_divs:
+        # Get all links in this div
+        links = div.find_all('a', attrs={'data-trust': '0'})
+        for link in links:
+            url = link.text.strip()
+            if url.startswith('http'):
+                extracted_links.append(url)
+                logging.info(f"Found link in limit-html-p div: {url}")
 
     # 2. Try finding links in any div with class containing 'limit-html'
     if not extracted_links:
@@ -232,13 +230,13 @@ def extract_links_from_bato(html_content):
                     logging.info(f"Found link in limit-html div: {url}")
 
     # 3. Look for any text that contains mangaupdates.com
-    if not extracted_links:
-        text_nodes = soup.find_all(text=True)
-        for text in text_nodes:
-            if 'mangaupdates.com' in text:
-                # Try to extract URL using regex
-                urls = re.findall(r'https?://(?:www\.)?mangaupdates\.com[^\s<>"\']+', text)
-                for url in urls:
+    text_nodes = soup.find_all(text=True)
+    for text in text_nodes:
+        if 'mangaupdates.com' in text:
+            # Try to extract URL using regex
+            urls = re.findall(r'https?://(?:www\.)?mangaupdates\.com[^\s<>"\']+', text)
+            for url in urls:
+                if url not in extracted_links:  # Prevent duplicates
                     extracted_links.append(url)
                     logging.info(f"Found MangaUpdates link in text: {url}")
 
