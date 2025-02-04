@@ -20,6 +20,8 @@ from crochet import setup, wait_for, run_in_reactor
 from app.functions.sqlalchemy_fns import update_manga_links, save_manga_details
 from app.functions.manga_updates_spider import MangaUpdatesSpider
 import re
+from threading import Thread
+from app.services.mangaupdates_update_service import start_update_service
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -428,9 +430,13 @@ def get_color_settings():
 def cleanup(resp_or_exc):
     db_session.remove()
 
-
+def start_background_services():
+    """Start background services in separate threads"""
+    update_service_thread = Thread(target=start_update_service, daemon=True)
+    update_service_thread.start()
 
 if __name__ == '__main__':
+    start_background_services()  # Start background services before running the app
     app.run(host='0.0.0.0', port=5000)
 
 
