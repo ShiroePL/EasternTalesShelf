@@ -1,8 +1,9 @@
 import os
-from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, create_engine
+from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, create_engine, ForeignKey
 from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker
 from werkzeug.security import check_password_hash
 from app.config import DATABASE_URI
+from sqlalchemy.sql import text
 
 
 engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True, echo=False)  # Recycles connections after one hour
@@ -16,7 +17,7 @@ Base.query = db_session.query_property()
 is_development = os.getenv('FLASK_ENV')
 
 class MangaList(Base):
-    __tablename__ = 'manga_list_development' if is_development == 'development' else 'manga_list'
+    __tablename__ = 'manga_list'  # Always use production table
     id_default = Column(Integer, primary_key=True, autoincrement=True)
     id_anilist = Column(Integer, nullable=False)
     id_mal = Column(Integer)
@@ -80,3 +81,17 @@ class MangaUpdatesDetails(Base):
     licensed = Column(Boolean, nullable=True)
     completed = Column(Boolean, nullable=True)
     last_updated_timestamp = Column(Text, nullable=True)
+
+class MangaStatusNotification(Base):
+    __tablename__ = 'manga_status_notifications'  # Always use production table
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    anilist_id = Column(Integer, ForeignKey('manga_list.id_anilist'), nullable=False)  # Always reference production manga_list
+    title = Column(String(255), nullable=False)
+    notification_type = Column(String(50), nullable=False)
+    message = Column(Text, nullable=False)
+    old_status = Column(Text)
+    new_status = Column(Text)
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+    is_read = Column(Boolean, default=False)
+    importance = Column(Integer, default=1)
+    url = Column(String(255))

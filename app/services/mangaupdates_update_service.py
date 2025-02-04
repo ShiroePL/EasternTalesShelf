@@ -1,14 +1,22 @@
 import logging
+import os
 import random
 import time
 from datetime import datetime
 import schedule
 from app.functions.sqlalchemy_fns import save_manga_details
-from app.functions.class_mangalist import db_session
-from sqlalchemy import text
+from app.functions.class_mangalist import db_session, MangaStatusNotification
+from sqlalchemy import text, create_engine
 from scrapy.crawler import CrawlerRunner
 from crochet import setup, wait_for
 from app.functions.manga_updates_spider import MangaUpdatesSpider
+from dataclasses import dataclass
+from typing import List, Optional
+from app.functions.vector_db_stuff.ai_related.groq_api import send_to_groq
+import asyncio
+import re
+from sqlalchemy.orm import sessionmaker
+from app.config import DATABASE_URI
 
 # Initialize crochet for Scrapy to work with async code
 setup()
@@ -16,29 +24,96 @@ setup()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+@dataclass
+class MangaStatusUpdate:
+    anilist_id: int
+    title: str  # We'll need to add title to our query
+    old_status: Optional[str]
+    new_status: Optional[str]
+    timestamp: datetime
+    url: str
+
+STATUS_ANALYSIS_PROMPT = """You are a manhwa status analyzer. Analyze the following status changes and identify significant events.
+Focus on these types of changes:
+1. Season endings or beginnings
+2. Series completion
+3. New side stories or extras
+4. Hiatus announcements
+5. Licensing status changes
+
+For each manga, determine if there are important changes that readers should know about.
+IMPORTANT: Return ONLY a JSON object without any additional text or explanation. The response must be a valid JSON in this format:
+{
+  "notifications": [
+    {
+      "title": "manga_title",
+      "type": "notification_type",  // one of: season_end, series_end, side_story, hiatus, license
+      "message": "human readable message about the change",
+      "importance": 1-3  // 1: low, 2: medium, 3: high
+    }
+  ]
+}
+
+Only include manga where significant changes occurred.
+Compare the statuses carefully - look for changes in chapter counts, season completions, or status changes.
+Example of significant change: "S4: 36 Chapters (116~)" to "S4: 40 Chapters (116~155)" indicates season 4 completion.
+
+Here are the status changes to analyze:
+
+"""
+
 class MangaUpdatesUpdateService:
     def __init__(self):
         self.delay_between_requests = random.uniform(2.0, 4.0)  # random delay between 2.0-4.0 seconds with decimal precision
+        self.status_updates: List[MangaStatusUpdate] = []
+        self.batch_size = 1  # Number of updates to collect before analysis
+        self.engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True)
 
     @wait_for(timeout=30.0)
     def run_spider(self, url, anilist_id):
         """Run the MangaUpdates spider for a given URL"""
         runner = CrawlerRunner()
-        deferred = runner.crawl(MangaUpdatesSpider, start_url=url, anilist_id=anilist_id)
+        results = {}
+        deferred = runner.crawl(
+            MangaUpdatesSpider, 
+            start_url=url, 
+            anilist_id=anilist_id, 
+            results=results
+        )
+        # Wait for spider to complete and return results
+        deferred.addCallback(lambda _: results.get('status'))
+        deferred.addErrback(lambda failure: logger.error(f"Spider failed: {failure}"))
         return deferred
+
+    def get_current_status(self, anilist_id):
+        """Get the current status from mangaupdates_details table"""
+        try:
+            query = text("""
+                SELECT status
+                FROM mangaupdates_details
+                WHERE anilist_id = :anilist_id
+            """)
+            result = db_session.execute(query, {"anilist_id": anilist_id}).first()
+            return result.status if result else None
+        except Exception as e:
+            logger.error(f"Error fetching current status: {e}")
+            return None
 
     def get_manga_with_updates_links(self):
         """Fetch all manga entries that have MangaUpdates links"""
         try:
             query = text("""
-                SELECT ml.id_anilist, ml.external_links, mu.licensed, mu.completed
-                FROM manga_list ml
+                SELECT ml.id_anilist, ml.external_links, mu.licensed, mu.completed,
+                       mu.status as old_status,
+                       ml.title_english
+                FROM manga_list ml  -- Always use production table
                 LEFT JOIN mangaupdates_details mu ON ml.id_anilist = mu.anilist_id
                 WHERE ml.external_links LIKE '%mangaupdates.com%'
             """)
             
             result = db_session.execute(query)
-            return [(row.id_anilist, row.external_links, row.licensed, row.completed) 
+            return [(row.id_anilist, row.external_links, row.licensed, row.completed,
+                     row.old_status, row.title_english) 
                     for row in result]
         except Exception as e:
             logger.error(f"Error fetching manga with updates links: {e}")
@@ -63,7 +138,103 @@ class MangaUpdatesUpdateService:
             return False
         return True
 
-    def update_manga_details(self):
+    def save_notification(self, notification_data: dict, manga_update: MangaStatusUpdate):
+        """Save a notification to the database"""
+        session = None
+        try:
+            # Create a new session for this operation
+            Session = sessionmaker(bind=self.engine)
+            session = Session()
+
+            notification = MangaStatusNotification(
+                anilist_id=manga_update.anilist_id,
+                title=manga_update.title,
+                notification_type=notification_data['type'],
+                message=notification_data['message'],
+                old_status=manga_update.old_status,
+                new_status=manga_update.new_status,
+                importance=notification_data['importance'],
+                url=manga_update.url
+            )
+            session.add(notification)
+            session.commit()
+            logger.info(f"Saved notification for manga {manga_update.title}")
+        except Exception as e:
+            logger.error(f"Error saving notification: {e}")
+            if session:
+                session.rollback()
+            # If it's a connection error, try to reconnect
+            if "MySQL server has gone away" in str(e):
+                try:
+                    self.engine.dispose()  # Close all connections
+                    self.engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True)
+                    logger.info("Reconnected to database after connection loss")
+                except Exception as reconnect_error:
+                    logger.error(f"Failed to reconnect to database: {reconnect_error}")
+        finally:
+            if session:
+                session.close()
+
+    async def analyze_status_changes(self):
+        """Analyze a batch of status changes using LLM"""
+        if len(self.status_updates) < self.batch_size:
+            logger.info("Not enough updates for analysis yet")
+            return
+
+        logger.info("Starting status change analysis")
+        # Prepare the updates for analysis
+        updates_for_analysis = self.status_updates[:self.batch_size]
+        self.status_updates = self.status_updates[self.batch_size:]
+
+        # Format the prompt for the LLM
+        prompt = STATUS_ANALYSIS_PROMPT
+        for update in updates_for_analysis:
+            prompt += f"Manga: {update.title}\n"
+            prompt += f"Old status: {update.old_status}\n"
+            prompt += f"New status: {update.new_status}\n\n"
+
+        logger.info("Complete prompt being sent to Groq:")
+        logger.info("=" * 50)
+        logger.info(prompt)
+        logger.info("=" * 50)
+
+        logger.info("Sending request to Groq API")
+        try:
+            # Call Groq API
+            response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
+            
+            logger.info(f"Received response from Groq: {response}")
+            
+            # Clean the response - take only the JSON part
+            json_match = re.search(r'\{[\s\S]*\}', response)
+            if json_match:
+                json_str = json_match.group(0)
+                logger.info(f"Extracted JSON: {json_str}")
+            else:
+                logger.error("No JSON found in response")
+                return
+            
+            # Parse the response as JSON
+            import json
+            analysis = json.loads(json_str)
+            
+            # Process each notification
+            for notification in analysis.get('notifications', []):
+                logger.info(f"Processing notification: {notification}")
+                # Find the corresponding manga update
+                manga_update = next(
+                    (update for update in updates_for_analysis 
+                     if update.title == notification['title']),
+                    None
+                )
+                if manga_update:
+                    self.save_notification(notification, manga_update)
+
+        except Exception as e:
+            logger.error(f"Error analyzing status changes: {e}")
+            logger.error(f"Full response was: {response}")
+
+    async def update_manga_details(self):
         """Main function to update manga details"""
         logger.info("Starting MangaUpdates information update cycle")
         
@@ -71,7 +242,7 @@ class MangaUpdatesUpdateService:
         total_updated = 0
         total_skipped = 0
 
-        for anilist_id, external_links, licensed, completed in manga_list:
+        for anilist_id, external_links, licensed, completed, old_status, title in manga_list:
             try:
                 # Skip if both licensed and completed
                 if not self.should_update_manga(licensed, completed):
@@ -87,7 +258,25 @@ class MangaUpdatesUpdateService:
 
                 # Use spider instead of API
                 try:
-                    self.run_spider(mangaupdates_url, anilist_id)
+                    # Wait for spider to complete and get status
+                    new_status = await self.run_spider(mangaupdates_url, anilist_id)
+                    logger.info(f"New status fetched: {new_status}")
+
+                    # Record the status update
+                    update = MangaStatusUpdate(
+                        anilist_id=anilist_id,
+                        title=title,
+                        old_status=old_status,
+                        new_status=new_status,
+                        timestamp=datetime.now(),
+                        url=mangaupdates_url
+                    )
+                    self.status_updates.append(update)
+
+                    # If we have enough updates, analyze them
+                    if len(self.status_updates) >= self.batch_size:
+                        await self.analyze_status_changes()
+
                     total_updated += 1
                     logger.info(f"Successfully updated manga {anilist_id}")
                 except Exception as spider_error:
@@ -104,12 +293,12 @@ class MangaUpdatesUpdateService:
 
         logger.info(f"Update cycle completed. Updated: {total_updated}, Skipped: {total_skipped}")
 
-def start_update_service():
+async def start_update_service():
     """Initialize and start the update service"""
     service = MangaUpdatesUpdateService()
     
     # Schedule the update to run daily at a specific time (e.g., 3 AM)
-    schedule.every().day.at("03:00").do(service.update_manga_details)
+    schedule.every().day.at("03:00").do(lambda: asyncio.run(service.update_manga_details()))
     
     logger.info("MangaUpdates update service started")
     
@@ -117,7 +306,7 @@ def start_update_service():
         schedule.run_pending()
         time.sleep(60)  # Check schedule every minute
 
-def test_update_service(limit=5):
+async def test_update_service(limit=5):
     """Test version of the update service with detailed logging"""
     logger.info("Starting MangaUpdates TEST MODE with detailed logging")
     logger.info(f"Testing with limit of {limit} manga entries")
@@ -130,8 +319,9 @@ def test_update_service(limit=5):
     
     total_updated = 0
     total_skipped = 0
+    all_updates = []
 
-    for anilist_id, external_links, licensed, completed in manga_list[:limit]:
+    for anilist_id, external_links, licensed, completed, old_status, title in manga_list[:limit]:
         try:
             logger.info(f"\n{'='*50}")
             logger.info(f"Processing manga ID: {anilist_id}")
@@ -150,9 +340,21 @@ def test_update_service(limit=5):
 
             logger.info(f"Fetching details from: {mangaupdates_url}")
 
-            # Use spider instead of API
             try:
-                service.run_spider(mangaupdates_url, anilist_id)
+                new_status = service.run_spider(mangaupdates_url, anilist_id)
+                logger.info(f"New status fetched: {new_status}")
+
+                # Record the status update
+                update = MangaStatusUpdate(
+                    anilist_id=anilist_id,
+                    title=title,
+                    old_status=old_status,
+                    new_status=new_status,
+                    timestamp=datetime.now(),
+                    url=mangaupdates_url
+                )
+                all_updates.append(update)
+
                 total_updated += 1
                 logger.info(f"Successfully updated manga {anilist_id}")
             except Exception as spider_error:
@@ -174,6 +376,16 @@ def test_update_service(limit=5):
     logger.info(f"Skipped (licensed & completed): {total_skipped}")
     logger.info(f"Failed: {min(limit, len(manga_list)) - total_updated - total_skipped}")
 
+    # Now process all updates in batches
+    if all_updates:
+        logger.info("\nProcessing status updates in batches...")
+        batch_size = 5  # Process 5 updates at a time
+        for i in range(0, len(all_updates), batch_size):
+            batch = all_updates[i:i + batch_size]
+            service.status_updates = batch
+            await service.analyze_status_changes()
+            logger.info(f"Processed batch {i//batch_size + 1} of {(len(all_updates) + batch_size - 1)//batch_size}")
+
 if __name__ == "__main__":
     # Parse command line arguments
     import argparse
@@ -183,6 +395,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.test:
-        test_update_service(args.limit)
+        asyncio.run(test_update_service(args.limit))
     else:
-        start_update_service() 
+        asyncio.run(start_update_service()) 

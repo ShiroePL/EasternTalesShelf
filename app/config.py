@@ -12,6 +12,7 @@ class Config(object):
             cls.db_name = os.getenv('ANILIST_DB_NAME')
             cls.flask_secret_key = os.getenv('FLASK_SECRET_KEY')
             cls.fastapi_updater_server_IP = os.getenv('FASTAPI_UPDATER_SERVER_IP') #ip of contaier in docker networks
+            cls.groq_api_key = os.getenv('GROQ_API_KEY')
 
             if os.getenv('FLASK_ENV') == 'production':
                 cls.host_name = os.getenv('DB_HOST_NAME_VPS_CONTENER')
@@ -22,6 +23,14 @@ class Config(object):
         except Exception as e:
             print("Couldn't set variables from Doppler, error:")
             print(e)
+
+    @classmethod
+    def get_groq_api_keys(cls):
+        """Get Groq API keys. Returns a list with at least one key."""
+        # For now, just return the single key as a list
+        if not hasattr(cls, 'groq_api_key') or not cls.groq_api_key:
+            raise ValueError("GROQ_API_KEY environment variable is not set")
+        return [cls.groq_api_key]
 
 Config.fetch_doppler_secrets()
 

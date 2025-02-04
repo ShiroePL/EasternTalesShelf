@@ -8,6 +8,7 @@ class MangaUpdatesSpider(scrapy.Spider):
         super(MangaUpdatesSpider, self).__init__(*args, **kwargs)
         self.start_urls = [start_url]
         self.anilist_id = kwargs.get('anilist_id')
+        self.results = kwargs.get('results', {})
 
     def parse(self, response):
         # Extract the "Status in Country of Origin" including multiple lines (handling <br> tags)
@@ -31,9 +32,11 @@ class MangaUpdatesSpider(scrapy.Spider):
             'last_updated': last_updated.strip() if last_updated else None,
         }
 
+        # Store the status in results dict
+        self.results['status'] = details['status_in_country_of_origin']
+
         # Log the details
         self.log(f"Scraped Manga Details: {details}")
 
         # Save the scraped data
-        
         save_manga_details(details, anilist_id=self.anilist_id)
