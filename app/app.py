@@ -9,7 +9,7 @@ import requests
 from app.config import Config
 from app.functions import class_mangalist
 from datetime import timedelta, datetime
-from app.functions.class_mangalist import db_session
+from app.functions.class_mangalist import db_session, MangaList, MangaUpdatesDetails
 from bs4 import BeautifulSoup
 from urllib.parse import unquote  # To decode URL-encoded characters
 import logging
@@ -22,6 +22,7 @@ from app.functions.manga_updates_spider import MangaUpdatesSpider
 import re
 from threading import Thread
 from app.services.mangaupdates_update_service import start_update_service
+from app.functions.class_mangalist import MangaStatusNotification
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -434,6 +435,63 @@ def start_background_services():
     """Start background services in separate threads"""
     update_service_thread = Thread(target=start_update_service, daemon=True)
     update_service_thread.start()
+
+@app.route('/api/mangaupdates/<int:anilist_id>')
+def get_mangaupdates_info(anilist_id):
+    # Get manga updates info from database
+    try:
+        manga_updates = db_session.query(MangaUpdatesDetails)\
+            .filter(MangaUpdatesDetails.anilist_id == anilist_id)\
+            .first()
+        
+        if manga_updates:
+            return jsonify({
+                'mangaupdates_status': manga_updates.status,
+                'mangaupdates_licensed': manga_updates.licensed,
+                'mangaupdates_completed': manga_updates.completed,
+                'mangaupdates_last_updated': manga_updates.last_updated_timestamp
+            })
+        return jsonify({'error': 'No MangaUpdates info found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notifications')
+def get_notifications():
+    """Get unread notifications ordered by importance and creation date"""
+    try:
+        notifications = db_session.query(MangaStatusNotification)\
+            .filter(MangaStatusNotification.is_read == False)\
+            .order_by(MangaStatusNotification.importance.desc(),
+                     MangaStatusNotification.created_at.desc())\
+            .limit(10)\
+            .all()
+        
+        return jsonify([{
+            'id': n.id,
+            'title': n.title,
+            'type': n.notification_type,
+            'message': n.message,
+            'importance': n.importance,
+            'created_at': n.created_at.isoformat(),
+            'url': n.url
+        } for n in notifications])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
+def mark_notification_read(notification_id):
+    """Mark a notification as read"""
+    try:
+        notification = db_session.query(MangaStatusNotification)\
+            .filter(MangaStatusNotification.id == notification_id)\
+            .first()
+        if notification:
+            notification.is_read = True
+            db_session.commit()
+            return jsonify({'success': True})
+        return jsonify({'error': 'Notification not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     start_background_services()  # Start background services before running the app

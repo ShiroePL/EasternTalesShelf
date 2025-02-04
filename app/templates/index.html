@@ -87,6 +87,10 @@
                 <!-- Render buttons normally for authenticated users -->
                 <button id="syncButton" type="button" class="btn btn-primary me-2">Sync List</button>
                 <button id="addBatoLinkButton" type="button" class="btn btn-primary me-2">Add Bato Link</button>
+                <button onclick="toggleNotifications()" class="btn btn-outline-light me-2">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge badge-danger notification-count"></span>
+                </button>
 
                 <!-- Color Circles -->
                 <div class="color-settings d-flex align-items-center">
@@ -105,15 +109,11 @@
                 <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
                     <button id="addBatoLinkButton" type="button" class="btn btn-primary" disabled>Add Bato Link</button>
                 </span>
-
-                <!-- Disabled Color Circles with Popovers -->
-                <div class="color-settings d-flex align-items-center">
-                    <span class="color-circle disabled" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-trigger="hover focus" data-bs-content="Not available in demo." title="Background Color"></span>
-                    <span class="color-circle disabled" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-trigger="hover focus" data-bs-content="Not available in demo." title="Primary Color"></span>
-                    <span class="color-circle disabled" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-trigger="hover focus" data-bs-content="Not available in demo." title="Secondary Color"></span>
-                    <span class="color-circle disabled" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-trigger="hover focus" data-bs-content="Not available in demo." title="Text Color"></span>
-                    <span class="color-circle disabled" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-trigger="hover focus" data-bs-content="Not available in demo." title="Border Color"></span>
-                </div>
+                <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
+                    <button class="btn btn-outline-light" disabled>
+                        <i class="fas fa-bell"></i>
+                    </button>
+                </span>
             {% endif %}
 
             <!-- Login/Logout Button -->
@@ -129,7 +129,18 @@
     </div>
 </nav>
 
-
+<!-- Notifications Panel -->
+<div class="notifications-panel">
+    <div class="notifications-header">
+        <h5 class="mb-0">Status Updates</h5>
+        <button onclick="toggleNotifications()" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="notifications-content">
+        <!-- Notifications will be inserted here -->
+    </div>
+</div>
 
 <!-- Login Modal with Dark Background -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
@@ -436,8 +447,7 @@
 
 <!-- Scripts files -->
 <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
-
-
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
 <script src="{{ url_for('static', filename='js/aos_stuff.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filters.js') }}"></script>
 
