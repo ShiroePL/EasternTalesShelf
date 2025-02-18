@@ -2,22 +2,97 @@ let notificationsVisible = false;
 
 function toggleNotifications() {
     const panel = document.querySelector('.notifications-panel');
-    notificationsVisible = !notificationsVisible;
-    panel.style.display = notificationsVisible ? 'block' : 'none';
-    
-    if (notificationsVisible) {
+    if (panel.style.display === 'none' || !panel.style.display) {
         fetchNotifications();
+        panel.style.display = 'block';
+    } else {
+        panel.style.display = 'none';
     }
 }
 
-async function fetchNotifications() {
-    try {
-        const response = await fetch('/api/notifications');
-        const notifications = await response.json();
-        displayNotifications(notifications);
-    } catch (error) {
-        console.error('Error fetching notifications:', error);
+function fetchNotifications() {
+    fetch('/api/notifications')
+        .then(response => response.json())
+        .then(notifications => {
+            const panel = document.querySelector('.notifications-panel');
+            panel.innerHTML = ''; // Clear existing notifications
+            
+            if (notifications.length === 0) {
+                panel.innerHTML = '<div class="notification-item">No new notifications</div>';
+                return;
+            }
+            
+            notifications.forEach(notification => {
+                const notificationElement = createNotificationElement(notification);
+                panel.appendChild(notificationElement);
+            });
+        })
+        .catch(error => console.error('Error fetching notifications:', error));
+}
+
+function createNotificationElement(notification) {
+    const div = document.createElement('div');
+    div.className = 'notification-item';
+    
+    // Add source-specific class
+    div.classList.add(`notification-${notification.source}`);
+    
+    // Create notification content
+    const content = document.createElement('div');
+    content.className = 'notification-content';
+    
+    // Add title
+    const title = document.createElement('div');
+    title.className = 'notification-title';
+    title.textContent = notification.title;
+    content.appendChild(title);
+    
+    // Add message
+    const message = document.createElement('div');
+    message.className = 'notification-message';
+    message.textContent = notification.message;
+    content.appendChild(message);
+    
+    // Add timestamp
+    const timestamp = document.createElement('div');
+    timestamp.className = 'notification-timestamp';
+    timestamp.textContent = new Date(notification.created_at).toLocaleString();
+    content.appendChild(timestamp);
+    
+    div.appendChild(content);
+    
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.onclick = () => markAsRead(notification.source, notification.id, div);
+    div.appendChild(closeBtn);
+    
+    // Add click handler for the notification content
+    if (notification.url) {
+        content.style.cursor = 'pointer';
+        content.onclick = () => window.open(notification.url, '_blank');
     }
+    
+    return div;
+}
+
+function markAsRead(source, id, element) {
+    fetch(`/api/notifications/${source}/${id}/read`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            element.remove();
+            // Check if there are no more notifications
+            const panel = document.querySelector('.notifications-panel');
+            if (!panel.children.length) {
+                panel.innerHTML = '<div class="notification-item">No new notifications</div>';
+            }
+        }
+    })
+    .catch(error => console.error('Error marking notification as read:', error));
 }
 
 function displayNotifications(notifications) {
@@ -110,17 +185,6 @@ function groupNotifications(notifications) {
     });
     
     return groups;
-}
-
-async function markAsRead(notificationId) {
-    try {
-        await fetch(`/api/notifications/${notificationId}/read`, {
-            method: 'POST'
-        });
-        fetchNotifications(); // Refresh the list
-    } catch (error) {
-        console.error('Error marking notification as read:', error);
-    }
 }
 
 async function markGroupAsRead(notificationIds) {

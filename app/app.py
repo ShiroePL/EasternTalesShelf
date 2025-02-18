@@ -30,6 +30,9 @@ from app.models.scraper_models import ScrapeQueue, ScrapingStatus
 from flask_socketio import SocketIO
 import secrets
 import hashlib
+from background_tasks import BackgroundTaskManager
+from app.services.anilist_notification import AnilistNotificationManager
+import asyncio
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -59,6 +62,9 @@ Users = class_mangalist.Users
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+notification_manager = AnilistNotificationManager()
+background_manager = BackgroundTaskManager()
 
 
 @login_manager.user_loader
@@ -537,39 +543,79 @@ def get_mangaupdates_info(anilist_id):
 
 @app.route('/api/notifications')
 def get_notifications():
-    """Get unread notifications ordered by importance and creation date"""
+    """Get unread notifications from both MangaUpdates and AniList"""
     try:
-        notifications = db_session.query(MangaStatusNotification)\
+        # Get MangaUpdates notifications
+        manga_notifications = db_session.query(MangaStatusNotification)\
             .filter(MangaStatusNotification.is_read == False)\
             .order_by(MangaStatusNotification.importance.desc(),
                      MangaStatusNotification.created_at.desc())\
-            .limit(10)\
             .all()
         
-        return jsonify([{
-            'id': n.id,
-            'title': n.title,
-            'type': n.notification_type,
-            'message': n.message,
-            'importance': n.importance,
-            'created_at': n.created_at.isoformat(),
-            'url': n.url,
-            'anilist_id': n.anilist_id
-        } for n in notifications])
+        # Get AniList notifications
+        anilist_notifications = db_session.query(AnilistNotification)\
+            .filter(AnilistNotification.is_read == False)\
+            .order_by(AnilistNotification.created_at.desc())\
+            .all()
+        
+        # Format both types of notifications
+        notifications = []
+        
+        # Format MangaUpdates notifications
+        for n in manga_notifications:
+            notifications.append({
+                'id': n.id,
+                'source': 'mangaupdates',
+                'title': n.title,
+                'type': n.notification_type,
+                'message': n.message,
+                'importance': n.importance,
+                'created_at': n.created_at.isoformat(),
+                'url': n.url,
+                'anilist_id': n.anilist_id
+            })
+        
+        # Format AniList notifications
+        for n in anilist_notifications:
+            notifications.append({
+                'id': n.notification_id,
+                'source': 'anilist',
+                'title': n.media_title or 'AniList Notification',
+                'type': n.type,
+                'message': n.reason or n.context or f"New {n.type.lower().replace('_', ' ')}",
+                'importance': 1,  # Default importance
+                'created_at': n.created_at.isoformat(),
+                'url': f"https://anilist.co/anime/{n.media_id}" if n.media_id else None,
+                'anilist_id': n.media_id
+            })
+        
+        # Sort all notifications by creation date
+        notifications.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        return jsonify(notifications)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
-def mark_notification_read(notification_id):
+@app.route('/api/notifications/<string:source>/<int:notification_id>/read', methods=['POST'])
+def mark_notification_read(source, notification_id):
     """Mark a notification as read"""
     try:
-        notification = db_session.query(MangaStatusNotification)\
-            .filter(MangaStatusNotification.id == notification_id)\
-            .first()
-        if notification:
-            notification.is_read = True
-            db_session.commit()
-            return jsonify({'success': True})
+        if source == 'mangaupdates':
+            notification = db_session.query(MangaStatusNotification)\
+                .filter(MangaStatusNotification.id == notification_id)\
+                .first()
+            if notification:
+                notification.is_read = True
+                db_session.commit()
+                return jsonify({'success': True})
+        elif source == 'anilist':
+            notification = db_session.query(AnilistNotification)\
+                .filter(AnilistNotification.notification_id == notification_id)\
+                .first()
+            if notification:
+                notification.is_read = True
+                db_session.commit()
+                return jsonify({'success': True})
         return jsonify({'error': 'Notification not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1073,7 +1119,24 @@ def get_manga_titles():
         
     return jsonify(titles)
 
+# Start background polling when app starts
+@app.before_first_request
+def start_background_tasks():
+    background_manager.start_polling(
+        notification_manager,
+        interval=3600,  # Check every hour
+        callback=handle_new_notifications
+    )
 
+async def handle_new_notifications(notifications):
+    # Here you could emit via websocket, store in database, etc.
+    print(f"Got {len(notifications)} new notifications!")
+    
+@app.route('/api/notifications/refresh', methods=['POST'])
+def refresh_notifications():
+    """Manual refresh endpoint"""
+    notifications = notification_manager.get_notifications()
+    return jsonify(notifications)
 
 if __name__ == '__main__':
     start_background_services()
