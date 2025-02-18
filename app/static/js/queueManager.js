@@ -293,6 +293,13 @@ class QueueManager {
         const currentTaskEl = document.getElementById('currentTask');
         const queuedTasksEl = document.getElementById('queuedTasks');
 
+        // Helper function to get proper title from grid items
+        const getProperTitle = (anilistId) => {
+            if (!anilistId) return null;
+            const gridItem = document.querySelector(`.grid-item[data-anilist-id="${anilistId}"]`);
+            return gridItem ? gridItem.getAttribute('data-title') : null;
+        };
+
         // Preserve any existing alerts
         const existingAlert = statusEl.querySelector('.alert-dismissible');
         
@@ -308,6 +315,7 @@ class QueueManager {
 
         // Update current task
         if (queueData.current_task) {
+            const properTitle = getProperTitle(queueData.current_task.anilist_id) || queueData.current_task.title;
             const progress = queueData.current_task.total_chapters > 0 
                 ? (queueData.current_task.current_chapter / queueData.current_task.total_chapters) * 100 
                 : 0;
@@ -315,7 +323,7 @@ class QueueManager {
             currentTaskEl.innerHTML = `
                 <div class="current-task">
                     <div class="task-header">
-                        <h6>Currently Scraping: ${queueData.current_task.title}</h6>
+                        <h6>Currently Scraping: ${properTitle}</h6>
                         <div class="task-controls">
                             <button class="btn btn-sm btn-outline-warning" onclick="window.queueManager.pauseTask('${queueData.current_task.title}')">
                                 <i class="fas fa-pause"></i>
@@ -342,38 +350,41 @@ class QueueManager {
         queuedTasksEl.innerHTML = `
             <h6 class="mt-3">Queue (${queueData.queued_tasks.length})</h6>
             <ul class="queued-tasks">
-                ${queueData.queued_tasks.map((task, index) => `
-                    <li class="queued-task">
-                        <div class="task-header">
-                            <span>${index + 1}. ${task.title}</span>
-                            <div class="task-controls">
-                                ${task.status === 'stopped' ? `
-                                    <button class="btn btn-sm btn-outline-success" onclick="window.queueManager.resumeTask('${task.title}')">
-                                        <i class="fas fa-play"></i>
+                ${queueData.queued_tasks.map((task, index) => {
+                    const properTitle = getProperTitle(task.anilist_id) || task.title;
+                    return `
+                        <li class="queued-task">
+                            <div class="task-header">
+                                <span>${index + 1}. ${properTitle}</span>
+                                <div class="task-controls">
+                                    ${task.status === 'stopped' ? `
+                                        <button class="btn btn-sm btn-outline-success" onclick="window.queueManager.resumeTask('${task.title}')">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                    ` : `
+                                        <button class="btn btn-sm btn-outline-warning" onclick="window.queueManager.pauseTask('${task.title}')">
+                                            <i class="fas fa-pause"></i>
+                                        </button>
+                                    `}
+                                    <button class="btn btn-sm btn-outline-primary" onclick="window.queueManager.forcePriority('${task.title}')">
+                                        <i class="fas fa-angle-double-up"></i>
                                     </button>
-                                ` : `
-                                    <button class="btn btn-sm btn-outline-warning" onclick="window.queueManager.pauseTask('${task.title}')">
-                                        <i class="fas fa-pause"></i>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="window.queueManager.removeTask('${task.title}')">
+                                        <i class="fas fa-times"></i>
                                     </button>
-                                `}
-                                <button class="btn btn-sm btn-outline-primary" onclick="window.queueManager.forcePriority('${task.title}')">
-                                    <i class="fas fa-angle-double-up"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="window.queueManager.removeTask('${task.title}')">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <small class="text-muted">
-                                Progress: ${task.current_chapter}/${task.total_chapters || '?'} chapters
-                                <br>
-                                Added: ${new Date(task.created_at).toLocaleString()}
-                                <span class="badge ${task.status === 'pending' ? 'bg-warning' : 'bg-secondary'}">${task.status}</span>
-                            </small>
-                        </div>
-                    </li>
-                `).join('')}
+                            <div>
+                                <small class="text-muted">
+                                    Progress: ${task.current_chapter}/${task.total_chapters || '?'} chapters
+                                    <br>
+                                    Added: ${new Date(task.created_at).toLocaleString()}
+                                    ${task.status === 'stopped' ? '<span class="badge bg-secondary">stopped</span>' : ''}
+                                </small>
+                            </div>
+                        </li>
+                    `;
+                }).join('')}
             </ul>
         `;
     }

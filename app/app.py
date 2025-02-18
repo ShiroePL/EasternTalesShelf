@@ -936,14 +936,16 @@ def get_queue_status_route():
                 'status': current_task.status.value if current_task else None,
                 'current_chapter': current_task.current_chapter if current_task else 0,
                 'total_chapters': current_task.total_chapters if current_task else 0,
-                'error_message': current_task.error_message if current_task else None
+                'error_message': current_task.error_message if current_task else None,
+                'anilist_id': current_task.anilist_id if current_task else None
             } if current_task else None,
             'queued_tasks': [{
                 'title': task.manhwa_title,
                 'status': task.status.value,
                 'created_at': task.created_at.isoformat() if task.created_at else None,
                 'current_chapter': task.current_chapter,
-                'total_chapters': task.total_chapters
+                'total_chapters': task.total_chapters,
+                'anilist_id': task.anilist_id
             } for task in pending_tasks]
         })
     except Exception as e:
