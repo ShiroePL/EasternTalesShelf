@@ -69,9 +69,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log('Success:', data);
                     alert(data.message || 'Bato link added successfully!');
                     
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
+                    // Update the Bato link in the UI immediately
+                    if (link.includes('bato.to')) {
+                        $('#link-bato').attr('href', link).show();
+                        adjustButtonSpacing();
+                    }
                 })
                 .catch((error) => {
                     console.error('Error:', error);
@@ -203,6 +205,24 @@ document.addEventListener('DOMContentLoaded', function() {
       return new bootstrap.Popover(popoverTriggerEl);
     });
     
+    // Add WebSocket listener for MangaUpdates data updates
+    if (window.socket) {
+        window.socket.on('mangaupdates_data_update', function(data) {
+            if (data.anilist_id === currentAnilistId) {
+                // Update the MangaUpdates info in the right sidebar
+                updateMangaUpdatesInfo(data.data);
+            }
+            
+            // Also update the data attributes on the grid item
+            const gridItem = document.querySelector(`.grid-item[data-anilist-id="${data.anilist_id}"]`);
+            if (gridItem) {
+                gridItem.dataset.mangaupdatesStatus = data.data.status;
+                gridItem.dataset.mangaupdatesLicensed = data.data.licensed;
+                gridItem.dataset.mangaupdatesCompleted = data.data.completed;
+                gridItem.dataset.mangaupdatesLastUpdated = data.data.last_updated;
+            }
+        });
+    }
 }); // end of DOMContentLoaded listener
 
 // FUNCTIONS CANNOT BE IN DOM. 
@@ -215,5 +235,18 @@ function openBatoFromCover(url){
     
     if (url !== '') {
         window.open(url, '_blank');
+    }
+}
+
+// Add this function to update the MangaUpdates info section
+function updateMangaUpdatesInfo(data) {
+    const container = document.getElementById('mangaupdates-content');
+    if (container) {
+        container.innerHTML = `
+            <p>Status: ${data.status || 'N/A'}</p>
+            <p>Licensed: ${data.licensed ? 'Yes' : 'No'}</p>
+            <p>Completed: ${data.completed ? 'Yes' : 'No'}</p>
+            <p>Last Updated: ${data.last_updated ? new Date(data.last_updated).toLocaleDateString() : 'N/A'}</p>
+        `;
     }
 }

@@ -47,6 +47,7 @@ IMPORTANT: Return ONLY a JSON object without any additional text or explanation.
   "notifications": [
     {
       "title": "manga_title",
+      "id": manga_id,  // Include the provided manga ID in your response
       "type": "notification_type",  // one of: season_end, series_end, side_story, hiatus, license
       "message": "human readable message about the change",
       "importance": 1-3  // 1: low, 2: medium, 3: high
@@ -56,6 +57,7 @@ IMPORTANT: Return ONLY a JSON object without any additional text or explanation.
 
 Only include manga where significant changes occurred.
 Compare the statuses carefully - look for changes in chapter counts, season completions, or status changes.
+If there are few notification for one manhwa, glue them to one notificiation.
 Example of significant change: "S4: 36 Chapters (116~)" to "S4: 40 Chapters (116~155)" indicates season 4 completion.
 
 Here are the status changes to analyze:
@@ -141,11 +143,25 @@ class MangaUpdatesUpdateService:
     def save_notification(self, notification_data: dict, manga_update: MangaStatusUpdate):
         """Save a notification to the database"""
         session = None
+        logger.info(f"Starting save_notification for {manga_update.title}")
         try:
             # Create a new session for this operation
             Session = sessionmaker(bind=self.engine)
             session = Session()
+            logger.info(f"Created new session for {manga_update.title}")
 
+            # Check if notification already exists
+            existing = session.query(MangaStatusNotification).filter(
+                MangaStatusNotification.anilist_id == manga_update.anilist_id,
+                MangaStatusNotification.notification_type == notification_data['type'],
+                MangaStatusNotification.message == notification_data['message']
+            ).first()
+
+            if existing:
+                logger.info(f"Notification already exists for manga {manga_update.title}")
+                return
+
+            logger.info(f"Creating notification object for {manga_update.title}")
             notification = MangaStatusNotification(
                 anilist_id=manga_update.anilist_id,
                 title=manga_update.title,
@@ -156,83 +172,129 @@ class MangaUpdatesUpdateService:
                 importance=notification_data['importance'],
                 url=manga_update.url
             )
+            
+            logger.info(f"Adding notification to session for {manga_update.title}")
             session.add(notification)
+            
+            logger.info(f"Committing notification for {manga_update.title}")
             session.commit()
-            logger.info(f"Saved notification for manga {manga_update.title}")
+            logger.info(f"Successfully saved notification for manga {manga_update.title}")
+
         except Exception as e:
-            logger.error(f"Error saving notification: {e}")
+            logger.error(f"Error saving notification for {manga_update.title}: {e}")
+            logger.error(f"Error type: {type(e)}")
+            logger.error(f"Full error details: {str(e)}")
             if session:
+                logger.info(f"Rolling back session for {manga_update.title}")
                 session.rollback()
             # If it's a connection error, try to reconnect
             if "MySQL server has gone away" in str(e):
                 try:
-                    self.engine.dispose()  # Close all connections
+                    self.engine.dispose()
                     self.engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True)
                     logger.info("Reconnected to database after connection loss")
                 except Exception as reconnect_error:
                     logger.error(f"Failed to reconnect to database: {reconnect_error}")
         finally:
             if session:
-                session.close()
+                try:
+                    logger.info(f"Closing session for {manga_update.title}")
+                    session.close()
+                    logger.info(f"Successfully closed session for {manga_update.title}")
+                except Exception as close_error:
+                    logger.error(f"Error closing session for {manga_update.title}: {close_error}")
 
     async def analyze_status_changes(self):
-        """Analyze a batch of status changes using LLM"""
-        if len(self.status_updates) < self.batch_size:
-            logger.info("Not enough updates for analysis yet")
+        """Analyze status changes using LLM in batches of 3"""
+        if len(self.status_updates) < 1:
+            logger.info("No updates for analysis")
             return
 
         logger.info("Starting status change analysis")
-        # Prepare the updates for analysis
-        updates_for_analysis = self.status_updates[:self.batch_size]
-        self.status_updates = self.status_updates[self.batch_size:]
+        
+        # Process updates in batches of 3
+        batch_size = 3
+        total_updates = len(self.status_updates)
+        
+        for i in range(0, total_updates, batch_size):
+            batch = self.status_updates[i:i + batch_size]
+            logger.info(f"Processing batch {i//batch_size + 1} of {(total_updates + batch_size - 1)//batch_size}")
 
-        # Format the prompt for the LLM
-        prompt = STATUS_ANALYSIS_PROMPT
-        for update in updates_for_analysis:
-            prompt += f"Manga: {update.title}\n"
-            prompt += f"Old status: {update.old_status}\n"
-            prompt += f"New status: {update.new_status}\n\n"
+            # Format the prompt for the current batch
+            prompt = STATUS_ANALYSIS_PROMPT
+            for update in batch:
+                prompt += f"Manga: {update.title} (ID: {update.anilist_id})\n"
+                prompt += f"Old status: {update.old_status}\n"
+                prompt += f"New status: {update.new_status}\n\n"
 
-        logger.info("Complete prompt being sent to Groq:")
-        logger.info("=" * 50)
-        logger.info(prompt)
-        logger.info("=" * 50)
+            logger.info("Complete prompt being sent to Groq:")
+            logger.info("=" * 50)
+            logger.info(prompt)
+            logger.info("=" * 50)
 
-        logger.info("Sending request to Groq API")
-        try:
-            # Call Groq API
-            response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
-            
-            logger.info(f"Received response from Groq: {response}")
-            
-            # Clean the response - take only the JSON part
-            json_match = re.search(r'\{[\s\S]*\}', response)
-            if json_match:
-                json_str = json_match.group(0)
-                logger.info(f"Extracted JSON: {json_str}")
-            else:
-                logger.error("No JSON found in response")
-                return
-            
-            # Parse the response as JSON
-            import json
-            analysis = json.loads(json_str)
-            
-            # Process each notification
-            for notification in analysis.get('notifications', []):
-                logger.info(f"Processing notification: {notification}")
-                # Find the corresponding manga update
-                manga_update = next(
-                    (update for update in updates_for_analysis 
-                     if update.title == notification['title']),
-                    None
-                )
-                if manga_update:
-                    self.save_notification(notification, manga_update)
+            logger.info("Sending request to Groq API")
+            try:
+                # Call Groq API
+                response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
+                
+                logger.info(f"Received response from Groq: {response}")
+                
+                # Clean the response - take only the JSON part
+                json_match = re.search(r'\{[\s\S]*\}', response)
+                if json_match:
+                    json_str = json_match.group(0)
+                    logger.info(f"Extracted JSON: {json_str}")
+                else:
+                    logger.error("No JSON found in response")
+                    continue
+                
+                # Parse the response as JSON
+                import json
+                analysis = json.loads(json_str)
+                
+                # Process each notification with fallback to ID matching
+                for notification in analysis.get('notifications', []):
+                    logger.info(f"Processing notification: {notification}")
+                    manga_update = None
+                    
+                    # Try to find by ID first (most reliable)
+                    if 'id' in notification:
+                        manga_update = next(
+                            (update for update in batch 
+                             if update.anilist_id == notification['id']),
+                            None
+                        )
+                        if manga_update:
+                            logger.info(f"Found manga update by ID {notification['id']}")
 
-        except Exception as e:
-            logger.error(f"Error analyzing status changes: {e}")
-            logger.error(f"Full response was: {response}")
+                    # If ID matching failed, try title matching as fallback
+                    if not manga_update:
+                        normalized_notification_title = notification['title'].replace('"', "'")
+                        for update in batch:
+                            normalized_update_title = update.title.replace('"', "'")
+                            if normalized_update_title == normalized_notification_title:
+                                manga_update = update
+                                logger.info(f"Found manga update by title {notification['title']}")
+                                break
+
+                    if manga_update:
+                        self.save_notification(notification, manga_update)
+                    else:
+                        logger.error(f"Could not find matching manga update for {notification['title']} (ID: {notification.get('id', 'Not provided')})")
+                        logger.error(f"Available in batch: {[(update.title, update.anilist_id) for update in batch]}")
+
+                # Add a small delay between batches to avoid rate limiting
+                if i + batch_size < total_updates:
+                    delay = random.uniform(1.0, 2.0)
+                    logger.info(f"Waiting {delay:.2f} seconds before next batch...")
+                    await asyncio.sleep(delay)
+
+            except Exception as e:
+                logger.error(f"Error analyzing status changes batch: {e}")
+                logger.error(f"Full response was: {response}")
+
+        # Clear processed updates
+        self.status_updates = []
 
     async def update_manga_details(self):
         """Main function to update manga details"""
@@ -378,13 +440,9 @@ async def test_update_service(limit=5):
 
     # Now process all updates in batches
     if all_updates:
-        logger.info("\nProcessing status updates in batches...")
-        batch_size = 5  # Process 5 updates at a time
-        for i in range(0, len(all_updates), batch_size):
-            batch = all_updates[i:i + batch_size]
-            service.status_updates = batch
-            await service.analyze_status_changes()
-            logger.info(f"Processed batch {i//batch_size + 1} of {(len(all_updates) + batch_size - 1)//batch_size}")
+        logger.info("\nProcessing all status updates...")
+        service.status_updates = all_updates
+        await service.analyze_status_changes()
 
 if __name__ == "__main__":
     # Parse command line arguments

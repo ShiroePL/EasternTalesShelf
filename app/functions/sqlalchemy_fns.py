@@ -2,15 +2,19 @@
 from datetime import datetime
 import json
 import re
-from sqlalchemy import exc
+from sqlalchemy import exc, update, desc, func
 from app.functions.class_mangalist import engine, Base, MangaList, db_session, MangaUpdatesDetails
 from app.config import is_development_mode
 import logging
+from app.models.scraper_models import ScrapeQueue, ScrapingStatus
+from app.models.scraper_models import ManhwaDownloadStatus, DownloadStatus
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 # Initialize the database
 def initialize_database():
-    """ Initialize the database by creating all tables. """
+    """Initialize the database by creating all tables and initial data."""
     Base.metadata.create_all(bind=engine)
+    initialize_download_status()
 
 # Fetch manga list with proper session management
 def get_manga_list_alchemy():
@@ -162,8 +166,212 @@ def save_manga_details(details, anilist_id):
         # Close the session
         db_session.remove()
 
+# Add these new functions for queue management
+def pause_queue_task(title):
+    """Update task status to stopped."""
+    try:
+        db_session.execute(
+            update(ScrapeQueue)
+            .where(ScrapeQueue.manhwa_title == title)
+            .values(status=ScrapingStatus.STOPPED)
+        )
+        db_session.commit()
+        return True
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error pausing task: {e}")
+        raise
 
+def resume_queue_task(title):
+    """Update task status back to pending."""
+    try:
+        db_session.execute(
+            update(ScrapeQueue)
+            .where(ScrapeQueue.manhwa_title == title)
+            .values(status=ScrapingStatus.PENDING)
+        )
+        db_session.commit()
+        return True
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error resuming task: {e}")
+        raise
 
+def remove_queue_task(title):
+    """Delete task from queue."""
+    try:
+        task = db_session.query(ScrapeQueue).filter_by(manhwa_title=title).first()
+        if task:
+            db_session.delete(task)
+            db_session.commit()
+            return True
+        return False
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error removing task: {e}")
+        raise
+
+def force_task_priority(title):
+    """Update task priority to highest + 1."""
+    try:
+        # Use sqlalchemy.func instead of db_session.func
+        max_priority = db_session.query(func.max(ScrapeQueue.priority)).scalar() or 0
+        
+        db_session.execute(
+            update(ScrapeQueue)
+            .where(ScrapeQueue.manhwa_title == title)
+            .values(
+                priority=max_priority + 1,
+                status=ScrapingStatus.PENDING
+            )
+        )
+        db_session.commit()
+        return True
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error updating priority: {e}")
+        raise
+
+def add_to_queue(title, bato_url, anilist_id=None):
+    """Add or update task in queue."""
+    try:
+        existing_task = db_session.query(ScrapeQueue).filter_by(manhwa_title=title).first()
+        
+        if existing_task:
+            existing_task.status = ScrapingStatus.PENDING
+            existing_task.error_message = None
+            existing_task.bato_url = bato_url
+            existing_task.anilist_id = anilist_id
+            existing_task.current_chapter = 0
+            existing_task.total_chapters = 0
+            existing_task.started_at = None
+            existing_task.completed_at = None
+            # Keep the original created_at
+            # Update priority to be higher than current max
+            max_priority = db_session.query(func.max(ScrapeQueue.priority)).scalar() or 0
+            existing_task.priority = max_priority + 1
+        else:
+            # Get highest priority and add 1
+            max_priority = db_session.query(func.max(ScrapeQueue.priority)).scalar() or 0
+            new_task = ScrapeQueue(
+                manhwa_title=title,
+                bato_url=bato_url,
+                anilist_id=anilist_id,
+                status=ScrapingStatus.PENDING,
+                current_chapter=0,
+                total_chapters=0,
+                error_message=None,
+                created_at=datetime.utcnow(),
+                started_at=None,
+                completed_at=None,
+                priority=max_priority + 1
+            )
+            db_session.add(new_task)
+
+        # Update download status to pending
+        if anilist_id:
+            status_entry = db_session.query(ManhwaDownloadStatus)\
+                .filter_by(anilist_id=anilist_id)\
+                .first()
+            
+            if status_entry:
+                status_entry.download_status = DownloadStatus.PENDING
+            else:
+                new_status = ManhwaDownloadStatus(
+                    anilist_id=anilist_id,
+                    download_status=DownloadStatus.PENDING
+                )
+                db_session.add(new_status)
+
+        db_session.commit()
+        return True
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error adding task to queue: {e}")
+        raise
+
+def get_queue_status():
+    """Get current queue status including current and pending tasks."""
+    try:
+        current_task = db_session.query(ScrapeQueue)\
+            .filter(ScrapeQueue.status == ScrapingStatus.IN_PROGRESS)\
+            .order_by(ScrapeQueue.started_at.desc())\
+            .first()
+            
+        pending_tasks = db_session.query(ScrapeQueue)\
+            .filter(ScrapeQueue.status.in_([ScrapingStatus.PENDING, ScrapingStatus.STOPPED]))\
+            .order_by(ScrapeQueue.priority.desc(), ScrapeQueue.created_at.asc())\
+            .all()
+
+        return current_task, pending_tasks
+    except Exception as e:
+        logging.error(f"Error getting queue status: {e}")
+        raise
+
+# Add this function to initialize download status table
+def initialize_download_status():
+    """Initialize download status for all manga entries."""
+    try:
+        # Get all manga entries that don't have a download status
+        manga_entries = db_session.query(MangaList.id_anilist).all()
+        existing_statuses = db_session.query(ManhwaDownloadStatus.anilist_id).all()
+        
+        # Convert to sets for faster lookup
+        existing_ids = {status[0] for status in existing_statuses}
+        manga_ids = {entry[0] for entry in manga_entries}
+        
+        # Find manga entries that need status initialization
+        missing_ids = manga_ids - existing_ids
+        
+        # Create new status entries for missing manga
+        for anilist_id in missing_ids:
+            new_status = ManhwaDownloadStatus(
+                anilist_id=anilist_id,
+                download_status=DownloadStatus.NOT_DOWNLOADED
+            )
+            db_session.add(new_status)
+        
+        db_session.commit()
+        logging.info(f"Initialized download status for {len(missing_ids)} manga entries")
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error initializing download status: {e}")
+    finally:
+        db_session.remove()
+
+# Add these functions for managing download status
+def get_download_statuses():
+    """Get download status for all manga."""
+    try:
+        statuses = db_session.query(ManhwaDownloadStatus).all()
+        return [{'anilist_id': status.anilist_id, 'status': status.download_status.value} 
+                for status in statuses]
+    except Exception as e:
+        logging.error(f"Error getting download statuses: {e}")
+        return []
+
+def update_download_status(anilist_id, new_status):
+    """Update download status for a specific manga."""
+    try:
+        status_entry = db_session.query(ManhwaDownloadStatus)\
+            .filter_by(anilist_id=anilist_id)\
+            .first()
+        
+        if status_entry:
+            status_entry.download_status = DownloadStatus[new_status.upper()]
+        else:
+            status_entry = ManhwaDownloadStatus(
+                anilist_id=anilist_id,
+                download_status=DownloadStatus[new_status.upper()]
+            )
+            db_session.add(status_entry)
+            
+        db_session.commit()
+        return True
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error updating download status: {e}")
+        raise
 
 # Ensure the database is initialized on module import
 initialize_database()

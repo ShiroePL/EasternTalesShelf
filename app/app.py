@@ -20,9 +20,16 @@ from crochet import setup, wait_for, run_in_reactor
 from app.functions.sqlalchemy_fns import update_manga_links, save_manga_details
 from app.functions.manga_updates_spider import MangaUpdatesSpider
 import re
-from threading import Thread
+from threading import Thread, Lock
 from app.services.mangaupdates_update_service import start_update_service
 from app.functions.class_mangalist import MangaStatusNotification
+from dataclasses import dataclass
+from typing import Optional
+import time
+from app.models.scraper_models import ScrapeQueue, ScrapingStatus
+from flask_socketio import SocketIO
+import secrets
+import hashlib
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -32,6 +39,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 setup()
 
 app = Flask(__name__)
+
+# Webhook related globals
+WEBHOOK_SERVER_URL = "http://localhost:5000"  # Change to 80 for production if needed
+webhook_connection = None
+last_heartbeat = 0
+heartbeat_lock = Lock()
+heartbeat_thread = None
+
 app.secret_key = Config.flask_secret_key
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = True
@@ -103,10 +118,11 @@ app.config['DEBUG'] = bool(is_development_mode.DEBUG)
 def set_security_headers(response):
     csp_policy = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://cdn.jsdelivr.net/npm; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://cdn.jsdelivr.net/npm https://cdnjs.cloudflare.com; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "img-src 'self' data:; "
-        "font-src 'self' https://cdnjs.cloudflare.com;"
+        "font-src 'self' https://cdnjs.cloudflare.com; "
+        "connect-src 'self' ws://localhost:* wss://localhost:*;"  # Add this for WebSocket
     )
 
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
@@ -122,7 +138,12 @@ def home():
    
     manga_entries = sqlalchemy_fns.get_manga_list_alchemy()
     mangaupdates_details = sqlalchemy_fns.get_manga_details_alchemy()
+    download_statuses = {status['anilist_id']: status['status'] 
+                        for status in sqlalchemy_fns.get_download_statuses()}
     
+    # Add download status to each manga entry
+    for entry in manga_entries:
+        entry['download_status'] = download_statuses.get(entry['id_anilist'], 'not_downloaded')
     
     # Identify entries with missing covers and download them
     ids_to_download = [entry['id_anilist'] for entry in manga_entries if not entry['is_cover_downloaded']]
@@ -268,25 +289,61 @@ def add_bato_link_route():
         # Check if it's a MangaUpdates link
         if 'mangaupdates' in input_link.lower():
             logging.info("MangaUpdates link detected, processing directly")
-            # Store the MangaUpdates link in external_links
-            sqlalchemy_fns.update_manga_links(anilist_id, None, [input_link])
-            
-            # Run the spider directly
-            result = run_crawl(input_link, anilist_id)
-            if not result:
-                logging.warning("Failed to complete MangaUpdates crawl")
-                return jsonify({
-                    "status": "partial_success",
-                    "message": "MangaUpdates link saved but failed to retrieve data",
-                }), 200
+            try:
+                # Store the MangaUpdates link in external_links
+                sqlalchemy_fns.update_manga_links(anilist_id, None, [input_link])
+                
+                # Run the spider directly
+                result = run_crawl(input_link, anilist_id)
+                if result:
+                    try:
+                        # Emit WebSocket event with updated MangaUpdates data
+                        manga_updates = db_session.query(MangaUpdatesDetails)\
+                            .filter(MangaUpdatesDetails.anilist_id == anilist_id)\
+                            .first()
+                        if manga_updates:
+                            socketio.emit('mangaupdates_data_update', {
+                                'anilist_id': anilist_id,
+                                'data': {
+                                    'status': manga_updates.status,
+                                    'licensed': manga_updates.licensed,
+                                    'completed': manga_updates.completed,
+                                    'last_updated': manga_updates.last_updated_timestamp
+                                }
+                            })
+                    except Exception as e:
+                        logging.error(f"Error emitting WebSocket update: {e}")
+                        # Continue execution even if WebSocket update fails
 
-            return jsonify({
-                "status": "success",
-                "message": "MangaUpdates link added and data retrieved successfully",
-                "extractedLinks": [input_link]
-            }), 200
+                return jsonify({
+                    "status": "success",
+                    "message": "MangaUpdates link added and data retrieved successfully",
+                    "extractedLinks": [input_link]
+                }), 200
+            except Exception as e:
+                logging.error(f"Error processing MangaUpdates link: {e}")
+                return jsonify({
+                    "status": "error",
+                    "message": f"Error processing MangaUpdates link: {str(e)}"
+                }), 500
 
         # If it's not a MangaUpdates link, process as Bato link
+        # If webhook is connected, send to webhook server
+        if webhook_status.is_connected:
+            try:
+                webhook_data = {
+                    "title": series_name,
+                    "bato_link": input_link
+                }
+                webhook_response = requests.post(
+                    "http://localhost:8000/webhook/manhwa",
+                    json=webhook_data
+                )
+                if webhook_response.status_code != 200:
+                    logging.warning(f"Webhook server returned error: {webhook_response.text}")
+            except Exception as webhook_error:
+                logging.error(f"Failed to send to webhook: {webhook_error}")
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
@@ -323,6 +380,26 @@ def add_bato_link_route():
             if not result:
                 logging.warning("Failed to complete MangaUpdates crawl, but continuing...")
 
+        # After successful processing and finding MangaUpdates link:
+        if mangaupdates_link and result:
+            try:
+                manga_updates = db_session.query(MangaUpdatesDetails)\
+                    .filter(MangaUpdatesDetails.anilist_id == anilist_id)\
+                    .first()
+                if manga_updates:
+                    socketio.emit('mangaupdates_data_update', {
+                        'anilist_id': anilist_id,
+                        'data': {
+                            'status': manga_updates.status,
+                            'licensed': manga_updates.licensed,
+                            'completed': manga_updates.completed,
+                            'last_updated': manga_updates.last_updated_timestamp
+                        }
+                    })
+            except Exception as e:
+                logging.error(f"Error emitting WebSocket update: {e}")
+                # Continue execution even if WebSocket update fails
+
         return jsonify({
             "status": "success",
             "message": "Bato link added successfully" + 
@@ -332,7 +409,10 @@ def add_bato_link_route():
 
     except Exception as e:
         logging.exception("An error occurred during the link extraction process:")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        # Return a more detailed error message
+        error_msg = f"Error processing link: {str(e)}"
+        logging.error(error_msg)
+        return jsonify({"status": "error", "message": error_msg}), 500
 
 
 @run_in_reactor
@@ -473,7 +553,8 @@ def get_notifications():
             'message': n.message,
             'importance': n.importance,
             'created_at': n.created_at.isoformat(),
-            'url': n.url
+            'url': n.url,
+            'anilist_id': n.anilist_id
         } for n in notifications])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -493,9 +574,508 @@ def mark_notification_read(notification_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Webhook routes
+@app.route('/webhook/status', methods=['GET'])
+@login_required
+def get_webhook_status():
+    """Get webhook server status"""
+    global webhook_connection, last_heartbeat
+    try:
+        # First check if we have a local connection
+        if not webhook_connection:
+            return jsonify({
+                'active': False,
+                'uptime': 0,
+                'message': 'Not connected',
+                'last_heartbeat': None,
+                'connection_time': None
+            })
+
+        # Check if we've received a heartbeat recently
+        with heartbeat_lock:
+            current_time = time.time()
+            time_since_heartbeat = current_time - last_heartbeat if last_heartbeat > 0 else None
+            is_alive = time_since_heartbeat is not None and time_since_heartbeat < 45
+
+        logging.info(f"Status check - Last heartbeat: {last_heartbeat}, Time since: {time_since_heartbeat}")
+
+        if is_alive:
+            return jsonify({
+                'active': True,
+                'uptime': int(current_time - webhook_connection['connected_at']),  # Use connection time
+                'message': 'Connected',
+                'last_heartbeat': last_heartbeat,
+                'connection_time': webhook_connection['connected_at']
+            })
+        else:
+            message = 'Waiting for first heartbeat...' if time_since_heartbeat is None else \
+                     f'Connection lost (no heartbeat for {int(time_since_heartbeat)}s)'
+            logging.warning(f"Heartbeat status: {message}")
+            return jsonify({
+                'active': True,
+                'uptime': 0,
+                'message': message,
+                'last_heartbeat': last_heartbeat if last_heartbeat > 0 else None,
+                'connection_time': webhook_connection['connected_at']
+            })
+
+    except Exception as e:
+        logging.error(f"Failed to get webhook status: {e}")
+        return jsonify({
+            'active': False,
+            'uptime': 0,
+            'message': str(e),
+            'last_heartbeat': None,
+            'connection_time': None
+        })
+
+def send_heartbeat():
+    """Send heartbeat to scraper server"""
+    global webhook_connection, last_heartbeat
+    try:
+        if not webhook_connection:
+            return False
+            
+        auth_hash = hashlib.sha256(
+            f"heartbeat{webhook_connection['webhook_secret']}".encode()
+        ).hexdigest()
+        
+        logging.info(f"Sending heartbeat with auth hash: {auth_hash[:8]}")
+        
+        response = requests.post(
+            f"{WEBHOOK_SERVER_URL}/webhook/heartbeat",
+            json={'auth_hash': auth_hash},
+            timeout=2
+        )
+        
+        if response.status_code == 200:
+            # Update last_heartbeat when we successfully send a heartbeat
+            with heartbeat_lock:
+                last_heartbeat = time.time()
+            logging.info("Heartbeat sent successfully and timestamp updated")
+            return True
+        else:
+            logging.warning(f"Heartbeat failed with status {response.status_code}: {response.text}")
+            return False
+            
+    except Exception as e:
+        logging.error(f"Heartbeat failed: {e}")
+        return False
+
+def start_heartbeat_thread():
+    """Start a thread to send periodic heartbeats"""
+    def heartbeat_loop():
+        failed_attempts = 0
+        max_failures = 12  # 2 minutes (12 attempts * 10 seconds)
+        
+        while True:
+            if webhook_connection:
+                if not send_heartbeat():
+                    failed_attempts += 1
+                    logging.warning(f"Failed to send heartbeat (attempt {failed_attempts}/{max_failures})")
+                    
+                    if failed_attempts >= max_failures:
+                        logging.error("Too many failed heartbeat attempts. Stopping heartbeat thread.")
+                        break
+                else:
+                    # Reset counter on successful heartbeat
+                    failed_attempts = 0
+            else:
+                # No connection, stop the thread
+                logging.info("No webhook connection. Stopping heartbeat thread.")
+                break
+                
+            time.sleep(10)  # Send heartbeat every 10 seconds
+            
+    thread = Thread(target=heartbeat_loop, daemon=True)
+    thread.start()
+    logging.info("Started heartbeat thread")
+    return thread
+
+@app.route('/webhook/toggle', methods=['POST'])
+@login_required
+def toggle_webhook():
+    """Connect/disconnect to webhook server"""
+    global webhook_connection, heartbeat_thread
+    try:
+        action = request.json.get('action')
+        logging.info(f"Webhook toggle action: {action}")
+        
+        if action == 'start':
+            # Stop existing heartbeat thread if it exists
+            if heartbeat_thread and heartbeat_thread.is_alive():
+                webhook_connection = None  # This will stop the existing thread
+                time.sleep(0.1)  # Give the thread time to stop
+            
+            client_secret = secrets.token_hex(32)
+            logging.info(f"Connecting to webhook server at: {WEBHOOK_SERVER_URL}")
+            
+            response = requests.post(
+                f"{WEBHOOK_SERVER_URL}/connect_webhook",
+                json={'secret': client_secret},
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                current_time = time.time()
+                webhook_connection = {
+                    'client_secret': client_secret,
+                    'webhook_secret': data['webhook_secret'],
+                    'connection_hash': data['connection_hash'],
+                    'connected_at': current_time  # Add connection timestamp
+                }
+                logging.info("Successfully established webhook connection")
+                
+                # Start new heartbeat thread
+                heartbeat_thread = start_heartbeat_thread()
+                
+                return jsonify({
+                    'success': True,
+                    'status': 'connected'
+                })
+        else:
+            webhook_connection = None  # This will stop the heartbeat thread
+            return jsonify({
+                'success': True,
+                'status': 'disconnected'
+            })
+            
+    except requests.exceptions.ConnectionError as e:
+        webhook_connection = None
+        error_msg = f"Could not connect to {WEBHOOK_SERVER_URL}: {str(e)}"
+        logging.error(error_msg)
+        return jsonify({'success': False, 'message': error_msg}), 500
+    except Exception as e:
+        webhook_connection = None
+        logging.error(f"Error in toggle_webhook: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/webhook/start_scraper', methods=['POST'])
+@login_required
+def start_scraper_command():
+    global webhook_connection
+    try:
+        if not webhook_connection:
+            return jsonify({
+                'status': 'error',
+                'message': 'Not connected to webhook server'
+            }), 400
+
+        # Generate auth hash using only webhook_secret (to match server side)
+        auth_hash = hashlib.sha256(
+            f"start_scraper{webhook_connection['webhook_secret']}".encode()
+        ).hexdigest()
+
+        logging.info(f"Sending start command with auth hash: {auth_hash[:8]}...")
+
+        response = requests.post(
+            f"{WEBHOOK_SERVER_URL}/webhook_command",
+            json={
+                'command': 'start_scraper',
+                'auth_hash': auth_hash
+            },
+            timeout=5
+        )
+
+        if response.status_code == 401:
+            logging.error("Authentication failed. Hash mismatch.")
+            return jsonify({
+                'status': 'error',
+                'message': 'Authentication failed'
+            }), 401
+
+        return jsonify(response.json()), response.status_code
+
+    except Exception as e:
+        logging.error(f"Error starting scraper: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@app.route('/webhook/stop_scraper', methods=['POST'])
+@login_required
+def stop_scraper_command():
+    global webhook_connection
+    try:
+        if not webhook_connection:
+            return jsonify({
+                'status': 'error',
+                'message': 'Not connected to webhook server'
+            }), 400
+
+        # Generate auth hash using only webhook_secret
+        auth_hash = hashlib.sha256(
+            f"stop_scraper{webhook_connection['webhook_secret']}".encode()
+        ).hexdigest()
+
+        logging.info(f"Sending stop command with auth hash: {auth_hash[:8]}...")
+
+        response = requests.post(
+            f"{WEBHOOK_SERVER_URL}/webhook_command",
+            json={
+                'command': 'stop_scraper',
+                'auth_hash': auth_hash
+            },
+            timeout=5
+        )
+
+        if response.status_code == 401:
+            logging.error("Authentication failed. Hash mismatch.")
+            return jsonify({
+                'status': 'error',
+                'message': 'Authentication failed'
+            }), 401
+
+        return jsonify(response.json()), response.status_code
+
+    except Exception as e:
+        logging.error(f"Error stopping scraper: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@app.route('/api/queue/pause', methods=['POST'])
+@login_required
+def pause_queue_task_route():
+    try:
+        data = request.json
+        title = data.get('title')
+        if not title:
+            return jsonify({'error': 'Title is required'}), 400
+
+        sqlalchemy_fns.pause_queue_task(title)
+        socketio.emit('queue_update', {'type': 'task_paused'})
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/queue/resume', methods=['POST'])
+@login_required
+def resume_queue_task_route():
+    try:
+        data = request.json
+        title = data.get('title')
+        if not title:
+            return jsonify({'error': 'Title is required'}), 400
+
+        sqlalchemy_fns.resume_queue_task(title)
+        socketio.emit('queue_update', {'type': 'task_resumed'})
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/queue/remove', methods=['POST'])
+@login_required
+def remove_queue_task_route():
+    try:
+        data = request.json
+        title = data.get('title')
+        if not title:
+            return jsonify({'error': 'Title is required'}), 400
+
+        if sqlalchemy_fns.remove_queue_task(title):
+            socketio.emit('queue_update', {'type': 'task_removed'})
+            return jsonify({'success': True}), 200
+        return jsonify({'error': 'Task not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/queue/force_priority', methods=['POST'])
+@login_required
+def force_priority_route():
+    try:
+        data = request.json
+        title = data.get('title')
+        if not title:
+            return jsonify({'error': 'Title is required'}), 400
+
+        sqlalchemy_fns.force_task_priority(title)
+        socketio.emit('queue_update', {'type': 'priority_changed'})
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/queue/add', methods=['POST'])
+@login_required
+def add_to_queue_route():
+    try:
+        data = request.json
+        title = data.get('title')
+        bato_url = data.get('bato_url')
+        anilist_id = data.get('anilist_id')
+
+        if not title or not bato_url:
+            return jsonify({'error': 'Title and Bato URL are required'}), 400
+
+        sqlalchemy_fns.add_to_queue(title, bato_url, anilist_id)
+
+        # Notify clients about both queue and download status updates
+        socketio.emit('queue_update', {'type': 'task_added'})
+        if anilist_id:
+            socketio.emit('download_status_update', {
+                'anilist_id': anilist_id,
+                'status': 'pending'
+            })
+        
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/queue/status')
+@login_required
+def get_queue_status_route():
+    try:
+        current_task, pending_tasks = sqlalchemy_fns.get_queue_status()
+        
+        return jsonify({
+            'current_task': {
+                'title': current_task.manhwa_title if current_task else None,
+                'status': current_task.status.value if current_task else None,
+                'current_chapter': current_task.current_chapter if current_task else 0,
+                'total_chapters': current_task.total_chapters if current_task else 0,
+                'error_message': current_task.error_message if current_task else None
+            } if current_task else None,
+            'queued_tasks': [{
+                'title': task.manhwa_title,
+                'status': task.status.value,
+                'created_at': task.created_at.isoformat() if task.created_at else None,
+                'current_chapter': task.current_chapter,
+                'total_chapters': task.total_chapters
+            } for task in pending_tasks]
+        })
+    except Exception as e:
+        logging.error(f"Error getting queue status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Initialize SocketIO with additional configuration
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',
+    logger=True,
+    engineio_logger=True
+)
+
+@app.route('/webhook/queue_update', methods=['POST'])
+def queue_update_notification():
+    """Endpoint for webhook server to notify about queue changes"""
+    try:
+        # Emit socket event to all connected clients
+        socketio.emit('queue_update', {
+            'timestamp': datetime.utcnow().isoformat(),
+            'type': request.json.get('type', 'update')
+        })
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        logging.error(f"Error handling queue update notification: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/webhook/heartbeat', methods=['POST'])
+def handle_heartbeat():
+    """Handle heartbeat from webhook server"""
+    global webhook_connection, last_heartbeat
+    try:
+        if not webhook_connection:
+            logging.warning("Received heartbeat but no webhook connection exists")
+            return jsonify({'error': 'Not connected'}), 401
+
+        data = request.json
+        auth_hash = data.get('auth_hash')
+        
+        logging.info(f"Received heartbeat with auth hash: {auth_hash[:8] if auth_hash else 'None'}")
+        
+        expected_hash = hashlib.sha256(
+            f"heartbeat{webhook_connection['webhook_secret']}".encode()
+        ).hexdigest()
+        
+        logging.info(f"Expected auth hash: {expected_hash[:8]}")
+
+        if auth_hash != expected_hash:
+            logging.warning(f"Invalid heartbeat auth hash. Expected: {expected_hash[:8]}, Got: {auth_hash[:8]}")
+            return jsonify({'error': 'Invalid authentication'}), 401
+
+        # Initialize last_heartbeat if it's the first heartbeat
+        with heartbeat_lock:
+            if last_heartbeat == 0:
+                logging.info("Received first heartbeat")
+            previous_heartbeat = last_heartbeat
+            last_heartbeat = time.time()
+            time_since_last = last_heartbeat - previous_heartbeat if previous_heartbeat > 0 else 0
+            
+        logging.info(f"Heartbeat received and updated. Time since last heartbeat: {time_since_last:.1f}s")
+        
+        # Notify clients about the heartbeat via WebSocket
+        socketio.emit('webhook_heartbeat', {
+            'timestamp': time.time(),
+            'connected': True
+        })
+        
+        return jsonify({'status': 'ok'}), 200
+
+    except Exception as e:
+        logging.error(f"Error handling heartbeat: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Add these routes for download status management
+@app.route('/api/download/status')
+@login_required
+def get_download_status():
+    try:
+        statuses = sqlalchemy_fns.get_download_statuses()
+        return jsonify(statuses)
+    except Exception as e:
+        logging.error(f"Error getting download status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/download/status/update', methods=['POST'])
+@login_required
+def update_download_status():
+    try:
+        data = request.json
+        anilist_id = data.get('anilist_id')
+        status = data.get('status')
+        
+        if not anilist_id or not status:
+            return jsonify({'error': 'anilist_id and status are required'}), 400
+            
+        sqlalchemy_fns.update_download_status(anilist_id, status)
+        
+        # Notify clients about the status update
+        socketio.emit('download_status_update', {
+            'anilist_id': anilist_id,
+            'status': status
+        })
+        
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        logging.error(f"Error updating download status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/manga/titles', methods=['POST'])
+def get_manga_titles():
+    data = request.get_json()
+    anilist_ids = data.get('anilist_ids', [])
+    
+    # Query the manga list table for titles
+    titles = {}
+    try:
+        manga_entries = MangaList.query.filter(MangaList.id_anilist.in_(anilist_ids)).all()
+        for entry in manga_entries:
+            titles[entry.id_anilist] = entry.title_english
+    except Exception as e:
+        print(f"Error fetching manga titles: {e}")
+        return jsonify({}), 500
+        
+    return jsonify(titles)
+
+
+
 if __name__ == '__main__':
-    start_background_services()  # Start background services before running the app
-    app.run(host='0.0.0.0', port=5000)
+    start_background_services()
+    socketio.run(app, host='0.0.0.0', port=5001)
 
 
 

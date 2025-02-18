@@ -44,6 +44,10 @@
     <link rel="shortcut icon" href="{{ url_for('static', filename='fav_icon_wip.png') }}" type="image/x-icon">
 
     <title>Eastern Tales Shelf</title>
+
+    <!-- Add in the head section -->
+    <link href="{{ url_for('static', filename='css/queue_manager.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.0.1/dist/socket.io.min.js"></script>
 </head>
     
     
@@ -125,6 +129,11 @@
                     Admin Login
                 </button>
             {% endif %}
+
+            <!-- Add near your sync button -->
+            <span id="webhookStatus" class="ms-2 text-muted">
+                Webhook: Disconnected
+            </span>
         </div>
     </div>
 </nav>
@@ -407,6 +416,15 @@
                 Release: {{ entry.status }}<br>
               </div>
               
+            <div class="manga-controls">
+                <button class="download-status-btn" 
+                        data-status="{{ entry.download_status }}"
+                        data-anilist-id="{{ entry.id_anilist }}"
+                        data-title="{{ entry.title_english }}"
+                        data-bato-url="{{ entry.bato_link }}">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
         </div>
         {% endfor %}
     </div>
@@ -470,9 +488,18 @@
 <!-- Color Picker Related -->
 <script src="{{ url_for('static', filename='js/colorPicker.js') }}"></script>
 
+<!-- Queue Manager Related -->
+<script src="{{ url_for('static', filename='js/queueManager.js') }}"></script>
+
+<!-- Webhook Status -->
+<script src="{{ url_for('static', filename='js/webhookStatus.js') }}"></script>
+
 <script type="text/javascript">
     var loginUrl = "{{ url_for('login') }}";
 </script>
+
+<!-- Add this before the closing </body> tag, with your other scripts -->
+<script src="{{ url_for('static', filename='js/mangaDownloader.js') }}"></script>
 
 </body>
 </html>

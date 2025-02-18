@@ -1010,6 +1010,7 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
 
 /* Toggle button styling */
 .toggle-chatbot {
+    display: none;
     position: fixed;
     bottom: 10px;
     right: 10px;
@@ -1052,7 +1053,7 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
     color: var(--text-color) !important; /* Light text color for contrast, use !important to override */
 }
 .bg-dark-custom .text-muted {
-    color: #cccccc !important; /* Lighter text color for contrast */
+    color: rgb(14 155 207); /* Lighter text color for contrast */
 }
 
 
@@ -1193,6 +1194,7 @@ body {
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     transition: background-color 0.2s;
+    background-color: var(--secondary-color);
 }
 
 .notification-item:hover {
@@ -1202,11 +1204,17 @@ body {
 .notification-title {
     font-weight: bold;
     margin-bottom: 5px;
+    color: var(--primary-color);
 }
 
 .notification-message {
-    color: #666;
+    color: var(--text-color);
     font-size: 0.9em;
+}
+
+.notification-time {
+    color: var(--primary-color) !important;  /* Override Bootstrap's text-muted */
+    font-size: 0.85em;
 }
 
 /* Notification types */
@@ -1217,5 +1225,99 @@ body {
 .notification-license { border-left: 4px solid #6c757d; }
 
 /* Importance levels */
-.importance-3 { background-color: #fff3f3; }
-.importance-2 { background-color: #fff9f3; }
+.importance-3 { background-color: var(--border-color); }
+.importance-2 { background-color: var(--border-color); }
+
+/* Group multiple notifications for same title */
+.notification-group {
+    border-left: 4px solid transparent;
+    margin-bottom: 1px;
+}
+
+.notification-group .notification-content {
+    padding: 10px 15px;
+}
+
+.notification-group .notification-messages {
+    margin-top: 5px;
+    padding-left: 10px;
+    border-left: 2px solid var(--border-color);
+}
+
+.notification-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.btn-close-notification {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.btn-close-notification:hover {
+    color: var(--hover-color);
+}
+
+
+/* Download button positioning */
+.manga-controls {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    z-index: 2;
+}
+
+.download-status-btn {
+    background: none;
+    border: none;
+    padding: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: var(--text-color);
+    opacity: 0.7;
+}
+
+.download-status-btn:hover {
+    opacity: 1;
+}
+
+/* Status-specific styles */
+.download-status-btn[data-status="not_downloaded"] {
+    color: var(--text-muted, #6c757d);
+}
+
+.download-status-btn[data-status="pending"] {
+    color: #ffc107;
+    animation: pulse 2s infinite;
+}
+
+.download-status-btn[data-status="downloading"] {
+    color: #17a2b8;
+    animation: spin 2s linear infinite;
+}
+
+.download-status-btn[data-status="completed"] {
+    color: #28a745;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 0.3; }
+    100% { opacity: 0.7; }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Make sure the icon is visible on hover over grid item */
+.grid-item:hover .download-status-btn {
+    opacity: 1;
+} 
