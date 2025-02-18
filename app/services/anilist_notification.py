@@ -17,7 +17,7 @@ query ($page: Int, $perPage: Int) {
         createdAt
         media { title { userPreferred } }
         episode
-        context
+        contexts
       }
       ... on RelatedMediaAdditionNotification {
         id

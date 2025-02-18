@@ -30,9 +30,10 @@ from app.models.scraper_models import ScrapeQueue, ScrapingStatus
 from flask_socketio import SocketIO
 import secrets
 import hashlib
-from background_tasks import BackgroundTaskManager
+from app.background_tasks import BackgroundTaskManager
 from app.services.anilist_notification import AnilistNotificationManager
 import asyncio
+from app.functions.class_mangalist import MangaStatusNotification, AnilistNotification
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -41,7 +42,53 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Setup for Scrapy to work asynchronously with Flask
 setup()
 
-app = Flask(__name__)
+async def handle_new_notifications(notifications):
+    """Handle new notifications from AniList"""
+    print(f"Got {len(notifications)} new notifications!")
+    # Here you could emit via websocket, store in database, etc.
+
+def create_app():
+    app = Flask(__name__)
+    
+    # Configure app
+    app.secret_key = Config.flask_secret_key
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
+    app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+    
+    
+
+    with app.app_context():
+        # Initialize notification manager and background tasks
+        global notification_manager, background_manager
+        notification_manager = AnilistNotificationManager()
+        background_manager = BackgroundTaskManager()
+        
+        # Create a thread to run the background tasks
+        def run_background_tasks():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # Start the background polling
+            background_manager.start_polling(
+                notification_manager,
+                interval=3600,  # Check every hour
+                callback=handle_new_notifications
+            )
+            
+            # Run the event loop
+            loop.run_forever()
+        
+        # Start background tasks in a separate thread
+        background_thread = Thread(target=run_background_tasks, daemon=True)
+        background_thread.start()
+    
+    return app
+
+# Create the app
+app = create_app()
 
 # Webhook related globals
 WEBHOOK_SERVER_URL = "http://localhost:5000"  # Change to 80 for production if needed
@@ -50,6 +97,8 @@ last_heartbeat = 0
 heartbeat_lock = Lock()
 heartbeat_thread = None
 
+
+
 app.secret_key = Config.flask_secret_key
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = True
@@ -57,14 +106,12 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'  # Or 'Lax'
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 
-Users = class_mangalist.Users
-
+# Initialize login manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-notification_manager = AnilistNotificationManager()
-background_manager = BackgroundTaskManager()
+Users = class_mangalist.Users
 
 
 @login_manager.user_loader
@@ -570,7 +617,7 @@ def get_notifications():
                 'type': n.notification_type,
                 'message': n.message,
                 'importance': n.importance,
-                'created_at': n.created_at.isoformat(),
+                'created_at': n.created_at.isoformat() if n.created_at else None,
                 'url': n.url,
                 'anilist_id': n.anilist_id
             })
@@ -582,19 +629,21 @@ def get_notifications():
                 'source': 'anilist',
                 'title': n.media_title or 'AniList Notification',
                 'type': n.type,
-                'message': n.reason or n.context or f"New {n.type.lower().replace('_', ' ')}",
+                'message': n.context or n.reason or f"New {n.type.lower().replace('_', ' ')}",
                 'importance': 1,  # Default importance
-                'created_at': n.created_at.isoformat(),
+                'created_at': n.created_at.isoformat() if n.created_at else None,
                 'url': f"https://anilist.co/anime/{n.media_id}" if n.media_id else None,
                 'anilist_id': n.media_id
             })
         
         # Sort all notifications by creation date
-        notifications.sort(key=lambda x: x['created_at'], reverse=True)
+        notifications.sort(key=lambda x: x['created_at'] if x['created_at'] else '', reverse=True)
         
-        return jsonify(notifications)
+        return jsonify({'notifications': notifications})  # Wrap in object
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error in get_notifications: {e}")  # Add logging
+        return jsonify({'error': str(e), 'notifications': []}), 500
 
 @app.route('/api/notifications/<string:source>/<int:notification_id>/read', methods=['POST'])
 def mark_notification_read(source, notification_id):
@@ -1119,29 +1168,15 @@ def get_manga_titles():
         
     return jsonify(titles)
 
-# Start background polling when app starts
-@app.before_first_request
-def start_background_tasks():
-    background_manager.start_polling(
-        notification_manager,
-        interval=3600,  # Check every hour
-        callback=handle_new_notifications
-    )
-
-async def handle_new_notifications(notifications):
-    # Here you could emit via websocket, store in database, etc.
-    print(f"Got {len(notifications)} new notifications!")
-    
 @app.route('/api/notifications/refresh', methods=['POST'])
 def refresh_notifications():
     """Manual refresh endpoint"""
     notifications = notification_manager.get_notifications()
     return jsonify(notifications)
 
-if __name__ == '__main__':
-    start_background_services()
-    socketio.run(app, host='0.0.0.0', port=5001)
 
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=5001)
 
 
 

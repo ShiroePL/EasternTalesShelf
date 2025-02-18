@@ -13,9 +13,11 @@ function toggleNotifications() {
 function fetchNotifications() {
     fetch('/api/notifications')
         .then(response => response.json())
-        .then(notifications => {
+        .then(data => {
             const panel = document.querySelector('.notifications-panel');
             panel.innerHTML = ''; // Clear existing notifications
+            
+            const notifications = data.notifications || [];  // Get notifications array from response
             
             if (notifications.length === 0) {
                 panel.innerHTML = '<div class="notification-item">No new notifications</div>';
@@ -27,7 +29,11 @@ function fetchNotifications() {
                 panel.appendChild(notificationElement);
             });
         })
-        .catch(error => console.error('Error fetching notifications:', error));
+        .catch(error => {
+            console.error('Error fetching notifications:', error);
+            const panel = document.querySelector('.notifications-panel');
+            panel.innerHTML = '<div class="notification-item">Error loading notifications</div>';
+        });
 }
 
 function createNotificationElement(notification) {

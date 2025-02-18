@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, create_engine, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, create_engine, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker
 from werkzeug.security import check_password_hash
 from app.config import DATABASE_URI
