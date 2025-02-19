@@ -50,7 +50,25 @@ function createNotificationElement(notification) {
     // Add title
     const title = document.createElement('div');
     title.className = 'notification-title';
-    title.textContent = notification.title;
+    
+    // For AniList notifications, try to find matching English title
+    if (notification.source === 'anilist' && notification.anilist_id) {
+        const mangaElement = document.querySelector(`[data-anilist-id="${notification.anilist_id}"]`);
+        if (mangaElement) {
+            const englishTitle = mangaElement.getAttribute('data-title');
+            const romajiTitle = mangaElement.getAttribute('data-title-romaji');
+            if (notification.original_title === romajiTitle && englishTitle) {
+                title.textContent = englishTitle;
+            } else {
+                title.textContent = notification.title;
+            }
+        } else {
+            title.textContent = notification.title;
+        }
+    } else {
+        title.textContent = notification.title;
+    }
+    
     content.appendChild(title);
     
     // Add message

@@ -605,7 +605,14 @@ def get_notifications():
             .order_by(AnilistNotification.created_at.desc())\
             .all()
         
-        # Format both types of notifications
+        # Get all manga entries for title mapping
+        manga_entries = db_session.query(MangaList).all()
+        title_map = {
+            entry.title_romaji: entry.title_english 
+            for entry in manga_entries 
+            if entry.title_english and entry.title_romaji
+        }
+        
         notifications = []
         
         # Format MangaUpdates notifications
@@ -624,25 +631,37 @@ def get_notifications():
         
         # Format AniList notifications
         for n in anilist_notifications:
+            # Try to get English title if available
+            title = n.media_title
+            if title in title_map:
+                title = title_map[title]
+            
+            # Check if it's an anime notification by looking for animeId in extra_data
+            is_anime = n.extra_data and 'animeId' in n.extra_data
+            media_id = n.extra_data.get('animeId') if is_anime else n.media_id
+            media_type = 'anime' if is_anime else 'manga'
+            
             notifications.append({
                 'id': n.notification_id,
                 'source': 'anilist',
-                'title': n.media_title or 'AniList Notification',
+                'title': title,  # Use mapped title
+                'original_title': n.media_title,  # Keep original title for reference
                 'type': n.type,
-                'message': n.context or n.reason or f"New {n.type.lower().replace('_', ' ')}",
-                'importance': 1,  # Default importance
+                'message': n.reason or n.context or f"New {n.type.lower().replace('_', ' ')}",
+                'importance': 1,
                 'created_at': n.created_at.isoformat() if n.created_at else None,
-                'url': f"https://anilist.co/anime/{n.media_id}" if n.media_id else None,
-                'anilist_id': n.media_id
+                'url': f"https://anilist.co/{media_type}/{media_id}" if media_id else None,
+                'anilist_id': n.media_id,
+                'is_anime': is_anime
             })
         
         # Sort all notifications by creation date
         notifications.sort(key=lambda x: x['created_at'] if x['created_at'] else '', reverse=True)
         
-        return jsonify({'notifications': notifications})  # Wrap in object
+        return jsonify({'notifications': notifications})
         
     except Exception as e:
-        print(f"Error in get_notifications: {e}")  # Add logging
+        print(f"Error in get_notifications: {e}")
         return jsonify({'error': str(e), 'notifications': []}), 500
 
 @app.route('/api/notifications/<string:source>/<int:notification_id>/read', methods=['POST'])
