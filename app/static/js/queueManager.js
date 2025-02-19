@@ -1,16 +1,45 @@
 class QueueManager {
     constructor() {
+        // Only initialize if user is logged in
+        if (typeof isLoggedIn === 'undefined' || !isLoggedIn) {
+            console.log('QueueManager not initialized - user not logged in');
+            return;
+        }
+
         this.isVisible = false;
         this.updateInterval = null;
         this.isConnected = false;
+        this.connectionAttempts = 0;
+        this.maxConnectionAttempts = 2;
         this.initializeUI();
         this.setupEventListeners();
         this.setupWebSocket();
         this.checkConnectionStatus();
         this.updateButtonStates();
+
+        // Only attempts auto-connect for logged-in users
+        if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
+            // Wait 5 seconds before attempting auto-connect
+            setTimeout(() => {
+                if (!this.isConnected) {
+                    this.toggleConnection().catch(error => {
+                        console.error('Auto-connect failed:', error);
+                        const webhookStatus = document.getElementById('webhookStatus');
+                        webhookStatus.textContent = 'Scraper: Auto-connect failed';
+                        webhookStatus.title = 'Click the connection button to try manually';
+                    });
+                }
+            }, 5000);
+        }
     }
 
     setupWebSocket() {
+        // Only setup WebSocket for logged-in users
+        if (!isLoggedIn) {
+            console.log('WebSocket not initialized - user not logged in');
+            return;
+        }
+
         try {
             if (typeof io !== 'undefined') {
                 this.socket = io();
@@ -48,6 +77,11 @@ class QueueManager {
     }
 
     initializeUI() {
+        // Only create UI if user is logged in
+        if (typeof isLoggedIn === 'undefined' || !isLoggedIn) {
+            return;
+        }
+
         const queueManagerHTML = `
             <button class="queue-toggle" id="queueToggle">
                 <i class="fas fa-tasks"></i>
@@ -156,8 +190,16 @@ class QueueManager {
     async toggleConnection() {
         try {
             const button = document.getElementById('toggleConnection');
+            const webhookStatus = document.getElementById('webhookStatus');
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            // Set connecting state
+            if (!this.isConnected) {
+                webhookStatus.textContent = 'Webhook: Connecting...';
+                webhookStatus.classList.remove('connected');
+                webhookStatus.dataset.connecting = 'true';
+            }
 
             console.log('Toggling webhook connection...');
             const action = this.isConnected ? 'stop' : 'start';
@@ -183,15 +225,36 @@ class QueueManager {
                 );
                 this.updateConnectionUI();
                 
-                // Dispatch event to update webhook status display
+                // Update webhook status based on connection state
+                if (this.isConnected) {
+                    webhookStatus.textContent = 'Scraper: Connected';
+                    webhookStatus.classList.add('connected');
+                } else {
+                    webhookStatus.textContent = 'Scraper: Disconnected';
+                    webhookStatus.classList.remove('connected');
+                }
+                
+                // Remove connecting state
+                webhookStatus.dataset.connecting = 'false';
+                
+                // Dispatch event for other listeners
                 document.dispatchEvent(new CustomEvent('webhookConnectionChanged'));
             } else {
                 console.error('Connection failed:', data.message);
                 this.showAlert('danger', data.message || 'Failed to toggle connection');
+                // Reset webhook status on failure
+                webhookStatus.textContent = 'Scraper: Disconnected';
+                webhookStatus.classList.remove('connected');
+                webhookStatus.dataset.connecting = 'false';
             }
         } catch (error) {
             console.error('Error toggling connection:', error);
             this.showAlert('danger', 'Failed to toggle connection');
+            // Reset webhook status on error
+            const webhookStatus = document.getElementById('webhookStatus');
+            webhookStatus.textContent = 'Scraper: Disconnected';
+            webhookStatus.classList.remove('connected');
+            webhookStatus.dataset.connecting = 'false';
         } finally {
             const button = document.getElementById('toggleConnection');
             button.disabled = false;
@@ -509,7 +572,9 @@ class QueueManager {
     }
 }
 
-// Initialize queue manager when document is ready
+// Initialize queue manager when document is ready, but only if logged in
 document.addEventListener('DOMContentLoaded', () => {
-    window.queueManager = new QueueManager();
+    if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
+        window.queueManager = new QueueManager();
+    }
 }); 

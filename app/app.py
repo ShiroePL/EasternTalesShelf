@@ -236,13 +236,6 @@ def home():
     return render_template('index.html', manga_entries=manga_entries, mangaupdates_details=mangaupdates_details, color_settings=color_settings)
 
 
-# Route for handling the log sync functionality
-@app.route('/log_sync', methods=['POST'])
-def log_sync():
-    print('Sync successful')  # Print message to console
-    return '', 204  # Return an empty response
-
-
 @app.route('/sync', methods=['POST'])
 @login_required
 def sync_with_fastapi():
@@ -570,6 +563,7 @@ def start_background_services():
     update_service_thread.start()
 
 @app.route('/api/mangaupdates/<int:anilist_id>')
+@login_required
 def get_mangaupdates_info(anilist_id):
     # Get manga updates info from database
     try:
@@ -589,6 +583,7 @@ def get_mangaupdates_info(anilist_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/notifications')
+@login_required
 def get_notifications():
     """Get unread notifications from both MangaUpdates and AniList"""
     try:
@@ -665,6 +660,7 @@ def get_notifications():
         return jsonify({'error': str(e), 'notifications': []}), 500
 
 @app.route('/api/notifications/<string:source>/<int:notification_id>/read', methods=['POST'])
+@login_required
 def mark_notification_read(source, notification_id):
     """Mark a notification as read"""
     try:
@@ -1171,6 +1167,7 @@ def update_download_status():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/manga/titles', methods=['POST'])
+@login_required
 def get_manga_titles():
     data = request.get_json()
     anilist_ids = data.get('anilist_ids', [])
@@ -1188,6 +1185,7 @@ def get_manga_titles():
     return jsonify(titles)
 
 @app.route('/api/notifications/refresh', methods=['POST'])
+@login_required
 def refresh_notifications():
     """Manual refresh endpoint"""
     notifications = notification_manager.get_notifications()

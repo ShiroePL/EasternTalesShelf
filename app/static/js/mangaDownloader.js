@@ -1,5 +1,11 @@
 class MangaDownloader {
     constructor() {
+        // Only initialize if user is logged in
+        if (typeof isLoggedIn === 'undefined' || !isLoggedIn) {
+            console.log('MangaDownloader not initialized - user not logged in');
+            return;
+        }
+
         this.initializeDownloadStatuses();
         this.setupWebSocketListeners();
         this.setupEventListeners();
@@ -109,7 +115,9 @@ class MangaDownloader {
     }
 }
 
-// Initialize downloader when document is ready
+// Initialize downloader only if user is logged in
 document.addEventListener('DOMContentLoaded', () => {
-    window.mangaDownloader = new MangaDownloader();
+    if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
+        window.mangaDownloader = new MangaDownloader();
+    }
 }); 

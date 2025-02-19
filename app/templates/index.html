@@ -5,7 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script type="text/javascript">
-        isDevelopment = {{ isDevelopment | tojson }};
+        const isDevelopment = {{ isDevelopment | tojson }};
+        const isLoggedIn = {{ 'true' if current_user.is_authenticated else 'false' }};
     </script>
     
     <!-- Open Graph meta tags -->
@@ -417,15 +418,17 @@
                 Release: {{ entry.status }}<br>
               </div>
               
-            <div class="manga-controls">
-                <button class="download-status-btn" 
-                        data-status="{{ entry.download_status }}"
-                        data-anilist-id="{{ entry.id_anilist }}"
-                        data-title="{{ entry.title_english }}"
-                        data-bato-url="{{ entry.bato_link }}">
-                    <i class="fas fa-download"></i>
-                </button>
-            </div>
+            {% if current_user.is_authenticated %}
+                <div class="manga-controls">
+                    <button class="download-status-btn" 
+                            data-status="{{ entry.download_status }}"
+                            data-anilist-id="{{ entry.id_anilist }}"
+                            data-title="{{ entry.title_english }}"
+                            data-bato-url="{{ entry.bato_link }}">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
@@ -501,6 +504,10 @@
 
 <!-- Add this before the closing </body> tag, with your other scripts -->
 <script src="{{ url_for('static', filename='js/mangaDownloader.js') }}"></script>
+
+
+
+
 
 </body>
 </html>

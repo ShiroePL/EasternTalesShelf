@@ -17,19 +17,24 @@ function updateWebhookStatus() {
     fetch('/webhook/status')
         .then(response => response.json())
         .then(data => {
-            let statusText = 'Webhook: ';
+            // Don't update if we're in the process of connecting
+            if (webhookStatus.dataset.connecting === 'true') {
+                return;
+            }
+
+            let statusText = 'Scraper: ';
             
             if (data.active) {
-                if (data.last_heartbeat === null) {
-                    statusText += 'Connecting...';
-                    webhookStatus.classList.remove('connected');
-                } else if (data.last_heartbeat === 0) {
-                    statusText += 'Waiting for heartbeat...';
-                    webhookStatus.classList.remove('connected');
+                // If we're in the initial connection phase (within first few seconds)
+                const timeSinceConnection = (Date.now() / 1000) - data.connection_time;
+                if (timeSinceConnection < 5) {  // Give 5 seconds grace period for first heartbeat
+                    // Keep showing Connected without uptime
+                    statusText += 'Connected';
+                    webhookStatus.classList.add('connected');
                 } else {
                     const timeSinceHeartbeat = (Date.now() / 1000) - data.last_heartbeat;
                     if (timeSinceHeartbeat < 45) {
-                        // Calculate uptime from initial connection time, not last heartbeat
+                        // Show uptime only after initial connection period
                         const uptimeMinutes = Math.floor((Date.now() / 1000 - data.connection_time) / 60);
                         statusText += `Connected (${formatUptime(uptimeMinutes)})`;
                         webhookStatus.classList.add('connected');
@@ -48,14 +53,13 @@ function updateWebhookStatus() {
 
             // Also update the QueueManager's connection state if it exists
             if (window.queueManager) {
-                window.queueManager.isConnected = data.active && data.last_heartbeat > 0 && 
-                    ((Date.now() / 1000) - data.last_heartbeat < 45);
+                window.queueManager.isConnected = data.active;  // Simplified connection check
                 window.queueManager.updateConnectionUI();
             }
         })
         .catch(error => {
             console.error('Error checking webhook status:', error);
-            webhookStatus.textContent = 'Webhook: Error';
+            webhookStatus.textContent = 'Scraper: Error';
             webhookStatus.classList.remove('connected');
             
             if (window.queueManager) {
@@ -78,9 +82,11 @@ function scheduleNextUpdate() {
     }, updateInterval);
 }
 
-// Initial status check and start scheduling
-updateWebhookStatus();
-scheduleNextUpdate();
+// Only start status updates for logged-in users
+if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
+    updateWebhookStatus();
+    scheduleNextUpdate();
+}
 
 // Listen for webhook connection events
 document.addEventListener('webhookConnectionChanged', (event) => {
