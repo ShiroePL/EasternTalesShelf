@@ -89,9 +89,12 @@ def create_app():
 
 # Create the app
 app = create_app()
-
+if is_development_mode.DEBUG:
+    WEBHOOK_SERVER_URL = "http://localhost:5000"  # Change to 80 for production if needed
+else:
+    WEBHOOK_SERVER_URL = os.getenv('SCRAPER_WEBHOOK_SERVER_URL')
 # Webhook related globals
-WEBHOOK_SERVER_URL = "http://localhost:5000"  # Change to 80 for production if needed
+
 webhook_connection = None
 last_heartbeat = 0
 heartbeat_lock = Lock()
@@ -739,57 +742,66 @@ def get_webhook_status():
             'connection_time': None
         })
 
+MAX_HEARTBEAT_RETRIES = 3
+
 def send_heartbeat():
-    """Send heartbeat to scraper server"""
-    global webhook_connection, last_heartbeat
-    try:
-        if not webhook_connection:
-            return False
+    global last_heartbeat, webhook_connection
+    retry_count = 0
+    
+    while retry_count < MAX_HEARTBEAT_RETRIES:
+        try:
+            retry_count += 1
+            # Generate auth hash for this heartbeat
+            auth_hash = hashlib.sha256(
+                f"heartbeat{webhook_connection['webhook_secret']}".encode()
+                ).hexdigest()
             
-        auth_hash = hashlib.sha256(
-            f"heartbeat{webhook_connection['webhook_secret']}".encode()
-        ).hexdigest()
-        
-        logging.info(f"Sending heartbeat with auth hash: {auth_hash[:8]}")
-        
-        response = requests.post(
-            f"{WEBHOOK_SERVER_URL}/webhook/heartbeat",
-            json={'auth_hash': auth_hash},
-            timeout=2
-        )
-        
-        if response.status_code == 200:
-            # Update last_heartbeat when we successfully send a heartbeat
-            with heartbeat_lock:
-                last_heartbeat = time.time()
-            logging.info("Heartbeat sent successfully and timestamp updated")
-            return True
-        else:
-            logging.warning(f"Heartbeat failed with status {response.status_code}: {response.text}")
-            return False
+            response = requests.post(
+                f"{WEBHOOK_SERVER_URL}/webhook/heartbeat",
+                json={"auth_hash": auth_hash},
+                timeout=2
+            )
             
-    except Exception as e:
-        logging.error(f"Heartbeat failed: {e}")
-        return False
+            if response.ok:
+                with heartbeat_lock:
+                    last_heartbeat = time.time()
+                    uptime = time.time() - webhook_connection['start_time']
+                socketio.emit('webhook_status', {
+                    'status': 'connected',
+                    'uptime': int(uptime / 60)  # Convert to minutes
+                })
+                return True
+                
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Heartbeat failed: {e}")
+            logging.warning(f"Failed to send heartbeat (attempt {retry_count}/{MAX_HEARTBEAT_RETRIES})")
+            
+            # Emit status update to clients
+            socketio.emit('webhook_status', {
+                'status': 'retrying',
+                'attempt': retry_count,
+                'max_attempts': MAX_HEARTBEAT_RETRIES
+            })
+            
+            if retry_count < MAX_HEARTBEAT_RETRIES:
+                time.sleep(2)  # Wait before retrying
+                continue
+                
+            # If we've exhausted all retries
+            socketio.emit('webhook_status', {
+                'status': 'failed',
+                'message': 'Connection lost after max retries'
+            })
+            return False
 
 def start_heartbeat_thread():
     """Start a thread to send periodic heartbeats"""
     def heartbeat_loop():
-        failed_attempts = 0
-        max_failures = 12  # 2 minutes (12 attempts * 10 seconds)
-        
         while True:
             if webhook_connection:
                 if not send_heartbeat():
-                    failed_attempts += 1
-                    logging.warning(f"Failed to send heartbeat (attempt {failed_attempts}/{max_failures})")
-                    
-                    if failed_attempts >= max_failures:
-                        logging.error("Too many failed heartbeat attempts. Stopping heartbeat thread.")
-                        break
-                else:
-                    # Reset counter on successful heartbeat
-                    failed_attempts = 0
+                    logging.error("Heartbeat failed. Stopping heartbeat thread.")
+                    break
             else:
                 # No connection, stop the thread
                 logging.info("No webhook connection. Stopping heartbeat thread.")
@@ -833,7 +845,8 @@ def toggle_webhook():
                     'client_secret': client_secret,
                     'webhook_secret': data['webhook_secret'],
                     'connection_hash': data['connection_hash'],
-                    'connected_at': current_time  # Add connection timestamp
+                    'connected_at': current_time,  # Add connection timestamp
+                    'start_time': current_time  # Add start time
                 }
                 logging.info("Successfully established webhook connection")
                 
@@ -1126,7 +1139,6 @@ def handle_heartbeat():
         })
         
         return jsonify({'status': 'ok'}), 200
-
     except Exception as e:
         logging.error(f"Error handling heartbeat: {e}")
         return jsonify({'error': str(e)}), 500

@@ -121,7 +121,18 @@ class QueueManager {
     setupEventListeners() {
         document.getElementById('queueToggle').addEventListener('click', () => this.toggleQueue());
         document.getElementById('minimizeQueue').addEventListener('click', () => this.toggleQueue());
-        document.getElementById('refreshQueue').addEventListener('click', () => this.updateStatus());
+        document.getElementById('refreshQueue').addEventListener('click', async () => {
+            const button = document.getElementById('refreshQueue');
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            try {
+                await this.updateStatus();
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            }
+        });
         document.getElementById('startScraper').addEventListener('click', () => this.startScraper());
         document.getElementById('stopScraper').addEventListener('click', () => this.stopScraper());
         document.getElementById('toggleConnection').addEventListener('click', () => this.toggleConnection());
@@ -337,17 +348,25 @@ class QueueManager {
 
     async updateStatus() {
         try {
-            // Get webhook status
-            const statusResponse = await fetch('/webhook/status');
-            const statusData = await statusResponse.json();
-            
+            // If we're not connected, try to reconnect first
+            if (!this.isConnected) {
+                try {
+                    await this.toggleConnection();
+                } catch (error) {
+                    console.error('Failed to reconnect:', error);
+                    // Continue to fetch queue status even if reconnect fails
+                }
+            }
+
             // Get queue status
             const queueResponse = await fetch('/api/queue/status');
             const queueData = await queueResponse.json();
 
-            this.updateUI(statusData, queueData);
+            // Update UI with queue data
+            this.updateUI(null, queueData);
         } catch (error) {
             console.error('Failed to update status:', error);
+            this.showAlert('danger', 'Failed to refresh status');
         }
     }
 
@@ -363,18 +382,17 @@ class QueueManager {
             return gridItem ? gridItem.getAttribute('data-title') : null;
         };
 
-        // Preserve any existing alerts
-        const existingAlert = statusEl.querySelector('.alert-dismissible');
-        
-        // Update scraper status
-        statusEl.innerHTML = `
-            ${existingAlert ? existingAlert.outerHTML : ''}
-            <div class="alert ${statusData.active ? 'alert-success' : 'alert-warning'}">
-                Scraper is ${statusData.active ? 'active' : 'inactive'}
-                <br>
-                <small>Uptime: ${this.formatUptime(statusData.uptime)}</small>
-            </div>
-        `;
+        // Only update scraper status if we have status data
+        if (statusData) {
+            const existingAlert = statusEl.querySelector('.alert-dismissible');
+            statusEl.innerHTML = `
+                ${existingAlert ? existingAlert.outerHTML : ''}
+                <div class="alert ${statusData.active ? 'alert-success' : 'alert-warning'}">
+                    Scraper is ${statusData.active ? 'active' : 'inactive'}
+                    ${statusData.uptime ? `<br><small>Uptime: ${this.formatUptime(statusData.uptime)}</small>` : ''}
+                </div>
+            `;
+        }
 
         // Update current task
         if (queueData.current_task) {
