@@ -50,7 +50,40 @@ class MangaDownloader {
     updateDownloadButton(anilistId, status) {
         const button = document.querySelector(`.download-status-btn[data-anilist-id="${anilistId}"]`);
         if (button) {
-            button.setAttribute('data-status', status);
+            // Make sure we have a valid status
+            const currentStatus = status || 'not_downloaded';
+            button.setAttribute('data-status', currentStatus);
+            
+            // Update icon based on status from scraper queue
+            const icon = button.querySelector('i');
+            switch(currentStatus) {
+                case 'downloading':
+                    icon.className = 'fas fa-spinner fa-spin';
+                    break;
+                case 'pending':
+                    icon.className = 'fas fa-clock';
+                    break;
+                case 'queued':
+                    icon.className = 'fas fa-list';
+                    break;
+                case 'completed':
+                    icon.className = 'fas fa-check';
+                    break;
+                case 'error':
+                    icon.className = 'fas fa-exclamation-triangle';
+                    break;
+                case 'paused':
+                    icon.className = 'fas fa-pause';
+                    break;
+                case 'stopped':
+                    icon.className = 'fas fa-stop';
+                    break;
+                case 'checking':
+                    icon.className = 'fas fa-search';
+                    break;
+                default:
+                    icon.className = 'fas fa-download';
+            }
         }
     }
 

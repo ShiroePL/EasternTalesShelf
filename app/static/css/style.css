@@ -1091,8 +1091,9 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
 }
 
 @keyframes pulse {
-    0%, 100% { transform: scale(1); }
+    0% { transform: scale(1); }
     50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
 }
 
 @keyframes vertical-move {
@@ -1265,56 +1266,92 @@ body {
 }
 
 
-/* Download button positioning */
+/* Download button positioning and styling */
 .manga-controls {
     position: absolute;
-    bottom: 10px;
-    right: 10px;
+    bottom: -14px;
+    right: -13px;
     z-index: 2;
 }
 
 .download-status-btn {
-    background: none;
-    border: none;
-    padding: 5px;
+    background-color: #000000; /* Solid black background instead of transparent */
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    padding: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
     color: var(--text-color);
     opacity: 0.7;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.download-status-btn i {
+    font-size: 1.2rem; /* Make the icon bigger */
 }
 
 .download-status-btn:hover {
     opacity: 1;
+    transform: scale(1.1);
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.4);
 }
 
-/* Status-specific styles */
+/* Download button status-specific styles */
 .download-status-btn[data-status="not_downloaded"] {
-    color: var(--text-muted, #6c757d);
+    color: var(--text-color);  /* White */
 }
 
 .download-status-btn[data-status="pending"] {
-    color: #ffc107;
+    color: #ffc107;  /* Yellow */
     animation: pulse 2s infinite;
+    opacity: 1;
 }
 
 .download-status-btn[data-status="downloading"] {
-    color: #17a2b8;
+    color: #17a2b8;  /* Blue */
     animation: spin 2s linear infinite;
 }
 
 .download-status-btn[data-status="completed"] {
-    color: #28a745;
+    color: #28a745;  /* Green */
 }
 
-@keyframes pulse {
-    0% { opacity: 0.7; }
-    50% { opacity: 0.3; }
-    100% { opacity: 0.7; }
+.download-status-btn[data-status="error"] {
+    color: #dc3545;  /* Red */
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+.download-status-btn[data-status="paused"] {
+    color: #fd7e14;  /* Orange */
+}
+
+.download-status-btn[data-status="queued"] {
+    color: #6f42c1;  /* Purple */
+    animation: pulse 2s infinite;
+}
+
+.download-status-btn[data-status="checking"] {
+    color: #20c997;  /* Teal */
+    animation: spin 1s linear infinite;
+}
+
+.download-status-btn[data-status="stopped"] {
+    color: #6c757d;  /* Gray */
+}
+
+/* Make sure the icon colors are inherited */
+.download-status-btn i {
+    font-size: 1.2rem;
+    color: inherit;  /* This ensures the icon takes the color from its parent */
+}
+
+/* Override any default Font Awesome colors */
+.download-status-btn .fas {
+    color: inherit;
 }
 
 /* Make sure the icon is visible on hover over grid item */

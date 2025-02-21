@@ -26,7 +26,7 @@ from app.functions.class_mangalist import MangaStatusNotification
 from dataclasses import dataclass
 from typing import Optional
 import time
-from app.models.scraper_models import ScrapeQueue, ScrapingStatus
+from app.models.scraper_models import ScrapeQueue
 from flask_socketio import SocketIO
 import secrets
 import hashlib
@@ -1056,7 +1056,7 @@ def get_queue_status_route():
         return jsonify({
             'current_task': {
                 'title': current_task.manhwa_title if current_task else None,
-                'status': current_task.status.value if current_task else None,
+                'status': current_task.status if current_task else None,
                 'current_chapter': current_task.current_chapter if current_task else 0,
                 'total_chapters': current_task.total_chapters if current_task else 0,
                 'error_message': current_task.error_message if current_task else None,
@@ -1064,7 +1064,7 @@ def get_queue_status_route():
             } if current_task else None,
             'queued_tasks': [{
                 'title': task.manhwa_title,
-                'status': task.status.value,
+                'status': task.status,
                 'created_at': task.created_at.isoformat() if task.created_at else None,
                 'current_chapter': task.current_chapter,
                 'total_chapters': task.total_chapters,
