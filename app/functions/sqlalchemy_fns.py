@@ -287,12 +287,9 @@ def add_to_queue(title, bato_url, anilist_id=None):
             existing_task.total_chapters = 0
             existing_task.started_at = None
             existing_task.completed_at = None
-            # Keep the original created_at
-            # Update priority to be higher than current max
             max_priority = db_session.query(func.max(ScrapeQueue.priority)).scalar() or 0
             existing_task.priority = max_priority + 1
         else:
-            # Get highest priority and add 1
             max_priority = db_session.query(func.max(ScrapeQueue.priority)).scalar() or 0
             new_task = ScrapeQueue(
                 manhwa_title=title,
@@ -328,7 +325,7 @@ def add_to_queue(title, bato_url, anilist_id=None):
         return True
     except Exception as e:
         db_session.rollback()
-        logging.error(f"Error adding task to queue: {e}")
+        logging.error(f"Error adding to queue: {e}")
         raise
 
 def get_queue_status():

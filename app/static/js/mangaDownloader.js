@@ -22,10 +22,31 @@ class MangaDownloader {
     }
 
     setupWebSocketListeners() {
-        if (window.socket) {
-            window.socket.on('download_status_update', (data) => {
-                this.updateDownloadButton(data.anilist_id, data.status);
+        if (typeof io !== 'undefined') {  // Check if Socket.IO is available
+            // Use the existing socket if available, or create a new one
+            this.socket = window.socket || io();
+            
+            // Listen for download status updates
+            this.socket.on('download_status_update', (data) => {
+                console.log('Received download status update:', data);  // Debug log
+                if (data.anilist_id && data.status) {
+                    this.updateDownloadButton(data.anilist_id, data.status);
+                }
             });
+
+            // Listen for queue updates that might affect download status
+            this.socket.on('queue_update', (data) => {
+                console.log('Received queue update:', data);  // Debug log
+                // Refresh all statuses when queue changes
+                this.initializeDownloadStatuses();
+            });
+
+            // Store socket reference globally if not already exists
+            if (!window.socket) {
+                window.socket = this.socket;
+            }
+        } else {
+            console.error('Socket.IO not loaded');
         }
     }
 
@@ -50,13 +71,12 @@ class MangaDownloader {
     updateDownloadButton(anilistId, status) {
         const button = document.querySelector(`.download-status-btn[data-anilist-id="${anilistId}"]`);
         if (button) {
-            // Make sure we have a valid status
+            console.log(`Updating button for ${anilistId} to status: ${status}`);  // Debug log
             const currentStatus = status || 'not_downloaded';
             button.setAttribute('data-status', currentStatus);
             
-            // Update icon based on status from scraper queue
             const icon = button.querySelector('i');
-            switch(currentStatus) {
+            switch(currentStatus.toLowerCase()) {  // Make case-insensitive
                 case 'downloading':
                     icon.className = 'fas fa-spinner fa-spin';
                     break;
@@ -72,23 +92,22 @@ class MangaDownloader {
                 case 'error':
                     icon.className = 'fas fa-exclamation-triangle';
                     break;
-                case 'paused':
-                    icon.className = 'fas fa-pause';
-                    break;
                 case 'stopped':
                     icon.className = 'fas fa-stop';
                     break;
-                case 'checking':
-                    icon.className = 'fas fa-search';
+                case 'not_downloaded':
+                    icon.className = 'fas fa-download';
                     break;
                 default:
+                    console.log(`Unknown status: ${currentStatus}`);  // Debug log
                     icon.className = 'fas fa-download';
             }
+        } else {
+            console.log(`Button not found for anilist_id: ${anilistId}`);  // Debug log
         }
     }
 
     async toggleDownload(button) {
-        // Get data directly from the button's data attributes instead of parent element
         const anilistId = button.dataset.anilistId;
         const title = button.dataset.title;
         const batoUrl = button.dataset.batoUrl;
@@ -113,13 +132,13 @@ class MangaDownloader {
                 body: JSON.stringify({
                     title: sanitizedTitle,
                     bato_url: batoUrl,
-                    anilist_id: parseInt(anilistId) // Ensure anilistId is a number
+                    anilist_id: parseInt(anilistId)
                 })
             });
 
             if (response.ok) {
-                button.setAttribute('data-status', 'pending');
-                // The actual status update will come through WebSocket
+                // Update the button immediately with the correct pending status
+                this.updateDownloadButton(anilistId, 'pending');
             } else {
                 throw new Error('Failed to add to queue');
             }

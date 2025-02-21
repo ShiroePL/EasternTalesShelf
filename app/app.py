@@ -969,10 +969,19 @@ def pause_queue_task_route():
         if not title:
             return jsonify({'error': 'Title is required'}), 400
 
-        sqlalchemy_fns.pause_queue_task(title)
-        socketio.emit('queue_update', {'type': 'task_paused'})
+        task = db_session.query(ScrapeQueue).filter_by(manhwa_title=title).first()
+        if task and task.anilist_id:
+            sqlalchemy_fns.pause_queue_task(title)
+            # Emit both events
+            socketio.emit('queue_update', {'type': 'task_paused'})
+            socketio.emit('download_status_update', {
+                'anilist_id': task.anilist_id,
+                'status': 'stopped'
+            })
+            logging.info(f"Emitted status update for {task.anilist_id}: stopped")  # Debug log
         return jsonify({'success': True}), 200
     except Exception as e:
+        logging.error(f"Error in pause_queue_task_route: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/queue/resume', methods=['POST'])
@@ -984,8 +993,15 @@ def resume_queue_task_route():
         if not title:
             return jsonify({'error': 'Title is required'}), 400
 
-        sqlalchemy_fns.resume_queue_task(title)
-        socketio.emit('queue_update', {'type': 'task_resumed'})
+        task = db_session.query(ScrapeQueue).filter_by(manhwa_title=title).first()
+        if task and task.anilist_id:  # Add this check
+            sqlalchemy_fns.resume_queue_task(title)
+            socketio.emit('queue_update', {'type': 'task_resumed'})
+            # Add this emit for download status
+            socketio.emit('download_status_update', {
+                'anilist_id': task.anilist_id,
+                'status': 'pending'
+            })
         return jsonify({'success': True}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -999,9 +1015,16 @@ def remove_queue_task_route():
         if not title:
             return jsonify({'error': 'Title is required'}), 400
 
-        if sqlalchemy_fns.remove_queue_task(title):
-            socketio.emit('queue_update', {'type': 'task_removed'})
-            return jsonify({'success': True}), 200
+        task = db_session.query(ScrapeQueue).filter_by(manhwa_title=title).first()
+        if task and task.anilist_id:  # Add this check
+            if sqlalchemy_fns.remove_queue_task(title):
+                socketio.emit('queue_update', {'type': 'task_removed'})
+                # Add this emit for download status
+                socketio.emit('download_status_update', {
+                    'anilist_id': task.anilist_id,
+                    'status': 'not_downloaded'
+                })
+                return jsonify({'success': True}), 200
         return jsonify({'error': 'Task not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1030,21 +1053,19 @@ def add_to_queue_route():
         bato_url = data.get('bato_url')
         anilist_id = data.get('anilist_id')
 
-        if not title or not bato_url:
-            return jsonify({'error': 'Title and Bato URL are required'}), 400
+        if not all([title, bato_url]):
+            return jsonify({'error': 'Missing required fields'}), 400
 
-        sqlalchemy_fns.add_to_queue(title, bato_url, anilist_id)
-
-        # Notify clients about both queue and download status updates
-        socketio.emit('queue_update', {'type': 'task_added'})
-        if anilist_id:
+        if sqlalchemy_fns.add_to_queue(title, bato_url, anilist_id):
+            # Emit WebSocket event for real-time update
             socketio.emit('download_status_update', {
                 'anilist_id': anilist_id,
                 'status': 'pending'
             })
-        
-        return jsonify({'success': True}), 200
+            return jsonify({'success': True}), 200
+        return jsonify({'error': 'Failed to add to queue'}), 500
     except Exception as e:
+        logging.error(f"Error adding to queue: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/queue/status')
