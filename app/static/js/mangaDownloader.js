@@ -13,9 +13,43 @@ class MangaDownloader {
 
     async initializeDownloadStatuses() {
         try {
+            // First get the queue status to get current progress for tasks
+            const queueResponse = await fetch('/api/queue/status');
+            const queueData = await queueResponse.json();
+            
+            // Create a map of anilist_id to progress info
+            const progressMap = new Map();
+            
+            // Add current task if exists
+            if (queueData.current_task && queueData.current_task.anilist_id) {
+                progressMap.set(queueData.current_task.anilist_id, {
+                    current_chapter: queueData.current_task.current_chapter,
+                    total_chapters: queueData.current_task.total_chapters
+                });
+            }
+            
+            // Add queued tasks
+            queueData.queued_tasks.forEach(task => {
+                if (task.anilist_id) {
+                    progressMap.set(task.anilist_id, {
+                        current_chapter: task.current_chapter,
+                        total_chapters: task.total_chapters
+                    });
+                }
+            });
+
+            // Now get download statuses and update with progress info
             const response = await fetch('/api/download/status');
             const statuses = await response.json();
-            this.updateAllDownloadButtons(statuses);
+            
+            statuses.forEach(status => {
+                const progress = progressMap.get(status.anilist_id);
+                this.updateDownloadButton(
+                    status.anilist_id, 
+                    status.status,
+                    progress || { current_chapter: 0, total_chapters: 0 }
+                );
+            });
         } catch (error) {
             console.error('Failed to initialize download statuses:', error);
         }
@@ -64,43 +98,80 @@ class MangaDownloader {
 
     updateAllDownloadButtons(statuses) {
         statuses.forEach(status => {
-            this.updateDownloadButton(status.anilist_id, status.status);
+            this.updateDownloadButton(status.anilist_id, status.status, {
+                current_chapter: status.current_chapter || 0,
+                total_chapters: status.total_chapters || 0
+            });
         });
     }
 
-    updateDownloadButton(anilistId, status) {
+    updateDownloadButton(anilistId, status, progress = null) {
         const button = document.querySelector(`.download-status-btn[data-anilist-id="${anilistId}"]`);
         if (button) {
-            console.log(`Updating button for ${anilistId} to status: ${status}`);  // Debug log
-            const currentStatus = status || 'not_downloaded';
+            const currentStatus = (status || 'not_downloaded').toLowerCase();
             button.setAttribute('data-status', currentStatus);
             
+            // Calculate and set progress
+            if (progress) {
+                const { current_chapter, total_chapters } = progress;
+                const progressValue = total_chapters > 0 ? current_chapter / total_chapters : 0;
+                button.style.setProperty('--progress', progressValue);
+                
+                // Update tooltip to include progress
+                const progressText = total_chapters > 0 ? 
+                    ` (${current_chapter}/${total_chapters})` : '';
+                
+                const tooltipTexts = {
+                    'not_downloaded': `Click to Download${progressText}`,
+                    'pending': `Queued for Download${progressText}`,
+                    'downloading': `Downloading...${progressText}`,
+                    'completed': `Download Complete${progressText}`,
+                    'error': `Download Failed${progressText}`,
+                    'stopped': `Download Paused${progressText}`,
+                    'queued': `In Queue${progressText}`
+                };
+                button.setAttribute('data-tooltip', tooltipTexts[currentStatus] || 'Unknown Status');
+            } else {
+                button.style.setProperty('--progress', 0);
+                // Set tooltip text
+                const tooltipTexts = {
+                    'not_downloaded': 'Click to Download',
+                    'pending': 'Queued for Download',
+                    'downloading': 'Downloading...',
+                    'completed': 'Download Complete',
+                    'error': 'Download Failed',
+                    'stopped': 'Download Paused',
+                    'queued': 'In Queue'
+                };
+                button.setAttribute('data-tooltip', tooltipTexts[currentStatus] || 'Unknown Status');
+            }
+            
+            // Update icon
             const icon = button.querySelector('i');
-            switch(currentStatus.toLowerCase()) {  // Make case-insensitive
+            switch(currentStatus) {
                 case 'downloading':
-                    icon.className = 'fas fa-spinner fa-spin';
+                    icon.className = 'fas fa-circle-notch fa-spin';  // Spinning circle
                     break;
                 case 'pending':
-                    icon.className = 'fas fa-clock';
+                    icon.className = 'fas fa-clock';  // Clock
                     break;
                 case 'queued':
-                    icon.className = 'fas fa-list';
+                    icon.className = 'fas fa-list';  // List
                     break;
                 case 'completed':
-                    icon.className = 'fas fa-check';
+                    icon.className = 'fas fa-check-circle';  // Checkmark circle
                     break;
                 case 'error':
-                    icon.className = 'fas fa-exclamation-triangle';
+                    icon.className = 'fas fa-times-circle';  // X circle
                     break;
                 case 'stopped':
-                    icon.className = 'fas fa-stop';
+                    icon.className = 'fas fa-pause-circle';  // Pause circle
                     break;
                 case 'not_downloaded':
-                    icon.className = 'fas fa-download';
+                    icon.className = 'fas fa-arrow-circle-down';  // Download arrow circle
                     break;
                 default:
-                    console.log(`Unknown status: ${currentStatus}`);  // Debug log
-                    icon.className = 'fas fa-download';
+                    icon.className = 'fas fa-arrow-circle-down';
             }
         } else {
             console.log(`Button not found for anilist_id: ${anilistId}`);  // Debug log
@@ -139,6 +210,11 @@ class MangaDownloader {
             if (response.ok) {
                 // Update the button immediately with the correct pending status
                 this.updateDownloadButton(anilistId, 'pending');
+                
+                // Refresh the queue manager
+                if (window.queueManager) {
+                    await window.queueManager.updateStatus();
+                }
             } else {
                 throw new Error('Failed to add to queue');
             }

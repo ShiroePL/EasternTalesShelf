@@ -1096,9 +1096,9 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
     100% { transform: scale(1); }
 }
 
-@keyframes vertical-move {
+@keyframes bounce {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
+    50% { transform: translateY(-3px); }
 }
 
 @keyframes fade {
@@ -1122,9 +1122,9 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
     50% { transform: rotateY(180deg); }
 }
 
-@keyframes bounce {
+@keyframes vertical-move {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+    50% { transform: translateY(-5px); }
 }
 
 .chapter-icon.flip { animation: flip 3s ease-in-out infinite; }
@@ -1271,7 +1271,7 @@ body {
     position: absolute;
     bottom: -14px;
     right: -13px;
-    z-index: 2;
+    z-index: 99998;
 }
 
 .download-status-btn {
@@ -1280,15 +1280,18 @@ body {
     border-radius: 50%;
     padding: 8px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.3s ease, box-shadow 0.3s ease;
     color: var(--text-color);
     opacity: 0.7;
-    width: 35px;
-    height: 35px;
+    width: 30px;
+    height: 30px;
     display: flex;
     justify-content: center;
     align-items: center;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: visible;
+    z-index: 99999;
 }
 
 .download-status-btn i {
@@ -1302,8 +1305,10 @@ body {
 }
 
 /* Download button status-specific styles */
-.download-status-btn[data-status="not_downloaded"] {
-    color: var(--text-color);  /* White */
+.download-status-btn[data-status="not_downloaded"],
+.download-status-btn[data-status="NOT_DOWNLOADED"] {
+    color: #26b673;  /* light green*/
+    opacity: 1;
 }
 
 .download-status-btn[data-status="pending"] {
@@ -1315,32 +1320,45 @@ body {
 .download-status-btn[data-status="downloading"] {
     color: #17a2b8;  /* Blue */
     animation: spin 2s linear infinite;
+    opacity: 1;
 }
 
 .download-status-btn[data-status="completed"] {
     color: #28a745;  /* Green */
+    animation: bounce 1s ease-in-out;
+    opacity: 1;
 }
 
 .download-status-btn[data-status="error"] {
     color: #dc3545;  /* Red */
+    opacity: 1;
 }
 
 .download-status-btn[data-status="paused"] {
     color: #fd7e14;  /* Orange */
+    opacity: 1;
 }
 
 .download-status-btn[data-status="queued"] {
     color: #6f42c1;  /* Purple */
     animation: pulse 2s infinite;
+    opacity: 1;
 }
 
 .download-status-btn[data-status="checking"] {
     color: #20c997;  /* Teal */
     animation: spin 1s linear infinite;
+    opacity: 1;
 }
 
 .download-status-btn[data-status="stopped"] {
-    color: #6c757d;  /* Gray */
+    color: #007bff;  /* Bootstrap blue instead of gray */
+    opacity: 1;
+}
+
+/* Make sure the icon inherits the color */
+.download-status-btn[data-status="stopped"] i.fas.fa-stop {
+    color: inherit;
 }
 
 /* Make sure the icon colors are inherited */
@@ -1357,4 +1375,108 @@ body {
 /* Make sure the icon is visible on hover over grid item */
 .grid-item:hover .download-status-btn {
     opacity: 1;
+}
+
+/* Hover glow effects based on status */
+.download-status-btn[data-status="not_downloaded"]:hover {
+    box-shadow: 0 0 15px rgba(38, 182, 115, 0.5);  /* Green glow */
+}
+
+.download-status-btn[data-status="pending"]:hover {
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);  /* Yellow glow */
+}
+
+.download-status-btn[data-status="downloading"]:hover {
+    box-shadow: 0 0 15px rgba(23, 162, 184, 0.5);  /* Blue glow */
+}
+
+.download-status-btn[data-status="completed"]:hover {
+    box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);  /* Green glow */
+}
+
+.download-status-btn[data-status="stopped"]:hover {
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);  /* Blue glow */
+}
+
+/* Progress ring styles */
+.download-status-btn::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 50%;
+    background: conic-gradient(
+        currentColor calc(var(--progress) * 360deg),
+        rgba(255, 255, 255, 0.1) 0deg
+    );
+    opacity: 1;
+    transition: all 0.3s;
+    pointer-events: none;
+    /* Smoother gradient transitions */
+    -webkit-mask: radial-gradient(transparent 54%, rgba(0, 0, 0, 0.3) 55%, #000 58%, #000 72%, rgba(0, 0, 0, 0.3) 75%, transparent 76%);
+    mask: radial-gradient(transparent 54%, rgba(0, 0, 0, 0.3) 55%, #000 58%, #000 72%, rgba(0, 0, 0, 0.3) 75%, transparent 76%);
+    /* Enhanced anti-aliasing */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
+    filter: blur(0.6px);  /* Increased blur for smoother edges */
+}
+
+
+
+.download-status-btn::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 140%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 10px;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 100000;
+    pointer-events: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.download-status-btn:hover::before {
+    opacity: 1;
+    visibility: visible;
+    bottom: 130%;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+/* Apply animations to different states */
+.download-status-btn[data-status="downloading"] {
+    animation: spin 2s linear infinite;
+}
+
+.download-status-btn[data-status="pending"] {
+    animation: pulse 2s infinite;
+}
+
+.download-status-btn[data-status="completed"] {
+    animation: bounce 1s ease-in-out;
 } 

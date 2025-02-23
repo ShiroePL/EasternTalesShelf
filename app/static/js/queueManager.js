@@ -424,7 +424,7 @@ class QueueManager {
                 </div>
             `;
         } else {
-            currentTaskEl.innerHTML = '<p class="text-muted">No active scraping task</p>';
+            currentTaskEl.innerHTML = '<p class="text-secondary">No active scraping task</p>';
         }
 
         // Update queued tasks
@@ -486,7 +486,7 @@ class QueueManager {
                                     </div>
                                 </div>
                                 <div>
-                                    <small class="text-muted">
+                                    <small class="text-secondary">
                                         Progress: ${task.current_chapter}/${task.total_chapters || '?'} chapters
                                         <br>
                                         Added: ${new Date(task.created_at).toLocaleString()}
