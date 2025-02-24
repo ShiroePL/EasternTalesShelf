@@ -3,7 +3,7 @@ from app.functions import sqlalchemy_fns as sqlalchemy_fns
 from flask import Flask, render_template, jsonify, request, url_for, redirect
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import json
-from app.config import is_development_mode, fastapi_updater_server_IP
+from app.config import fastapi_updater_server_IP
 import os
 import requests
 from app.config import Config
@@ -89,7 +89,7 @@ def create_app():
 
 # Create the app
 app = create_app()
-if is_development_mode.DEBUG:
+if os.getenv('FLASK_ENV') == 'development':
     WEBHOOK_SERVER_URL = "http://localhost:5000"  # Change to 80 for production if needed
 else:
     WEBHOOK_SERVER_URL = os.getenv('SCRAPER_WEBHOOK_SERVER_URL')
@@ -157,18 +157,17 @@ def inject_debug():
     # Get the current time
     now = datetime.now()
     # Subtract one hour
-    if is_development_mode == "production":
+    if os.getenv('FLASK_ENV') == 'production':
         time_of_load = now - timedelta(hours=1) # my vps is -1 hour to my local time
     else:
         time_of_load = now
     # Print the time
     print("Time of the page load: ", time_of_load)
     # printing in what mode the program is runned
-    #print("isDevelopment?: ", is_development_mode.DEBUG)
-    return dict(isDevelopment=is_development_mode.DEBUG)
+    return dict(isDevelopment=(os.getenv('FLASK_ENV') == 'development'))
 
 # Ensure this is only set for development
-app.config['DEBUG'] = bool(is_development_mode.DEBUG)
+app.config['DEBUG'] = (os.getenv('FLASK_ENV') == 'development')
 
 @app.after_request
 def set_security_headers(response):
