@@ -56,7 +56,8 @@
                 secure: true,
                 rejectUnauthorized: false,
                 transports: ['websocket', 'polling'],
-                path: '/socket.io'
+                path: '/socket.io',
+                url: isDevelopment ? undefined : 'https://manhwa-reader.shirosplayground.space'
             });
         }
     </script>
