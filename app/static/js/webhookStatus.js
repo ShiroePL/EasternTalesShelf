@@ -3,26 +3,34 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!webhookStatus) return;
 
     // Set initial state
-    webhookStatus.textContent = 'Scraper: Connecting...';
+    webhookStatus.textContent = 'Scraper: Initializing...';
     webhookStatus.classList.remove('connected');
 
-    // Check initial connection status
-    fetch('/webhook/status')
-        .then(response => response.json())
-        .then(data => {
-            if (data.active) {
-                webhookStatus.textContent = `Scraper: Connected (${formatUptime(Math.floor(data.uptime / 60))})`;
-                webhookStatus.classList.add('connected');
-            } else {
-                webhookStatus.textContent = 'Scraper: Disconnected';
+    // Add delay before first connection attempt
+    setTimeout(() => {
+        // Check initial connection status
+        fetch('/webhook/status')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Webhook status response:', data);  // Debug log
+                if (data.active) {
+                    webhookStatus.textContent = `Scraper: Connected (${formatUptime(Math.floor(data.uptime / 60))})`;
+                    webhookStatus.classList.add('connected');
+                } else {
+                    webhookStatus.textContent = `Scraper: ${data.message || 'Disconnected'}`;
+                    webhookStatus.classList.remove('connected');
+                    // Try to establish connection if not connected
+                    if (window.queueManager) {
+                        window.queueManager.initializeWebhookConnection();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking webhook status:', error);
+                webhookStatus.textContent = 'Scraper: Connection Error';
                 webhookStatus.classList.remove('connected');
-            }
-        })
-        .catch(error => {
-            console.error('Error checking webhook status:', error);
-            webhookStatus.textContent = 'Scraper: Error';
-            webhookStatus.classList.remove('connected');
-        });
+            });
+    }, 1000);  // Wait 1 second before first check
 });
 
 const webhookStatus = document.getElementById('webhookStatus');

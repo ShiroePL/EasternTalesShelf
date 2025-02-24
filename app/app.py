@@ -706,8 +706,12 @@ def get_webhook_status():
     """Get webhook server status"""
     global webhook_connection, last_heartbeat
     try:
+        # Add debug logging
+        logging.debug(f"Checking webhook status. Connection: {webhook_connection is not None}")
+        
         # First check if we have a local connection
         if not webhook_connection:
+            logging.info("No webhook connection established")
             return jsonify({
                 'active': False,
                 'uptime': 0,
@@ -725,6 +729,8 @@ def get_webhook_status():
         logging.info(f"Status check - Last heartbeat: {last_heartbeat}, Time since: {time_since_heartbeat}")
 
         if is_alive:
+            uptime = int(current_time - webhook_connection['connected_at'])
+            logging.info(f"Connection alive. Uptime: {uptime}s")
             return jsonify({
                 'active': True,
                 'uptime': int(current_time - webhook_connection['connected_at']),  # Use connection time
@@ -735,9 +741,9 @@ def get_webhook_status():
         else:
             message = 'Waiting for first heartbeat...' if time_since_heartbeat is None else \
                      f'Connection lost (no heartbeat for {int(time_since_heartbeat)}s)'
-            logging.warning(f"Heartbeat status: {message}")
+            logging.warning(f"Connection status: {message}")
             return jsonify({
-                'active': True,
+                'active': False,
                 'uptime': 0,
                 'message': message,
                 'last_heartbeat': last_heartbeat if last_heartbeat > 0 else None,
@@ -777,7 +783,7 @@ def send_heartbeat():
             if response.ok:
                 with heartbeat_lock:
                     last_heartbeat = time.time()
-                    uptime = time.time() - webhook_connection['start_time']
+                    uptime = time.time() - webhook_connection['connected_at']
                 socketio.emit('webhook_status', {
                     'status': 'connected',
                     'uptime': int(uptime / 60)  # Convert to minutes
