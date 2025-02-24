@@ -97,7 +97,7 @@ if is_development_mode:
     WEBHOOK_SERVER_URL = "http://localhost:5000"
 else:
     # Use container name and port for production
-    WEBHOOK_SERVER_URL = "http://manhwa_reader:5000"
+    WEBHOOK_SERVER_URL = "http://manhwa_reader:80"
 
 
 # Webhook related globals
