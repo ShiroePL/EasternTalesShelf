@@ -49,6 +49,17 @@
     <!-- Add in the head section -->
     <link href="{{ url_for('static', filename='css/queue_manager.css') }}" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.0.1/dist/socket.io.min.js"></script>
+    <script>
+        // Add this configuration script right after loading socket.io-client
+        if (typeof io !== 'undefined' && isLoggedIn) {
+            const socket = io({
+                secure: true,
+                rejectUnauthorized: false,
+                transports: ['websocket', 'polling'],
+                path: '/socket.io'
+            });
+        }
+    </script>
 </head>
     
     

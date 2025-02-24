@@ -8,6 +8,15 @@ services:
     environment:
       - FLASK_ENV  # Set to development or production based on your need
       - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}  # Use Doppler service token for secret injection
+    command: >
+      doppler run -- gunicorn
+      --worker-class gevent
+      --workers 1
+      --bind 0.0.0.0:80
+      --timeout 120
+      --keep-alive 5
+      --log-level debug
+      app.app:app
     networks:
       - external-containers
       - phpmyadmin_gpt_db

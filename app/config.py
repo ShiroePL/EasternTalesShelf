@@ -66,3 +66,14 @@ if database_type == "mariadb":
 elif database_type == "sql_lite":
     DATABASE_URI = 'sqlite:///anilist_db.db'
 
+# Get environment
+FLASK_ENV = os.getenv('FLASK_ENV', 'production')
+is_development_mode = FLASK_ENV == 'development'
+
+# Set webhook URL based on environment
+if is_development_mode:
+    WEBHOOK_SERVER_URL = "http://localhost:5000"
+else:
+    # Use container name and port for production
+    WEBHOOK_SERVER_URL = "http://manhwa_reader:5000"
+

@@ -107,3 +107,4 @@ wsproto==1.2.0
 yarl==1.16.0
 zipp==3.17.0
 zope.interface==7.0.3
+gevent>=22.10.2
