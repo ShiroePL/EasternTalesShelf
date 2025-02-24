@@ -28,6 +28,7 @@ from typing import Optional
 import time
 from app.models.scraper_models import ScrapeQueue
 from flask_socketio import SocketIO
+from engineio.async_drivers import gevent
 import secrets
 import hashlib
 from app.background_tasks import BackgroundTaskManager
@@ -89,10 +90,16 @@ def create_app():
 
 # Create the app
 app = create_app()
-if os.getenv('FLASK_ENV') == 'development':
-    WEBHOOK_SERVER_URL = "http://localhost:5000"  # Change to 80 for production if needed
+# Set webhook URL based on environment
+
+is_development_mode = os.getenv('FLASK_ENV') == 'development'
+if is_development_mode:
+    WEBHOOK_SERVER_URL = "http://localhost:5000"
 else:
-    WEBHOOK_SERVER_URL = os.getenv('SCRAPER_WEBHOOK_SERVER_URL')
+    # Use container name and port for production
+    WEBHOOK_SERVER_URL = "http://manhwa_reader:5000"
+
+
 # Webhook related globals
 
 webhook_connection = None
@@ -100,7 +107,13 @@ last_heartbeat = 0
 heartbeat_lock = Lock()
 heartbeat_thread = None
 
+@dataclass
+class WebhookStatus:
+    is_connected: bool = False
+    last_heartbeat: float = 0
+    connection_time: Optional[float] = None
 
+webhook_status = WebhookStatus()
 
 app.secret_key = Config.flask_secret_key
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -177,7 +190,7 @@ def set_security_headers(response):
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "img-src 'self' data:; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
-        "connect-src 'self' ws://localhost:* wss://localhost:* https://*.shirosplayground.space ws://*.shirosplayground.space wss://*.shirosplayground.space;"
+        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.shirosplayground.space wss://*.shirosplayground.space;"
     )
 
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
@@ -816,22 +829,62 @@ def start_heartbeat_thread():
 @app.route('/webhook/toggle', methods=['POST'])
 @login_required
 def toggle_webhook():
+    """Connect/disconnect to webhook server"""
+    global webhook_connection, heartbeat_thread
     try:
-        data = request.json
-        action = data.get('action')
-        
-        logging.info(f"Attempting to {action} webhook connection to {WEBHOOK_SERVER_URL}")
-        
+        action = request.json.get('action')
+        logging.info(f"Webhook toggle action: {action}")
+
         if action == 'start':
+            # Stop existing heartbeat thread if it exists
+            if heartbeat_thread and heartbeat_thread.is_alive():
+                webhook_connection = None  # This will stop the existing thread
+                time.sleep(0.1)  # Give the thread time to stop
+
+            client_secret = secrets.token_hex(32)
+            logging.info(f"Connecting to webhook server at: {WEBHOOK_SERVER_URL}")
+
             response = requests.post(
                 f"{WEBHOOK_SERVER_URL}/connect_webhook",
-                json={'client_url': request.host_url},
+                json={'secret': client_secret},
                 timeout=5
             )
-            logging.info(f"Webhook connection response: {response.status_code} - {response.text}")
-            
-            if response.ok:
-                # ... rest of your code ...
+
+            if response.status_code == 200:
+                data = response.json()
+                current_time = time.time()
+                webhook_connection = {
+                    'client_secret': client_secret,
+                    'webhook_secret': data['webhook_secret'],
+                    'connection_hash': data['connection_hash'],
+                    'connected_at': current_time,  # Add connection timestamp
+                    'start_time': current_time  # Add start time
+                }
+                logging.info("Successfully established webhook connection")
+
+                # Start new heartbeat thread
+                heartbeat_thread = start_heartbeat_thread()
+
+                return jsonify({
+                    'success': True,
+                    'status': 'connected'
+                })
+        else:
+            webhook_connection = None  # This will stop the heartbeat thread
+            return jsonify({
+                'success': True,
+                'status': 'disconnected'
+            })
+
+    except requests.exceptions.ConnectionError as e:
+        webhook_connection = None
+        error_msg = f"Could not connect to {WEBHOOK_SERVER_URL}: {str(e)}"
+        logging.error(error_msg)
+        return jsonify({'success': False, 'message': error_msg}), 500
+    except Exception as e:
+        webhook_connection = None
+        logging.error(f"Error in toggle_webhook: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/webhook/start_scraper', methods=['POST'])
 @login_required
@@ -1055,16 +1108,13 @@ def get_queue_status_route():
         logging.error(f"Error getting queue status: {e}")
         return jsonify({'error': str(e)}), 500
 
-# Initialize SocketIO with additional configuration
+# Initialize SocketIO with the correct async mode
 socketio = SocketIO(
     app,
-    cors_allowed_origins="*",
     async_mode='gevent',
-    ping_timeout=60,
-    ping_interval=25,
+    cors_allowed_origins="*",
     logger=True,
-    engineio_logger=True,
-    ssl_context='adhoc'  # For development. In production, use your actual SSL certificates
+    engineio_logger=True
 )
 
 @app.route('/webhook/queue_update', methods=['POST'])
@@ -1188,7 +1238,12 @@ def refresh_notifications():
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5001)
+    # For local development
+    if os.getenv('FLASK_ENV') == 'development':
+        socketio.run(app, host='0.0.0.0', port=5001, debug=True)
+    else:
+        # In production, Gunicorn will handle this
+        app.run()
 
 
 

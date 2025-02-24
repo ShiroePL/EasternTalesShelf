@@ -1,3 +1,30 @@
+document.addEventListener('DOMContentLoaded', function() {
+    const webhookStatus = document.getElementById('webhookStatus');
+    if (!webhookStatus) return;
+
+    // Set initial state
+    webhookStatus.textContent = 'Scraper: Connecting...';
+    webhookStatus.classList.remove('connected');
+
+    // Check initial connection status
+    fetch('/webhook/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.active) {
+                webhookStatus.textContent = `Scraper: Connected (${formatUptime(Math.floor(data.uptime / 60))})`;
+                webhookStatus.classList.add('connected');
+            } else {
+                webhookStatus.textContent = 'Scraper: Disconnected';
+                webhookStatus.classList.remove('connected');
+            }
+        })
+        .catch(error => {
+            console.error('Error checking webhook status:', error);
+            webhookStatus.textContent = 'Scraper: Error';
+            webhookStatus.classList.remove('connected');
+        });
+});
+
 const webhookStatus = document.getElementById('webhookStatus');
 
 // Function to format uptime

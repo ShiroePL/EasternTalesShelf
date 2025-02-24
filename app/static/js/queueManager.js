@@ -17,20 +17,8 @@ class QueueManager {
         this.checkConnectionStatus();
         this.updateButtonStates();
 
-        // Only attempts auto-connect for logged-in users
-        if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
-            // Wait 5 seconds before attempting auto-connect
-            setTimeout(() => {
-                if (!this.isConnected) {
-                    this.toggleConnection().catch(error => {
-                        console.error('Auto-connect failed:', error);
-                        const webhookStatus = document.getElementById('webhookStatus');
-                        webhookStatus.textContent = 'Scraper: Auto-connect failed';
-                        webhookStatus.title = 'Click the connection button to try manually';
-                    });
-                }
-            }, 5000);
-        }
+        // Add automatic connection attempt on initialization
+        this.initializeWebhookConnection();
     }
 
     setupWebSocket() {
@@ -617,6 +605,31 @@ class QueueManager {
         if (startButton && stopButton) {
             startButton.disabled = !this.isConnected;
             stopButton.disabled = !this.isConnected;
+        }
+    }
+
+    async initializeWebhookConnection() {
+        if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
+            try {
+                const response = await fetch('/webhook/toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'start' })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    console.log('Webhook connection initialized successfully');
+                    this.isConnected = true;
+                    this.updateConnectionUI();
+                } else {
+                    console.warn('Failed to initialize webhook connection:', data.message);
+                }
+            } catch (error) {
+                console.error('Error initializing webhook connection:', error);
+            }
         }
     }
 }
