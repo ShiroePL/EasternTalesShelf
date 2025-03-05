@@ -12,9 +12,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Execute deployment commands
+        working-directory: /home/ubuntu  # ✅ This applies to this entire step
         run: |
+          ls  # This now runs in /home/ubuntu
           cd some_programs
           mkdir this_folder_is_from_self_hosted_runner
           # Add any other deployment commands here
