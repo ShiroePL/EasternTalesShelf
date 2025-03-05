@@ -16,7 +16,7 @@ jobs:
         working-directory: /home/ubuntu/docker/EasternTalesShelf  
         run: |
           echo "Deploying branch: ${{ github.ref_name }}"
-          git checkoout ${{ github.ref_name }}  # Dynamically pull the correct branch
+          git checkout ${{ github.ref_name }}  # Dynamically pull the correct branch
           git pull
           # Check if Dockerfile or docker-compose.yml changed, then build
           if git diff --name-only HEAD~1 | grep -qE 'Dockerfile'; then
