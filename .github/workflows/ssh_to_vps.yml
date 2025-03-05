@@ -25,8 +25,8 @@ jobs:
             echo "No Dockerfile changes detected. Skipping build."
           fi
 
-          # Start or update the container
-          docker compose up -d
+          # ReStart or update the container
+          docker compose down && docker compose up -d
 
       - name: Notify Discord
         uses: sarisia/actions-status-discord@v1
