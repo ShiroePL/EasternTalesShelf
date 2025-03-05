@@ -3,23 +3,31 @@ name: Deploy on Self-Hosted VPS
 on:
   push:
     branches:
-      - main
-      - updater-for-mangaupdates
+      - '**'  # Run on push to any branch
+    paths-ignore:
+      - '**/dependabot/**'  # Ignore branches created by Dependabot
 
 jobs:
   deploy:
-    runs-on: self-hosted  # This specifies to use your self-hosted runner
+    runs-on: self-hosted  # Use your VPS runner
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
       - name: Execute deployment commands
-        working-directory: /home/ubuntu  # ✅ This applies to this entire step
+        working-directory: /home/ubuntu/docker/EasternTalesShelf  
         run: |
-          ls  # This now runs in /home/ubuntu
-          cd some_programs
-          mkdir this_folder_is_from_self_hosted_runner
-          # Add any other deployment commands here
+          echo "Deploying branch: ${{ github.ref_name }}"
+          git checkoout ${{ github.ref_name }}  # Dynamically pull the correct branch
+          git pull
+          # Check if Dockerfile or docker-compose.yml changed, then build
+          if git diff --name-only HEAD~1 | grep -qE 'Dockerfile'; then
+            echo "Dockerfile or Compose changed. Rebuilding Docker image..."
+            docker compose build
+          else
+            echo "No Dockerfile changes detected. Skipping build."
+          fi
+
+          # Start or update the container
+          docker compose up -d
 
       - name: Notify Discord
         uses: sarisia/actions-status-discord@v1
