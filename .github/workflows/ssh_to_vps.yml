@@ -1,43 +1,33 @@
-name: Deploy to VPS via Tailscale
+name: Deploy on Self-Hosted VPS
 
 on:
   push:
     branches:
-      - main  # Runs on push to main
-      - updater-for-mangaupdates # testing
+      - main
+      - updater-for-mangaupdates
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # This specifies to use your self-hosted runner
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        
+      - name: Execute deployment commands
+        run: |
+          cd some_programs
+          mkdir this_folder_is_from_self_hosted_runner
+          # Add any other deployment commands here
 
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          tags: tag:ci
-
-
-      - name: Setup SSH key with ssh-agent
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
-
-      - name: Deploy to VPS via SSH
-        run: ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.VPS_HOST }} "cd some_programs && mkdir this_was_made_via_github_cl"
-
-      # ✅ Send Discord Notification on Success or Failure
       - name: Notify Discord
         uses: sarisia/actions-status-discord@v1
-        if: always()  # Ensures it runs no matter what (success/failure)
+        if: always()
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: ${{ job.status }}
           title: "🚀 VPS Deployment Status"
           description: "GitHub Actions has **${{ job.status }}** the deployment.\nBranch: `${{ github.ref }}`\nCommit: `${{ github.sha }}`"
-          color: ${{ job.status == 'success' && '0x00ff00' || '0xff0000' }}  # Green if success, red if failed
+          color: ${{ job.status == 'success' && '0x00ff00' || '0xff0000' }}
           url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           username: "GitHub Actions"
           avatar_url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
