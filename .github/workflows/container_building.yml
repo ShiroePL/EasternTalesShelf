@@ -3,7 +3,7 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - main
+      - '**'  # Run on push to any branch # Ignore branches created by Dependabot
     paths:
       - 'requirements.txt'
 
