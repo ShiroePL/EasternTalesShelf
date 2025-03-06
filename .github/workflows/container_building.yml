@@ -23,7 +23,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.CR_PAT }}  # use PAT temporarily!
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6.15.0
@@ -32,9 +32,9 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/easterntalesshelf:latest
-            ghcr.io/${{ github.repository_owner }}/easterntalesshelf:${{ github.sha }}
+            ghcr.io/shiroepl/easterntalesshelf:latest
+            ghcr.io/shiroepl/easterntalesshelf:${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/easterntalesshelf:latest
+          cache-from: type=registry,ref=ghcr.io/shiroepl/easterntalesshelf:latest
           cache-to: type=inline
