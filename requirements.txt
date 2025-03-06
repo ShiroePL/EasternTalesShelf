@@ -29,6 +29,7 @@ Flask-SocketIO==5.5.1
 Flask-SQLAlchemy==3.1.1
 frozenlist==1.5.0
 fsspec==2024.10.0
+gevent==24.2.1
 googleapis-common-protos==1.65.0
 greenlet==3.0.3
 groq==0.11.0
@@ -106,5 +107,5 @@ wrapt==1.16.0
 wsproto==1.2.0
 yarl==1.16.0
 zipp==3.17.0
+zope.event==5.0
 zope.interface==7.0.3
-gevent>=22.10.2
