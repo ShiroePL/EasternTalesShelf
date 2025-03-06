@@ -5,6 +5,9 @@ FROM python:3.10-slim
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
+# Provide image metadata and description
+LABEL org.opencontainers.image.description="🐉 Eastern Tales Shelf - A Flask-based web application for managing and enjoying Korean manhwas and Japanese novels. Utilizes Gunicorn for serving, Doppler for secure environment management, and Docker Compose for deployment simplicity. Crafted with 💖 by ShiroePL."
+
 # Install system dependencies and Doppler CLI
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libc6-dev ffmpeg curl gnupg && \
