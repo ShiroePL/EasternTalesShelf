@@ -32,9 +32,9 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/shiroepl/easterntalesshelf:latest
-            ghcr.io/shiroepl/easterntalesshelf:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=registry,ref=ghcr.io/shiroepl/easterntalesshelf:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:latest
           cache-to: type=inline
