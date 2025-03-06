@@ -1,31 +1,32 @@
-name: Deploy on Self-Hosted VPS
+name: Deploy Application
 
 on:
   push:
     branches:
       - '**'  # Run on push to any branch
     paths-ignore:
-      - '**/dependabot/**'  # Ignore branches created by Dependabot
+      - '**/dependabot/**'
+      - 'requirements.txt'
+      - 'Dockerfile'
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types:
+      - completed
 
 jobs:
   deploy:
-    runs-on: self-hosted  # Use your VPS runner
+    runs-on: self-hosted
     steps:
-
-      - name: Execute deployment commands
+      - name: Git Pull Changes
         working-directory: /home/ubuntu/docker/EasternTalesShelf  
         run: |
-          echo "Deploying branch: ${{ github.ref_name }}"
-          git checkout ${{ github.ref_name }}  # Dynamically pull the correct branch
-          # Check if Dockerfile or docker-compose.yml changed, then build
-          if git diff --name-only HEAD~1 | grep -qE 'Dockerfile'; then
-            echo "Dockerfile or Compose changed. Rebuilding Docker image..."
-            docker compose build
-          else
-            echo "No Dockerfile changes detected. Skipping build."
-          fi
-
-          # ReStart or update the container
+          git pull
+          git checkout ${{ github.ref_name }}  # Switch to the correct branch
+      
+      - name: Restart Containers
+        working-directory: /home/ubuntu/docker/EasternTalesShelf  
+        run: |
+          echo "Restarting containers for branch: ${{ github.ref_name }}"
           docker compose down && docker compose up -d
 
       - name: Notify Discord
@@ -34,7 +35,7 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: ${{ job.status }}
-          title: "🚀 VPS Deployment Status"
+          title: "🚀 Deployment Status"
           description: "GitHub Actions has **${{ job.status }}** the deployment.\nBranch: `${{ github.ref }}`\nCommit: `${{ github.sha }}`"
           color: ${{ job.status == 'success' && '0x00ff00' || '0xff0000' }}
           url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

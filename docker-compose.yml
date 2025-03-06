@@ -1,6 +1,6 @@
 services:
   shiro-chan-server:
-    build: .
+    image: easterntalesshelf:local  # Use local image tag instead of pulling from registry
     restart: always
     container_name: EasternTalesShelf-website  # Custom container name
     environment:
@@ -18,8 +18,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "10m"  # Limit log files to 20MB
-        max-file: "3"    # Keep only 3 rotated log files
+        max-size: "10m"
+        max-file: "3"
     networks:
       - external-containers
       - phpmyadmin_gpt_db
