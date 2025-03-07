@@ -143,7 +143,7 @@ class QueueManager {
     }
 
     startAutoUpdate() {
-        this.updateInterval = setInterval(() => this.updateStatus(), 60000);
+        this.updateInterval = setInterval(() => this.updateStatus(), 30000);
     }
 
     stopAutoUpdate() {

@@ -329,22 +329,38 @@ def add_to_queue(title, bato_url, anilist_id=None):
         raise
 
 def get_queue_status():
-    """Get current queue status including current and pending tasks."""
+    """Get current queue status including current and pending tasks.
+       Also, clean up completed tasks from the queue."""
     try:
-        current_task = db_session.query(ScrapeQueue)\
-            .filter(ScrapeQueue.status == "in_progress")\
-            .order_by(ScrapeQueue.started_at.desc())\
+        # Delete entries with status 'completed'
+        completed_tasks = db_session.query(ScrapeQueue).filter(ScrapeQueue.status == "completed").all()
+        for task in completed_tasks:
+            db_session.delete(task)
+        db_session.commit()
+
+        # Fetch the current task that's in progress
+        current_task = (
+            db_session.query(ScrapeQueue)
+            .filter(ScrapeQueue.status == "in_progress")
+            .order_by(ScrapeQueue.started_at.desc())
             .first()
-            
-        pending_tasks = db_session.query(ScrapeQueue)\
-            .filter(ScrapeQueue.status.in_(["pending", "stopped"]))\
-            .order_by(ScrapeQueue.priority.desc(), ScrapeQueue.created_at.asc())\
+        )
+
+        # Fetch all pending or stopped tasks ordered by priority and creation time
+        pending_tasks = (
+            db_session.query(ScrapeQueue)
+            .filter(ScrapeQueue.status.in_(["pending", "stopped"]))
+            .order_by(ScrapeQueue.priority.desc(), ScrapeQueue.created_at.asc())
             .all()
+        )
 
         return current_task, pending_tasks
+
     except Exception as e:
         logging.error(f"Error getting queue status: {e}")
+        db_session.rollback()
         raise
+
 
 # Add this function to initialize download status table
 def initialize_download_status():

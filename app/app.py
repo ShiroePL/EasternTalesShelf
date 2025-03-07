@@ -35,6 +35,7 @@ from app.background_tasks import BackgroundTaskManager
 from app.services.anilist_notification import AnilistNotificationManager
 import asyncio
 from app.functions.class_mangalist import MangaStatusNotification, AnilistNotification
+from sqlalchemy import text
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -1044,6 +1045,7 @@ def remove_queue_task_route():
                 })
                 return jsonify({'success': True}), 200
         return jsonify({'error': 'Task not found'}), 404
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1242,6 +1244,137 @@ def refresh_notifications():
     notifications = notification_manager.get_notifications()
     return jsonify(notifications)
 
+@app.route('/animelist')
+@login_required
+def animelist():
+    """Display the anime list page"""
+    try:
+        # Query the database for anime list entries using SQLAlchemy with text()
+        anime_list_entries = db_session.execute(
+            text('SELECT * FROM anime_list ORDER BY last_updated_on_site DESC')
+        ).fetchall()
+        
+        anime_entries = []
+        episode_count = 0
+        tv_count = 0
+        ova_count = 0
+        special_count = 0
+        movie_count = 0
+        average_score_count = 0
+        record_count = 0
+        record_count_without_rating = 0
+        
+        # Process the result into a list of dictionaries
+        if anime_list_entries:
+            for row in anime_list_entries:
+                anime_entries.append({
+                    'id_mal': row.id_mal,
+                    'media_format': row.media_format,
+                    'title_romaji': row.title_romaji,
+                    'episodes_progress': row.episodes_progress,
+                    'all_episodes': row.all_episodes,
+                    'on_list_status': row.on_list_status,
+                    'score': row.score,
+                    'air_status': row.air_status,
+                    'notes': row.notes,
+                    'user_stardetAt': row.user_stardetAt,
+                    'user_completedAt': row.user_completedAt,
+                    'rewatched_times': row.rewatched_times
+                })
+                
+                # Calculate statistics
+                record_count += 1
+                if row.score != 0:
+                    record_count_without_rating += 1
+                episode_count += row.episodes_progress
+                if row.media_format == 'TV':
+                    tv_count += 1
+                elif row.media_format == 'OVA':
+                    ova_count += 1
+                elif row.media_format == 'Special':
+                    special_count += 1
+                elif row.media_format == 'Movie':
+                    movie_count += 1
+                if row.score != 0:
+                    average_score_count += row.score
+                    
+                # Add rewatched episodes to count
+                if row.rewatched_times != 0:
+                    episode_count += row.episodes_progress * row.rewatched_times
+        
+        # Calculate average score
+        avg_score = round(average_score_count / record_count_without_rating, 2) if record_count_without_rating > 0 else 0
+        
+        # Calculate days spent watching
+        days_watched = round((episode_count * 23.8) / 60 / 24, 2)
+        
+        statistics = {
+            'record_count': record_count,
+            'tv_count': tv_count,
+            'ova_count': ova_count,
+            'special_count': special_count,
+            'movie_count': movie_count,
+            'episode_count': episode_count,
+            'days_watched': days_watched,
+            'avg_score': avg_score
+        }
+        
+        # Load user color settings
+        color_settings = load_color_settings()
+        
+        return render_template('animelist.html', 
+                               anime_entries=anime_entries, 
+                               statistics=statistics,
+                               color_settings=color_settings)
+    
+    except Exception as e:
+        logging.exception("Error loading anime list:")
+        return render_template('animelist.html', anime_entries=[], error=str(e))
+
+@app.route('/api/update_episodes', methods=['POST'])
+@login_required
+def update_episodes():
+    """Update the number of episodes watched for an anime"""
+    try:
+        data = request.json
+        anime_id = data.get('animeId')
+        episodes = data.get('episodes')
+        
+        if not anime_id or episodes is None:
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+            
+        # Validate that episodes is a number
+        try:
+            episodes = int(episodes)
+            if episodes < 0:
+                return jsonify({'success': False, 'message': 'Episodes must be a positive number'}), 400
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Episodes must be a valid number'}), 400
+            
+        # Update the database using SQLAlchemy with text()
+        try:
+            db_session.execute(
+                text("UPDATE anime_list SET episodes_progress = :episodes WHERE id_mal = :anime_id"),
+                {"episodes": episodes, "anime_id": anime_id}
+            )
+            db_session.commit()
+            
+            # Log the successful update
+            logging.info(f"Updated episodes for anime ID {anime_id} to {episodes}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully updated episodes to {episodes}'
+            }), 200
+            
+        except Exception as db_error:
+            db_session.rollback()
+            logging.error(f"Database error during episode update: {db_error}")
+            return jsonify({'success': False, 'message': f'Database error: {str(db_error)}'}), 500
+            
+    except Exception as e:
+        logging.exception("Error updating episodes:")
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     # For local development
