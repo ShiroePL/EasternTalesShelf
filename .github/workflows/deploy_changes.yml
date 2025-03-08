@@ -3,11 +3,13 @@ name: Deploy Application
 on:
   push:
     branches:
-      - '**'  # Run on push to any branch
+      - '**'
     paths-ignore:
       - '**/dependabot/**'
       - 'requirements.txt'
       - 'Dockerfile'
+      - 'docker-compose.yml'
+
   workflow_run:
     workflows: ["Build and Push Docker Image"]
     types:
@@ -16,13 +18,16 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Git Pull Changes
         working-directory: /home/ubuntu/docker/EasternTalesShelf  
         run: |
           git pull
-          git checkout ${{ github.ref_name }}  # Switch to the correct branch
-      
+          git checkout ${{ github.ref_name }}
+
       - name: Restart Containers
         working-directory: /home/ubuntu/docker/EasternTalesShelf  
         run: |
@@ -36,7 +41,10 @@ jobs:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: ${{ job.status }}
           title: "🚀 Deployment Status"
-          description: "GitHub Actions has **${{ job.status }}** the deployment.\nBranch: `${{ github.ref }}`\nCommit: `${{ github.sha }}`"
+          description: |
+            GitHub Actions has **${{ job.status }}** the deployment.
+            Branch: `${{ github.ref_name }}`
+            Commit: `${{ github.sha }}`
           color: ${{ job.status == 'success' && '0x00ff00' || '0xff0000' }}
           url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           username: "GitHub Actions"
