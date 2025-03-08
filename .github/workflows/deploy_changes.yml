@@ -26,7 +26,6 @@ jobs:
       - name: Restart Containers
         working-directory: /home/ubuntu/docker/EasternTalesShelf  
         run: |
-          source ~/.zshrc
           echo "Restarting containers for branch: ${{ github.ref_name }}"
           docker compose down && docker compose up -d
 
