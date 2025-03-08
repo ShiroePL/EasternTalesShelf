@@ -375,7 +375,6 @@
         {% set details = mangaupdates_details | selectattr('anilist_id', 'equalto', entry.id_anilist) | first %}
         <div class="grid-item"
             onclick="showDetails(this)"
-            style="background-image: url('/static/covers/{{ entry.id_anilist }}.avif'); background-size: cover; background-position: center;"
             data-anilist-id="{{ entry.id_anilist }}"
             data-id-mal="{{ entry.id_mal }}"
             data-user-status="{{ entry.on_list_status }}"
@@ -407,9 +406,20 @@
             data-mangaupdates-licensed="{{ details.licensed if details else '' }}"
             data-mangaupdates-completed="{{ details.completed if details else '' }}"
             data-mangaupdates-last-updated="{{ details.last_updated_timestamp if details else '' }}"
+            {% if entry.is_cover_downloaded %}
+            style="background-image: url('/static/covers/{{ entry.id_anilist }}.avif'); background-size: cover; background-position: center;"
+            {% else %}
+            class="skeleton-cover"
+            {% endif %}
             data-aos="fade-up" 
             data-aos-offset="200"
             data-aos-duration="1000">
+
+            {% if not entry.is_cover_downloaded %}
+            <div class="skeleton-placeholder">
+                <div class="skeleton-animation"></div>
+            </div>
+            {% endif %}
 
             <div class="grid-item-title">{{ entry.title_english }}</div> <!-- Assuming 'english' is the key for the English title -->
            
@@ -516,6 +526,73 @@
 
 <!-- Add this before the closing </body> tag, with your other scripts -->
 <script src="{{ url_for('static', filename='js/mangaDownloader.js') }}"></script>
+
+<script>
+    // Add this to your existing JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+        // Find all skeleton covers
+        const skeletonCovers = document.querySelectorAll('.skeleton-cover');
+        
+        if (skeletonCovers.length > 0) {
+            // Collect anilist IDs
+            const anilistIds = Array.from(skeletonCovers).map(cover => 
+                cover.getAttribute('data-anilist-id')
+            );
+            
+            // Function to check covers
+            function checkCovers() {
+                fetch('/api/check_covers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ anilist_ids: anilistIds }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results) {
+                        let updatedAny = false;
+                        
+                        // Update covers that are now available
+                        skeletonCovers.forEach(cover => {
+                            const id = cover.getAttribute('data-anilist-id');
+                            const result = data.results[id];
+                            
+                            if (result && result.downloaded) {
+                                // Remove skeleton class
+                                cover.classList.remove('skeleton-cover');
+                                
+                                // Set background image
+                                cover.style.backgroundImage = `url('${result.path}')`;
+                                cover.style.backgroundSize = 'cover';
+                                cover.style.backgroundPosition = 'center';
+                                
+                                // Remove skeleton placeholder
+                                const placeholder = cover.querySelector('.skeleton-placeholder');
+                                if (placeholder) {
+                                    cover.removeChild(placeholder);
+                                }
+                                
+                                updatedAny = true;
+                            }
+                        });
+                        
+                        // If we still have skeletons and updated at least one cover, check again in 3 seconds
+                        if (updatedAny && document.querySelectorAll('.skeleton-cover').length > 0) {
+                            setTimeout(checkCovers, 3000);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking covers:', error);
+                });
+            }
+            
+            // Initial check after 2 seconds (give time for initial downloads)
+            setTimeout(checkCovers, 2000);
+        }
+    });
+</script>
 
 
 

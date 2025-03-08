@@ -214,18 +214,23 @@ def home():
     for entry in manga_entries:
         entry['download_status'] = download_statuses.get(entry['id_anilist'], 'not_downloaded')
     
-    # Identify entries with missing covers and download them
+    # Identify entries with missing covers and download them in a background thread
     ids_to_download = [entry['id_anilist'] for entry in manga_entries if not entry['is_cover_downloaded']]
     
     if ids_to_download:
-        try:
-            successful_ids = download_covers.download_covers_concurrently(ids_to_download, manga_entries)
-            # Bulk update the database to mark the covers as downloaded only for successful ones
-            if successful_ids:
-                sqlalchemy_fns.update_cover_download_status_bulk(successful_ids, True)
-        except Exception as e:
-            print(f"Error during download or database update: {e}")
-
+        # Start a background thread to download covers instead of blocking the page load
+        def download_covers_background():
+            try:
+                successful_ids = download_covers.download_covers_concurrently(ids_to_download, manga_entries)
+                # Bulk update the database to mark the covers as downloaded only for successful ones
+                if successful_ids:
+                    sqlalchemy_fns.update_cover_download_status_bulk(successful_ids, True)
+            except Exception as e:
+                print(f"Error during download or database update: {e}")
+        
+        # Start the download thread
+        download_thread = Thread(target=download_covers_background, daemon=True)
+        download_thread.start()
 
     #print(manga_entries)
     for entry in manga_entries:
@@ -1375,6 +1380,46 @@ def update_episodes():
     except Exception as e:
         logging.exception("Error updating episodes:")
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+@app.route('/api/check_covers', methods=['POST'])
+def check_covers():
+    """Check if the specified covers have been downloaded"""
+    try:
+        data = request.get_json()
+        anilist_ids = data.get('anilist_ids', [])
+        
+        if not anilist_ids:
+            return jsonify({'error': 'No IDs provided'}), 400
+        
+        results = {}
+        covers_dir = os.path.join('app', 'static', 'covers')
+        
+        for anilist_id in anilist_ids:
+            # Check if AVIF exists first (preferred format)
+            avif_path = os.path.join(covers_dir, f"{anilist_id}.avif")
+            webp_path = os.path.join(covers_dir, f"{anilist_id}.webp")
+            
+            if os.path.exists(avif_path):
+                results[anilist_id] = {
+                    'downloaded': True,
+                    'format': 'avif',
+                    'path': f'/static/covers/{anilist_id}.avif'
+                }
+            elif os.path.exists(webp_path):
+                results[anilist_id] = {
+                    'downloaded': True,
+                    'format': 'webp', 
+                    'path': f'/static/covers/{anilist_id}.webp'
+                }
+            else:
+                results[anilist_id] = {
+                    'downloaded': False
+                }
+        
+        return jsonify({'results': results})
+    except Exception as e:
+        logging.error(f"Error checking covers: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # For local development
