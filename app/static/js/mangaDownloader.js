@@ -44,7 +44,7 @@ class MangaDownloader {
             
             statuses.forEach(status => {
                 const progress = progressMap.get(status.anilist_id);
-                this.updateDownloadStatus(
+                this.updateDownloadButton(
                     status.anilist_id, 
                     status.status,
                     progress || { current_chapter: 0, total_chapters: 0 }
@@ -87,8 +87,8 @@ class MangaDownloader {
     setupEventListeners() {
         // Use event delegation for download buttons
         document.addEventListener('click', (e) => {
-            const button = e.target.closest('.download-progress-container');
-            if (button && !window.downloadProgressCircles) {
+            const button = e.target.closest('.download-status-btn');
+            if (button) {
                 e.preventDefault();
                 e.stopPropagation();  // Prevent triggering parent element clicks
                 this.toggleDownload(button);
@@ -106,47 +106,75 @@ class MangaDownloader {
     }
 
     updateDownloadButton(anilistId, status, progress = null) {
-        const currentStatus = (status || 'not_downloaded').toLowerCase();
-        
-        // If we have the new implementation, use it
-        if (window.downloadProgressCircles) {
-            window.downloadProgressCircles.updateProgressCircle(anilistId, currentStatus, progress);
-            return;
-        }
-        
-        // Legacy implementation for backward compatibility
-        const button = document.querySelector(`.download-progress-container[data-anilist-id="${anilistId}"]`);
+        const button = document.querySelector(`.download-status-btn[data-anilist-id="${anilistId}"]`);
         if (button) {
+            const currentStatus = (status || 'not_downloaded').toLowerCase();
             button.setAttribute('data-status', currentStatus);
             
-            // Calculate and set progress
-            if (progress) {
-                let progressValue;
-                
-                // For completed status, always show 100%
-                if (currentStatus === 'completed') {
-                    progressValue = 1;
-                } else {
-                    const { current_chapter, total_chapters } = progress;
-                    progressValue = total_chapters > 0 ? current_chapter / total_chapters : 0;
-                }
-                
+            // Set progress to 100% for completed status
+            if (currentStatus === 'completed') {
+                button.style.setProperty('--progress', 1); // Set to 100% progress
+            } else if (progress) {
+                const { current_chapter, total_chapters } = progress;
+                const progressValue = total_chapters > 0 ? current_chapter / total_chapters : 0;
                 button.style.setProperty('--progress', progressValue);
                 
                 // Update tooltip to include progress
-                const progressText = progress.total_chapters > 0 ? 
-                    ` (${progress.current_chapter}/${progress.total_chapters})` : '';
+                const progressText = total_chapters > 0 ? 
+                    ` (${current_chapter}/${total_chapters})` : '';
                 
                 const tooltipTexts = {
                     'not_downloaded': `Click to Download${progressText}`,
                     'pending': `Queued for Download${progressText}`,
                     'downloading': `Downloading...${progressText}`,
-                    'completed': `Download Complete`,
+                    'completed': `Download Complete${progressText}`,
                     'error': `Download Failed${progressText}`,
                     'stopped': `Download Paused${progressText}`,
                     'queued': `In Queue${progressText}`
                 };
                 button.setAttribute('data-tooltip', tooltipTexts[currentStatus] || 'Unknown Status');
+            } else {
+                button.style.setProperty('--progress', 0);
+                // Set tooltip text
+                const tooltipTexts = {
+                    'not_downloaded': 'Click to Download',
+                    'pending': 'Queued for Download',
+                    'downloading': 'Downloading...',
+                    'completed': 'Download Complete',
+                    'error': 'Download Failed',
+                    'stopped': 'Download Paused',
+                    'queued': 'In Queue'
+                };
+                button.setAttribute('data-tooltip', tooltipTexts[currentStatus] || 'Unknown Status');
+            }
+            
+            // Update icon
+            const icon = button.querySelector('i');
+            switch(currentStatus) {
+                case 'downloading':
+                    icon.className = 'fas fa-circle-notch fa-spin';  // Spinning circle
+                    break;
+                case 'pending':
+                    icon.className = 'fas fa-clock';  // Clock
+                    break;
+                case 'queued':
+                    icon.className = 'fas fa-list';  // List
+                    break;
+                case 'completed':
+                    icon.className = 'fas fa-star';  // Changed from check-circle to star
+                    button.classList.add('completed-download'); // Add class for additional styling
+                    break;
+                case 'error':
+                    icon.className = 'fas fa-times-circle';  // X circle
+                    break;
+                case 'stopped':
+                    icon.className = 'fas fa-pause-circle';  // Pause circle
+                    break;
+                case 'not_downloaded':
+                    icon.className = 'fas fa-arrow-circle-down';  // Download arrow circle
+                    break;
+                default:
+                    icon.className = 'fas fa-arrow-circle-down';
             }
         } else {
             console.log(`Button not found for anilist_id: ${anilistId}`);  // Debug log
