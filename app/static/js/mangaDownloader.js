@@ -9,6 +9,9 @@ class MangaDownloader {
         this.initializeDownloadStatuses();
         this.setupWebSocketListeners();
         this.setupEventListeners();
+        
+        // Add new function call to hide buttons without Bato URLs
+        this.hideButtonsWithoutBatoUrls();
     }
 
     async initializeDownloadStatuses() {
@@ -94,6 +97,14 @@ class MangaDownloader {
                 this.toggleDownload(button);
             }
         });
+        
+        // Add event listener for DOM changes to handle dynamically added content
+        const observer = new MutationObserver((mutations) => {
+            this.hideButtonsWithoutBatoUrls();
+        });
+        
+        // Start observing the document with the configured parameters
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
     updateAllDownloadButtons(statuses) {
@@ -239,10 +250,24 @@ class MangaDownloader {
         return name || "unnamed";
     }
 
+    // Add new method to hide buttons without Bato URLs
+    hideButtonsWithoutBatoUrls() {
+        const downloadButtons = document.querySelectorAll('.download-status-btn');
+        downloadButtons.forEach(button => {
+            const batoUrl = button.dataset.batoUrl;
+            if (!batoUrl) {
+                button.style.display = 'none';
+            } else {
+                button.style.display = 'flex'; // or 'block' or whatever the default is
+            }
+        });
+    }
+
     showError(message) {
         // Implement error display logic
         console.error(message);
         // You could create a toast notification or use existing alert system
+        alert(message); // Add a basic alert for better visibility
     }
 }
 
