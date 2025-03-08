@@ -1389,10 +1389,17 @@ def check_covers():
         anilist_ids = data.get('anilist_ids', [])
         
         if not anilist_ids:
+            logging.warning("Check covers called with no IDs")
             return jsonify({'error': 'No IDs provided'}), 400
         
+        logging.info(f"Checking covers for {len(anilist_ids)} IDs")
         results = {}
         covers_dir = os.path.join('app', 'static', 'covers')
+        
+        # Ensure the covers directory exists
+        if not os.path.exists(covers_dir):
+            logging.warning(f"Covers directory does not exist: {covers_dir}")
+            os.makedirs(covers_dir, exist_ok=True)
         
         for anilist_id in anilist_ids:
             # Check if AVIF exists first (preferred format)
@@ -1400,21 +1407,35 @@ def check_covers():
             webp_path = os.path.join(covers_dir, f"{anilist_id}.webp")
             
             if os.path.exists(avif_path):
+                logging.debug(f"Found AVIF cover for ID {anilist_id}")
                 results[anilist_id] = {
                     'downloaded': True,
                     'format': 'avif',
                     'path': f'/static/covers/{anilist_id}.avif'
                 }
             elif os.path.exists(webp_path):
+                logging.debug(f"Found WebP cover for ID {anilist_id}")
                 results[anilist_id] = {
                     'downloaded': True,
                     'format': 'webp', 
                     'path': f'/static/covers/{anilist_id}.webp'
                 }
             else:
+                logging.debug(f"No cover found for ID {anilist_id}")
                 results[anilist_id] = {
                     'downloaded': False
                 }
+        
+        # If any covers were found, update the database
+        downloaded_ids = [int(id) for id, result in results.items() 
+                         if result['downloaded'] and id.isdigit()]
+        
+        if downloaded_ids:
+            logging.info(f"Updating database for {len(downloaded_ids)} newly found covers")
+            try:
+                sqlalchemy_fns.update_cover_download_status_bulk(downloaded_ids, True)
+            except Exception as e:
+                logging.error(f"Error updating cover status in database: {e}")
         
         return jsonify({'results': results})
     except Exception as e:
