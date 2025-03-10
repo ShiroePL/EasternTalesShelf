@@ -1,0 +1,292 @@
+.queue-manager {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 600px;
+    background-color: var(--secondary-color);
+    
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: none;
+    color: var(--text-color);
+}
+
+.queue-header {
+    padding: 10px 15px;
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.queue-content {
+    padding: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+    color: var(--text-color);
+}
+
+.current-task {
+    background-color: rgba(0, 123, 255, 0.1);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.task-progress {
+    margin: 10px 0;
+    background-color: var(--background-color);
+    border-radius: 4px;
+    height: 20px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.queued-tasks {
+    list-style: none;
+    padding: 0;
+}
+
+.queued-task {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px;
+    color: var(--text-color);
+}
+
+.queued-task > div:first-child {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.queued-task .task-title {
+    flex: 1;
+    max-width: 450px;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.queued-task .text-muted {
+    color: #a0a0a0 !important;
+}
+
+.badge {
+    font-size: 0.75em;
+    padding: 0.25em 0.5em;
+    border-radius: 3px;
+    color: var(--text-color);
+    background-color: var(--primary-color);
+}
+
+.badge.bg-warning {
+    color: #000;
+    background-color: #ffc107 !important;
+}
+
+.badge.bg-secondary {
+    color: var(--text-color);
+    background-color: #495057 !important;
+}
+
+.remove-task {
+    color: #ff4444;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.remove-task:hover {
+    background-color: rgba(255, 68, 68, 0.1);
+}
+
+.queue-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Add these styles for the webhook status */
+#webhookStatus {
+    color: #fff;
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    background-color: #dc3545;  /* Red for disconnected */
+    transition: background-color 0.3s ease;
+}
+
+#webhookStatus.connected {
+    background-color: #198754;  /* Green for connected */
+}
+
+#webhookStatus:not(.connected) {
+    color: var(--bs-secondary);
+} 
+
+.webhook-status-container {
+    display: flex;
+    align-items: center;
+    margin-left: 1rem;
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.task-header h6 {
+    margin: 0;
+    max-width: calc(100% - 100px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+.task-controls {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+    margin-left: auto;
+    width: auto;
+}
+
+.task-controls button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.task-controls button:hover {
+    opacity: 0.8;
+}
+
+.btn-outline-success {
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-outline-warning {
+    color: #ffc107;
+    border-color: #ffc107;
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-primary {
+    color: #007bff;
+    border-color: #007bff;
+}
+
+/* Hover states */
+.btn-outline-success:hover {
+    color: #fff;
+    background-color: #28a745;
+}
+
+.btn-outline-warning:hover {
+    color: #fff;
+    background-color: #ffc107;
+}
+
+.btn-outline-danger:hover {
+    color: #fff;
+    background-color: #dc3545;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: #007bff;
+}
+
+/* Improve alert visibility */
+.alert-warning {
+    color: #856404;
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+}
+
+.alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+/* Make small text more visible */
+small {
+    color: #a0a0a0;
+}
+
+/* Make progress info stay in one line */
+.task-progress-info {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.9em;
+}
+
+.task-progress-info small {
+    white-space: nowrap;
+}
+
+/* Style for title in queued tasks */
+.queued-task .task-header span {
+    margin: 0;
+    max-width: calc(100% - 150px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Custom scrollbar styles */
+.queue-content::-webkit-scrollbar {
+    width: 12px;               /* width of the entire scrollbar */
+}
+  
+.queue-content::-webkit-scrollbar-track {
+    background: var(--secondary-color);
+    border-radius: 10px;       /* color of the tracking area */
+}
+
+.queue-content::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color);    /* color of the scroll thumb */
+    border-radius: 20px;       /* roundness of the scroll thumb */
+    border: 3px solid var(--background-color);  /* creates padding around scroll thumb */
+}
