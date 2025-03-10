@@ -407,7 +407,7 @@
             data-mangaupdates-completed="{{ details.completed if details else '' }}"
             data-mangaupdates-last-updated="{{ details.last_updated_timestamp if details else '' }}"
             {% if entry.is_cover_downloaded %}
-            style="background-image: url('/static/covers/{{ entry.id_anilist }}.avif'); background-size: cover; background-position: center;"
+            style="background-image: url('{% if isDevelopment %}/dev_covers/{{ entry.id_anilist }}.avif{% else %}/static/covers/{{ entry.id_anilist }}.avif{% endif %}'); background-size: cover; background-position: center;"
             {% endif %}
             data-aos="fade-up" 
             data-aos-offset="200"
