@@ -61,6 +61,17 @@
             });
         }
     </script>
+    <link href="{{ url_for('static', filename='css/notifications.css') }}" rel="stylesheet">
+
+    <!-- Add these links in the <head> section, just before your closing </head> tag -->
+    <!-- Import Element Plus styles -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css" />
+    <!-- Import Vue 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3"></script>
+    <!-- Import Element Plus components -->
+    <script src="https://cdn.jsdelivr.net/npm/element-plus"></script>
+    <!-- ElementPlus icons -->
+    <script src="https://cdn.jsdelivr.net/npm/@element-plus/icons-vue"></script>
 </head>
     
     
@@ -104,11 +115,13 @@
                 <!-- Render buttons normally for authenticated users -->
                 <button id="syncButton" type="button" class="btn btn-primary me-2">Sync List</button>
                 <button id="addBatoLinkButton" type="button" class="btn btn-primary me-2">Add Bato Link</button>
-                <button onclick="toggleNotifications()" class="btn btn-outline-light me-2">
+                
+                <!-- Fix notification button styling -->
+                <button id="notification-button" class="btn me-2" onclick="toggleNotifications()" title="Notifications">
                     <i class="fas fa-bell"></i>
-                    <span class="badge badge-danger notification-count"></span>
+                    <span class="notification-badge" id="notification-count"></span>
                 </button>
-
+                
                 <!-- Color Circles -->
                 <div class="color-settings d-flex align-items-center">
                     <span class="color-circle" id="backgroundColorCircle" data-color-setting="backgroundColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Background Color"></span>
@@ -117,7 +130,6 @@
                     <span class="color-circle" id="textColorCircle" data-color-setting="textColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Text Color"></span>
                     <span class="color-circle" id="borderColorCircle" data-color-setting="borderColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Border Color"></span>
                 </div>
-
             {% else %}
                 <!-- Render buttons with popovers for unauthenticated users -->
                 <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
@@ -150,19 +162,6 @@
         </div>
     </div>
 </nav>
-
-<!-- Notifications Panel -->
-<div class="notifications-panel">
-    <div class="notifications-header">
-        <h5 class="mb-0">Status Updates</h5>
-        <button onclick="toggleNotifications()" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-times"></i>
-        </button>
-    </div>
-    <div class="notifications-content">
-        <!-- Notifications will be inserted here -->
-    </div>
-</div>
 
 <!-- Login Modal with Dark Background -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
@@ -615,9 +614,61 @@
     });
 </script>
 
+<!-- Replace your existing Vue app container with this simpler version -->
+<div id="notifications-app">
+    <el-drawer
+        v-model="drawerVisible"
+        direction="ltr"
+        :with-header="true"
+        :size="700"
+        title="Notifications"
+        >
+        <template #header>
+            <div class="notifications-header">
+                <h5>${ getNotificationsTitle }</h5>
+                <button class="btn-mark-all" @click="markAllAsRead">
+                    <i class="fas fa-check-double"></i> Mark all as read
+                </button>
+            </div>
+        </template>
+        
+        <div class="notification-timeline" v-if="notifications.length > 0">
+            <div class="timeline-item" v-for="(notification, index) in notifications" :key="index">
+                <div :class="['timeline-node', notification.source, { 'large': notification.importance > 2, 'hollow': notification.read }]"></div>
+                
+                <div class="timeline-content" :class="{'read': notification.read}" @click="handleNotificationClick(notification)">
+                    <span class="timeline-timestamp">${ formatDate(notification.created_at) }</span>
+                    <div class="notification-title">${ notification.title }</div>
+                    <div class="notification-message">${ notification.message }</div>
+                    
+                    <button class="notification-read-btn" :class="{'checked': notification.read}" @click.stop="markAsRead(notification.source, notification.id, index)">
+                        <i class="fas" :class="notification.read ? 'fa-check' : 'fa-check'"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="empty-notifications" v-else>
+            <i class="fas fa-bell-slash"></i>
+            <p>No new notifications</p>
+        </div>
 
+        <!-- Add a footer template to your drawer -->
+        <template #footer>
+            <div class="notification-footer">
+                <div class="pull-left">
+                    <i class="fas fa-info-circle"></i> Notifications from AniList and other services
+                </div>
+                <button class="refresh-btn" @click="fetchNotifications">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </template>
+    </el-drawer>
+</div>
 
-
+<!-- Add this before your closing body tag -->
+<script src="{{ url_for('static', filename='js/notification-drawer.js') }}"></script>
 
 </body>
 </html>

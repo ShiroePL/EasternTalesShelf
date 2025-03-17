@@ -625,20 +625,27 @@ def get_mangaupdates_info(anilist_id):
 @app.route('/api/notifications')
 @login_required
 def get_notifications():
-    """Get unread notifications from both MangaUpdates and AniList"""
+    """Get notifications from both MangaUpdates and AniList"""
     try:
+        # Check if we should include read notifications
+        include_read = request.args.get('include_read', 'false').lower() == 'true'
+        
         # Get MangaUpdates notifications
-        manga_notifications = db_session.query(MangaStatusNotification)\
-            .filter(MangaStatusNotification.is_read == False)\
-            .order_by(MangaStatusNotification.importance.desc(),
-                     MangaStatusNotification.created_at.desc())\
-            .all()
+        query_mu = db_session.query(MangaStatusNotification)
+        if not include_read:
+            query_mu = query_mu.filter(MangaStatusNotification.is_read == False)
+        manga_notifications = query_mu.order_by(
+            MangaStatusNotification.importance.desc(),
+            MangaStatusNotification.created_at.desc()
+        ).all()
         
         # Get AniList notifications
-        anilist_notifications = db_session.query(AnilistNotification)\
-            .filter(AnilistNotification.is_read == False)\
-            .order_by(AnilistNotification.created_at.desc())\
-            .all()
+        query_al = db_session.query(AnilistNotification)
+        if not include_read:
+            query_al = query_al.filter(AnilistNotification.is_read == False)
+        anilist_notifications = query_al.order_by(
+            AnilistNotification.created_at.desc()
+        ).all()
         
         # Get all manga entries for title mapping
         manga_entries = db_session.query(MangaList).all()
@@ -661,7 +668,8 @@ def get_notifications():
                 'importance': n.importance,
                 'created_at': n.created_at.isoformat() if n.created_at else None,
                 'url': n.url,
-                'anilist_id': n.anilist_id
+                'anilist_id': n.anilist_id,
+                'read': n.is_read  # Add read status to the response
             })
         
         # Format AniList notifications
@@ -687,7 +695,8 @@ def get_notifications():
                 'created_at': n.created_at.isoformat() if n.created_at else None,
                 'url': f"https://anilist.co/{media_type}/{media_id}" if media_id else None,
                 'anilist_id': n.media_id,
-                'is_anime': is_anime
+                'is_anime': is_anime,
+                'read': n.is_read  # Add read status to the response
             })
         
         # Sort all notifications by creation date
@@ -1515,7 +1524,6 @@ if __name__ == '__main__':
         app.run()
 
 
-
 # Ensure this function is accessible in your templates
 
 # THEN IN HTML: 
@@ -1545,3 +1553,4 @@ if __name__ == '__main__':
 # @app.context_processor
 # def utility_processor():
 #     return dict(count_stats=count_stats)
+
