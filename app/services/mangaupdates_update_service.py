@@ -68,7 +68,7 @@ class MangaUpdatesUpdateService:
     def __init__(self):
         self.delay_between_requests = random.uniform(4.0, 7.0)  # random delay between 4.0-7.0 seconds with decimal precision
         self.status_updates: List[MangaStatusUpdate] = []
-        self.batch_size = 1 
+        self.batch_size = 2
         self.engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True)
 
     @wait_for(timeout=30.0)
@@ -321,7 +321,7 @@ class MangaUpdatesUpdateService:
                 # Use spider instead of API
                 try:
                     # Wait for spider to complete and get status
-                    new_status = await self.run_spider(mangaupdates_url, anilist_id)
+                    new_status = self.run_spider(mangaupdates_url, anilist_id)
                     logger.info(f"New status fetched: {new_status}")
 
                     # Record the status update
