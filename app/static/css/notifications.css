@@ -1,51 +1,400 @@
-.notification-item {
-    padding: 10px;
-    margin: 5px;
-    border-radius: 4px;
+/* Add RGB values for primary color to use in rgba() functions */
+:root {
+    --primary-color-rgb: 0, 128, 255; /* Default blue RGB values */
+}
+
+/* When primary color is changed, update this variable in JavaScript */
+
+/* Updated notification panel positioning and styling */
+.notifications-panel {
+    position: fixed;
+    width: 350px;
+    max-height: 80vh;
+    background: var(--secondary-color);
+    color: var(--text-color);
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    z-index: 9999;
+    display: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.notifications-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    background-color: #f5f5f5;
+    align-items: center;
+    width: 100%;
+    padding: 0 8px;
 }
 
-.notification-mangaupdates {
-    border-left: 4px solid #4CAF50;
+.notifications-header h5 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
 }
 
-.notification-anilist {
-    border-left: 4px solid #2B4BBF;
+/* Timeline styling */
+.notification-timeline {
+    padding: 20px;
 }
 
-.notification-content {
-    flex-grow: 1;
-    margin-right: 10px;
+.timeline-item {
+    position: relative;
+    padding-left: 28px;
+    padding-bottom: 26px;
+    margin-bottom: 10px;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 5px;
+}
+
+/* Timeline node styling */
+.timeline-node {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: var(--primary-color, #0080FF);
+    z-index: 1;
+}
+
+.timeline-node.hollow {
+    background-color: transparent;
+    border: 2px solid var(--primary-color, #0080FF);
+}
+
+.timeline-node.large {
+    width: 18px;
+    height: 18px;
+    left: -2px;
+}
+
+/* Timeline line */
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 14px;
+    width: 1px;
+    height: calc(100% - 14px);
+    background-color: var(--border-color, #3e3e3e);
+}
+
+/* Notification source colors */
+.timeline-node.anilist {
+    background-color: #2B4BBF;
+    border-color: #2B4BBF;
+}
+
+.timeline-node.mangaupdates {
+    background-color: #FF9800;
+    border-color: #FF9800;
+}
+
+.timeline-node.bato {
+    background-color: #4CAF50;
+    border-color: #4CAF50;
+}
+
+/* Timeline content */
+.timeline-content {
+    position: relative;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 16px 40px 16px 16px;
+    margin-left: 8px;
+    transition: background-color 0.2s;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.timeline-content:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.timeline-timestamp {
+    display: block;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85em;
+    margin-bottom: 5px;
+    font-style: italic;
 }
 
 .notification-title {
     font-weight: bold;
     margin-bottom: 5px;
+    color: var(--primary-color, #0080FF);
+    font-size: 1.1em;
 }
 
 .notification-message {
-    color: #666;
-    font-size: 0.9em;
+    color: var(--text-color, #ffffff);
+    font-size: 0.95em;
+    line-height: 1.4;
+    margin-top: 8px;
 }
 
-.notification-timestamp {
-    color: #999;
-    font-size: 0.8em;
-    margin-top: 5px;
+/* Close button styling */
+.notification-read-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    font-size: 1em;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    z-index: 2;
 }
 
-.notification-close {
+.notification-read-btn:hover {
+    color: rgba(255, 255, 255, 1);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Add styles for read notifications */
+.timeline-content.read {
+    opacity: 0.7;
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.timeline-content.read .notification-title {
+    color: rgba(var(--primary-color-rgb, 0, 128, 255), 0.7) !important;
+}
+
+.timeline-content.read .notification-message {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Add a "read" label for read notifications */
+.timeline-content.read::after {
+    content: 'Read';
+    position: absolute;
+    bottom: 5px;
+    right: 10px;
+    font-size: 0.7em;
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+}
+
+/* Change icon when notification is read */
+.notification-read-btn.checked {
+    color: var(--primary-color, #0080FF);
+    background: rgba(var(--primary-color-rgb, 0, 128, 255), 0.1);
+}
+
+/* Notification button styling */
+#notification-button {
+    position: relative;
     background: none;
     border: none;
-    color: #999;
+    color: var(--text-color, #ffffff);
     cursor: pointer;
-    font-size: 1.2em;
-    padding: 0 5px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: transform 0.2s;
 }
 
-.notification-close:hover {
-    color: #333;
-} 
+#notification-button:hover {
+    transform: scale(1.1);
+}
+
+/* Make sure the icon is visible */
+#notification-button i {
+    font-size: 18px;         /* Adjust icon size */
+    color: var(--text-color, #ffffff);
+}
+
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #ff4757;
+    color: white;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    display: none; /* Hide badge by default */
+}
+
+.notification-badge.has-notifications {
+    display: block;
+}
+
+/* Add this to your CSS */
+#notification-button.active {
+    color: var(--primary-color) !important;
+    transform: scale(1.1);
+}
+
+/* Empty notifications state */
+.empty-notifications {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0;
+    color: var(--text-color, #ffffff);
+    opacity: 0.7;
+    transition: opacity 0.3s;
+}
+
+.empty-notifications:hover {
+    opacity: 1;
+}
+
+.empty-notifications i {
+    font-size: 3.5rem;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+    opacity: 0.6;
+}
+
+.empty-notifications p {
+    font-size: 1.1rem;
+    font-weight: 300;
+}
+
+/* Enhance Element Plus dark theme styling */
+.el-drawer {
+    --el-drawer-bg-color: var(--secondary-color, #343a40) !important;
+    --el-drawer-text-color: var(--text-color, #ffffff) !important;
+    --el-drawer-padding-primary: 0;
+    background-color: var(--secondary-color, #343a40) !important;
+    color: var(--text-color, #ffffff) !important;
+}
+
+.el-drawer__header {
+    margin-bottom: 0;
+    color: var(--text-color, #ffffff) !important;
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color, #3e3e3e);
+    background-color: var(--secondary-color, #343a40) !important;
+}
+
+.el-drawer__body {
+    padding: 0;
+    overflow-y: auto;
+    background-color: var(--secondary-color, #343a40) !important;
+    color: var(--text-color, #ffffff) !important;
+}
+
+/* Fix Element Plus mask color */
+.el-overlay {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Override the general styles to ensure title uses primary color */
+.el-drawer .notification-title {
+    font-weight: bold !important;
+    margin-bottom: 5px !important;
+    color: var(--primary-color, #0080FF) !important;
+    font-size: 1.1em !important;
+}
+
+/* Make the selector even more specific for extra safety */
+.el-drawer .notification-timeline .timeline-item .timeline-content .notification-title {
+    color: var(--primary-color, #0080FF) !important;
+}
+
+/* Make sure the text color style is applied after the general rule */
+.el-drawer * {
+    color: var(--text-color, #ffffff);
+}
+.el-drawer .notification-title {
+    color: var(--primary-color, #0080FF) !important;
+}
+
+/* Ensure the close button is visible */
+.el-drawer__close-btn {
+    color: var(--text-color, #ffffff) !important;
+}
+
+/* Fix Element Plus header and footer */
+.el-drawer__header, .el-drawer__footer {
+    background-color: var(--secondary-color, #343a40) !important;
+    color: var(--text-color, #ffffff) !important;
+}
+
+.btn-mark-all {
+    background: rgba(var(--primary-color-rgb, 0, 128, 255), 0.1);
+    border: 1px solid rgba(var(--primary-color-rgb, 0, 128, 255), 0.3);
+    color: var(--primary-color, #0080FF);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 4px 12px;
+    border-radius: 4px;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-mark-all:hover {
+    background-color: rgba(var(--primary-color-rgb, 0, 128, 255), 0.2);
+}
+
+.btn-mark-all i {
+    font-size: 0.85em;
+}
+
+/* Custom scrollbar styles */
+.el-drawer__body::-webkit-scrollbar {
+    width: 12px;               /* width of the entire scrollbar */
+}
+  
+.el-drawer__body::-webkit-scrollbar-track {
+    background: var(--background-color);
+    border-radius: 10px;       /* color of the tracking area */
+}
+
+.el-drawer__body::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color);    /* color of the scroll thumb */
+    border-radius: 20px;       /* roundness of the scroll thumb */
+    border: 3px solid var(--background-color);  /* creates padding around scroll thumb */
+}
+
+/* Styled footer */
+.notification-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    border-top: 1px solid var(--border-color, #3e3e3e);
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.refresh-btn {
+    background: none;
+    border: none;
+    color: var(--primary-color, #0080FF);
+    cursor: pointer;
+    font-size: 0.9em;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.refresh-btn:hover {
+    background-color: rgba(var(--primary-color-rgb, 0, 128, 255), 0.1);
+}
+
+.refresh-btn i {
+    margin-right: 4px;
+}

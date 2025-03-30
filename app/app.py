@@ -1,6 +1,6 @@
 import app.download_covers as download_covers
 from app.functions import sqlalchemy_fns as sqlalchemy_fns
-from flask import Flask, render_template, jsonify, request, url_for, redirect
+from flask import Flask, render_template, jsonify, request, url_for, redirect, send_from_directory
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import json
 from app.config import fastapi_updater_server_IP
@@ -187,9 +187,9 @@ app.config['DEBUG'] = (os.getenv('FLASK_ENV') == 'development')
 def set_security_headers(response):
     csp_policy = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com https://cdn.jsdelivr.net/npm https://cdnjs.cloudflare.com; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://code.jquery.com https://cdn.jsdelivr.net/npm https://cdnjs.cloudflare.com; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        "img-src 'self' data:; "
+        "img-src 'self' data: blob:; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
         "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.shirosplayground.space wss://*.shirosplayground.space;"
     )
@@ -200,6 +200,22 @@ def set_security_headers(response):
     return response
 
 
+@app.route('/dev_covers/<filename>')
+def dev_covers(filename):
+    if os.getenv('FLASK_ENV') == 'development':
+        # Path to your local backup folder
+        dev_covers_path = r"G:\backup_vpsa_calego_dockera_foldera\EasternTalesShelf\app\static\covers"
+        try:
+            return send_from_directory(dev_covers_path, filename)
+        except Exception as e:
+            logging.error(f"Error serving file {filename}: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+    else:
+        # In production, require login and redirect to normal path
+        @login_required
+        def protected_redirect():
+            return redirect(url_for('static', filename=f'covers/{filename}'))
+        return protected_redirect()
 
 # Route for your home page
 @app.route('/')
@@ -576,7 +592,10 @@ def get_color_settings():
 
 @app.teardown_appcontext
 def cleanup(resp_or_exc):
-    db_session.remove()
+    try:
+        db_session.remove()
+    except Exception as e:
+        print(f"Error during database cleanup: {e}")
 
 def start_background_services():
     """Start background services in separate threads"""
@@ -606,20 +625,27 @@ def get_mangaupdates_info(anilist_id):
 @app.route('/api/notifications')
 @login_required
 def get_notifications():
-    """Get unread notifications from both MangaUpdates and AniList"""
+    """Get notifications from both MangaUpdates and AniList"""
     try:
+        # Check if we should include read notifications
+        include_read = request.args.get('include_read', 'false').lower() == 'true'
+        
         # Get MangaUpdates notifications
-        manga_notifications = db_session.query(MangaStatusNotification)\
-            .filter(MangaStatusNotification.is_read == False)\
-            .order_by(MangaStatusNotification.importance.desc(),
-                     MangaStatusNotification.created_at.desc())\
-            .all()
+        query_mu = db_session.query(MangaStatusNotification)
+        if not include_read:
+            query_mu = query_mu.filter(MangaStatusNotification.is_read == False)
+        manga_notifications = query_mu.order_by(
+            MangaStatusNotification.importance.desc(),
+            MangaStatusNotification.created_at.desc()
+        ).all()
         
         # Get AniList notifications
-        anilist_notifications = db_session.query(AnilistNotification)\
-            .filter(AnilistNotification.is_read == False)\
-            .order_by(AnilistNotification.created_at.desc())\
-            .all()
+        query_al = db_session.query(AnilistNotification)
+        if not include_read:
+            query_al = query_al.filter(AnilistNotification.is_read == False)
+        anilist_notifications = query_al.order_by(
+            AnilistNotification.created_at.desc()
+        ).all()
         
         # Get all manga entries for title mapping
         manga_entries = db_session.query(MangaList).all()
@@ -642,7 +668,8 @@ def get_notifications():
                 'importance': n.importance,
                 'created_at': n.created_at.isoformat() if n.created_at else None,
                 'url': n.url,
-                'anilist_id': n.anilist_id
+                'anilist_id': n.anilist_id,
+                'read': n.is_read  # Add read status to the response
             })
         
         # Format AniList notifications
@@ -668,7 +695,8 @@ def get_notifications():
                 'created_at': n.created_at.isoformat() if n.created_at else None,
                 'url': f"https://anilist.co/{media_type}/{media_id}" if media_id else None,
                 'anilist_id': n.media_id,
-                'is_anime': is_anime
+                'is_anime': is_anime,
+                'read': n.is_read  # Add read status to the response
             })
         
         # Sort all notifications by creation date
@@ -1442,6 +1470,51 @@ def check_covers():
         logging.error(f"Error checking covers: {e}")
         return jsonify({'error': str(e)}), 500
 
+# Add this route to mark all notifications as read
+@app.route('/api/notifications/read-all', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    try:
+        # Mark all AniList notifications as read
+        db_session.query(AnilistNotification)\
+            .filter(AnilistNotification.is_read == False)\
+            .update({AnilistNotification.is_read: True})
+        
+        # Mark all manga status notifications as read
+        db_session.query(MangaStatusNotification)\
+            .filter(MangaStatusNotification.is_read == False)\
+            .update({MangaStatusNotification.is_read: True})
+        
+        # Commit the changes
+        db_session.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Add this route to count unread notifications
+@app.route('/api/notifications/count')
+@login_required
+def count_notifications():
+    try:
+        # Count unread AniList notifications
+        anilist_count = db_session.query(AnilistNotification)\
+            .filter(AnilistNotification.is_read == False)\
+            .count()
+        
+        # Count unread manga status notifications
+        manga_count = db_session.query(MangaStatusNotification)\
+            .filter(MangaStatusNotification.is_read == False)\
+            .count()
+        
+        # Calculate total count
+        total_count = anilist_count + manga_count
+        
+        return jsonify({'count': total_count})
+    except Exception as e:
+        return jsonify({'count': 0, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     # For local development
     if os.getenv('FLASK_ENV') == 'development':
@@ -1449,7 +1522,6 @@ if __name__ == '__main__':
     else:
         # In production, Gunicorn will handle this
         app.run()
-
 
 
 # Ensure this function is accessible in your templates
@@ -1481,3 +1553,4 @@ if __name__ == '__main__':
 # @app.context_processor
 # def utility_processor():
 #     return dict(count_stats=count_stats)
+
