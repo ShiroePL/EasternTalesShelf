@@ -66,9 +66,9 @@ Here are the status changes to analyze:
 
 class MangaUpdatesUpdateService:
     def __init__(self):
-        self.delay_between_requests = random.uniform(2.0, 4.0)  # random delay between 2.0-4.0 seconds with decimal precision
+        self.delay_between_requests = random.uniform(4.0, 7.0)  # random delay between 4.0-7.0 seconds with decimal precision
         self.status_updates: List[MangaStatusUpdate] = []
-        self.batch_size = 1  # Number of updates to collect before analysis
+        self.batch_size = 1 
         self.engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True)
 
     @wait_for(timeout=30.0)
@@ -359,10 +359,13 @@ async def start_update_service():
     """Initialize and start the update service"""
     service = MangaUpdatesUpdateService()
     
-    # Schedule the update to run daily at a specific time (e.g., 3 AM)
-    schedule.every().day.at("03:00").do(lambda: asyncio.run(service.update_manga_details()))
+    # Schedule the update to run every 12 hours instead of daily
+    schedule.every(12).hours.do(lambda: asyncio.run(service.update_manga_details()))
+    logger.info("MangaUpdates update service started - running every 12 hours")
     
-    logger.info("MangaUpdates update service started")
+    # Run once immediately on startup
+    logger.info("Running initial update on startup...")
+    await service.update_manga_details()
     
     while True:
         schedule.run_pending()
