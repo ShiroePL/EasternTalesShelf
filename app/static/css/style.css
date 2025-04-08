@@ -85,6 +85,10 @@ opacity: 1;
     color: var(--text-color); /* Ensure labels are also white for visibility */
 }
 
+/* Login text visibility fix */
+.modal-content-dark .text-muted {
+    color: rgb(180 180 180) !important;
+}
 
 /* 3D Effect on Grid Items */
 .grid-item {
@@ -1551,4 +1555,48 @@ body {
 
 .download-status-btn[data-status="pending"] {
     animation: pulse 2s infinite;
+}
+
+/* Login divider */
+.login-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 20px 0;
+    color: #777;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #444;
+}
+
+.login-divider::before {
+    margin-right: 10px;
+}
+
+.login-divider::after {
+    margin-left: 10px;
+}
+
+.login-divider span {
+    padding: 0 10px;
+    background-color: #1e1e1e;
+    color: #777;
+    font-size: 0.85rem;
+}
+
+/* User Avatar Styling */
+.user-avatar {
+    transition: all 0.3s ease;
+    object-fit: cover;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.user-avatar:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    border-color: var(--secondary-color) !important;
 }

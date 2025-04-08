@@ -1,6 +1,6 @@
 import app.download_covers as download_covers
 from app.functions import sqlalchemy_fns as sqlalchemy_fns
-from flask import Flask, render_template, jsonify, request, url_for, redirect, send_from_directory
+from flask import Flask, flash, render_template, jsonify, request, session, url_for, redirect, send_from_directory
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import json
 from app.config import fastapi_updater_server_IP
@@ -36,6 +36,8 @@ from app.services.anilist_notification import AnilistNotificationManager
 import asyncio
 from app.functions.class_mangalist import MangaStatusNotification, AnilistNotification
 from sqlalchemy import text
+from app.oauth_handler import AniListOAuth
+from app.oauth_config import ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -1514,6 +1516,60 @@ def count_notifications():
         return jsonify({'count': total_count})
     except Exception as e:
         return jsonify({'count': 0, 'error': str(e)}), 500
+
+# AniList OAuth routes
+@app.route('/auth/anilist')
+def anilist_login():
+    """Initiate AniList OAuth login flow"""
+    # Check if user wants enhanced features
+    store_token = request.args.get('store_token', 'false').lower() == 'true'
+    
+    # Store preference in session
+    session['store_anilist_token'] = store_token
+    
+    return redirect(AniListOAuth.get_auth_url())
+
+@app.route('/auth/anilist/callback')
+def anilist_callback():
+    """Handle the callback from AniList OAuth"""
+    try:
+        code = request.args.get('code')
+        state = request.args.get('state')
+        
+        # Get preference from session (default to False for privacy)
+        store_token = session.get('store_anilist_token', False)
+        
+        if not code:
+            flash('Authentication failed: No authorization code received', 'error')
+            return redirect(url_for('home'))
+            
+        # Process the callback and get user info and access token
+        user_info, access_token = AniListOAuth.handle_callback(code, state, store_token)
+        
+        if not user_info or 'id' not in user_info:
+            flash('Authentication failed: Could not retrieve user information', 'error')
+            return redirect(url_for('home'))
+            
+        # Find or create user with access token (will be None if not storing)
+        user = Users.find_or_create_from_anilist(db_session, user_info, access_token)
+        
+        if user:
+            # Log in the user
+            login_user(user, remember=True)
+            if store_token:
+                flash(f'Welcome, {user.display_name or user.username}! Enhanced features are enabled.', 'success')
+            else:
+                flash(f'Welcome, {user.display_name or user.username}! (Privacy mode enabled)', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Authentication failed: User could not be created', 'error')
+            return redirect(url_for('home'))
+            
+    except Exception as e:
+        db_session.rollback()
+        app.logger.error(f"AniList OAuth error: {str(e)}")
+        flash(f'Authentication error: {str(e)}', 'error')
+        return redirect(url_for('home'))
 
 if __name__ == '__main__':
     # For local development

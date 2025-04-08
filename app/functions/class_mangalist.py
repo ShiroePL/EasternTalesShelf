@@ -61,9 +61,17 @@ class Users(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(255), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)  # Make nullable to support OAuth-only users
+    # AniList OAuth fields
+    anilist_id = Column(Integer, unique=True, nullable=True)
+    display_name = Column(String(255), nullable=True)
+    avatar_url = Column(String(255), nullable=True)
+    access_token = Column(String(255), nullable=True)
+    oauth_provider = Column(String(50), nullable=True)  # For future multi-provider support
 
     def check_password(self, password):
+        if not self.password_hash:
+            return False
         return check_password_hash(self.password_hash, password)
 
     def is_authenticated(self):
@@ -83,6 +91,41 @@ class Users(Base):
         """Create the table if it doesn't exist"""
         if not engine.dialect.has_table(engine, cls.__tablename__):
             cls.__table__.create(engine)
+        
+    @classmethod
+    def find_or_create_from_anilist(cls, db_session, anilist_data, access_token=None):
+        """Find an existing user by AniList ID or create a new one"""
+        anilist_id = anilist_data.get('id')
+        if not anilist_id:
+            return None
+            
+        # Try to find existing user
+        user = db_session.query(cls).filter_by(anilist_id=anilist_id).first()
+        
+        if user:
+            # Update existing user if needed
+            user.display_name = anilist_data.get('name')
+            avatar_large = anilist_data.get('avatar', {}).get('large')
+            if avatar_large:
+                user.avatar_url = avatar_large
+            # Update access token if provided
+            if access_token:
+                user.access_token = access_token
+            db_session.commit()
+        else:
+            # Create new user
+            user = cls(
+                username=f"anilist_{anilist_id}",  # Generate a username from AniList ID
+                anilist_id=anilist_id,
+                display_name=anilist_data.get('name'),
+                avatar_url=anilist_data.get('avatar', {}).get('large'),
+                access_token=access_token,
+                oauth_provider='anilist'
+            )
+            db_session.add(user)
+            db_session.commit()
+            
+        return user
 
 class MangaUpdatesDetails(Base):
     __tablename__ = 'mangaupdates_details'
