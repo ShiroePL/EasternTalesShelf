@@ -38,7 +38,7 @@ from app.functions.class_mangalist import MangaStatusNotification, AnilistNotifi
 from sqlalchemy import text
 from app.oauth_handler import AniListOAuth
 from app.oauth_config import ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI
-
+from app.utils.token_encryption import encrypt_token
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -1550,7 +1550,7 @@ def anilist_callback():
             flash('Authentication failed: Could not retrieve user information', 'error')
             return redirect(url_for('home'))
             
-        # Find or create user with access token (will be None if not storing)
+        # Find or create user with encrypted token
         user = Users.find_or_create_from_anilist(db_session, user_info, access_token)
         
         if user:

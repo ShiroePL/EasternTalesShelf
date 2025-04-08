@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 from typing import List, Dict, Any
 from app.functions.class_mangalist import db_session, AnilistNotification
+from app.utils.token_encryption import decrypt_token
 
 
 query = '''
@@ -63,6 +64,10 @@ class AnilistNotificationManager:
     def __init__(self, user_token=None):
         # Try to use user's token if provided, otherwise fall back to app token
         self.user_token = user_token
+        # If token is encrypted, decrypt it
+        if self.user_token and not self.user_token.startswith('Bearer '):
+            self.user_token = decrypt_token(self.user_token)
+            
         self.app_token = os.getenv('ANILIST_BEARER_TOKEN')
         
         if not self.user_token and not self.app_token:

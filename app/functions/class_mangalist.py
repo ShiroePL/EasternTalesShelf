@@ -5,6 +5,7 @@ from werkzeug.security import check_password_hash
 from app.config import DATABASE_URI
 from sqlalchemy.sql import text
 from datetime import datetime
+from app.utils.token_encryption import encrypt_token, decrypt_token
 
 
 engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True, echo=False)  # Recycles connections after one hour
@@ -66,7 +67,7 @@ class Users(Base):
     anilist_id = Column(Integer, unique=True, nullable=True)
     display_name = Column(String(255), nullable=True)
     avatar_url = Column(String(255), nullable=True)
-    access_token = Column(String(255), nullable=True)
+    access_token = Column(Text, nullable=True)
     oauth_provider = Column(String(50), nullable=True)  # For future multi-provider support
 
     def check_password(self, password):
@@ -85,6 +86,19 @@ class Users(Base):
 
     def get_id(self):
         return str(self.id)
+    
+    def get_access_token(self):
+        """Get the decrypted access token"""
+        if not self.access_token:
+            return None
+        return decrypt_token(self.access_token)
+    
+    def set_access_token(self, token):
+        """Set the encrypted access token"""
+        if not token:
+            self.access_token = None
+        else:
+            self.access_token = encrypt_token(token)
     
     @classmethod
     def create_table_if_not_exists(cls, engine):
@@ -109,8 +123,10 @@ class Users(Base):
             if avatar_large:
                 user.avatar_url = avatar_large
             # Update access token if provided
+            print(f"Access token: {access_token}")
             if access_token:
-                user.access_token = access_token
+                user.set_access_token(access_token)
+            print(f"encrypted token: {user.access_token}")
             db_session.commit()
         else:
             # Create new user
@@ -119,9 +135,13 @@ class Users(Base):
                 anilist_id=anilist_id,
                 display_name=anilist_data.get('name'),
                 avatar_url=anilist_data.get('avatar', {}).get('large'),
-                access_token=access_token,
                 oauth_provider='anilist'
             )
+            # Set access token if provided
+            print(f"Access token: {access_token}")
+            if access_token:
+                user.set_access_token(access_token)
+            print(f"encrypted token: {user.access_token}")
             db_session.add(user)
             db_session.commit()
             
