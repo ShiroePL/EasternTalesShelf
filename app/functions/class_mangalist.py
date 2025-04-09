@@ -69,6 +69,7 @@ class Users(Base):
     avatar_url = Column(String(255), nullable=True)
     access_token = Column(Text, nullable=True)
     oauth_provider = Column(String(50), nullable=True)  # For future multi-provider support
+    is_admin = Column(Boolean, default=False)
 
     def check_password(self, password):
         if not self.password_hash:

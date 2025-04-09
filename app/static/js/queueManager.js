@@ -190,11 +190,14 @@ class QueueManager {
         try {
             const button = document.getElementById('toggleConnection');
             const webhookStatus = document.getElementById('webhookStatus');
+            
+            if (!button) return; // Early return if button doesn't exist
+            
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
-            // Set connecting state
-            if (!this.isConnected) {
+            // Set connecting state only if element exists
+            if (webhookStatus && !this.isConnected) {
                 webhookStatus.textContent = 'Webhook: Connecting...';
                 webhookStatus.classList.remove('connected');
                 webhookStatus.dataset.connecting = 'true';
@@ -224,40 +227,50 @@ class QueueManager {
                 );
                 this.updateConnectionUI();
                 
-                // Update webhook status based on connection state
-                if (this.isConnected) {
-                    webhookStatus.textContent = 'Scraper: Connected';
-                    webhookStatus.classList.add('connected');
-                } else {
-                    webhookStatus.textContent = 'Scraper: Disconnected';
-                    webhookStatus.classList.remove('connected');
+                // Only update webhook status if element exists
+                if (webhookStatus) {
+                    if (this.isConnected) {
+                        webhookStatus.textContent = 'Scraper: Connected';
+                        webhookStatus.classList.add('connected');
+                    } else {
+                        webhookStatus.textContent = 'Scraper: Disconnected';
+                        webhookStatus.classList.remove('connected');
+                    }
+                    
+                    // Remove connecting state
+                    webhookStatus.dataset.connecting = 'false';
                 }
-                
-                // Remove connecting state
-                webhookStatus.dataset.connecting = 'false';
                 
                 // Dispatch event for other listeners
                 document.dispatchEvent(new CustomEvent('webhookConnectionChanged'));
             } else {
                 console.error('Connection failed:', data.message);
                 this.showAlert('danger', data.message || 'Failed to toggle connection');
-                // Reset webhook status on failure
-                webhookStatus.textContent = 'Scraper: Disconnected';
-                webhookStatus.classList.remove('connected');
-                webhookStatus.dataset.connecting = 'false';
+                
+                // Reset webhook status on failure if element exists
+                if (webhookStatus) {
+                    webhookStatus.textContent = 'Scraper: Disconnected';
+                    webhookStatus.classList.remove('connected');
+                    webhookStatus.dataset.connecting = 'false';
+                }
             }
         } catch (error) {
             console.error('Error toggling connection:', error);
             this.showAlert('danger', 'Failed to toggle connection');
-            // Reset webhook status on error
+            
+            // Reset webhook status on error if element exists
             const webhookStatus = document.getElementById('webhookStatus');
-            webhookStatus.textContent = 'Scraper: Disconnected';
-            webhookStatus.classList.remove('connected');
-            webhookStatus.dataset.connecting = 'false';
+            if (webhookStatus) {
+                webhookStatus.textContent = 'Scraper: Disconnected';
+                webhookStatus.classList.remove('connected');
+                webhookStatus.dataset.connecting = 'false';
+            }
         } finally {
             const button = document.getElementById('toggleConnection');
-            button.disabled = false;
-            button.innerHTML = '<i class="fas fa-plug"></i>';
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-plug"></i>';
+            }
         }
     }
 
@@ -336,17 +349,23 @@ class QueueManager {
 
     async updateStatus() {
         try {
+            // First check if user is admin before making the request
+            const isAdmin = await window.isUserAdmin();
+            if (!isAdmin) {
+                // Skip queue status request for non-admin users
+                return;
+            }
+            
             // If we're not connected, try to reconnect first
             if (!this.isConnected) {
                 try {
                     await this.toggleConnection();
                 } catch (error) {
                     console.error('Failed to reconnect:', error);
-                    // Continue to fetch queue status even if reconnect fails
                 }
             }
 
-            // Get queue status
+            // Get queue status (only for admin users)
             const queueResponse = await fetch('/api/queue/status');
             const queueData = await queueResponse.json();
 
@@ -354,7 +373,7 @@ class QueueManager {
             this.updateUI(null, queueData);
         } catch (error) {
             console.error('Failed to update status:', error);
-            this.showAlert('danger', 'Failed to refresh status');
+            // Don't show alerts for background operations
         }
     }
 
@@ -637,6 +656,47 @@ class QueueManager {
 // Initialize queue manager when document is ready, but only if logged in
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
-        window.queueManager = new QueueManager();
+        // Check if user is admin before initializing
+        if (window.isUserAdmin) {
+            window.isUserAdmin().then(isAdmin => {
+                if (isAdmin) {
+                    // User is admin, initialize queue manager
+                    window.queueManager = new QueueManager();
+                } else {
+                    // Hide the queue toggle button if it exists
+                    const queueToggle = document.getElementById('queueToggle');
+                    if (queueToggle) {
+                        queueToggle.style.display = 'none';
+                    }
+                    
+                    // If user tries to access queue functionality directly, show admin popup
+                    window.queueManager = {
+                        toggleQueue: () => window.showAdminRequiredPopup(),
+                        pauseTask: () => window.showAdminRequiredPopup(),
+                        resumeTask: () => window.showAdminRequiredPopup(),
+                        removeTask: () => window.showAdminRequiredPopup(),
+                        forcePriority: () => window.showAdminRequiredPopup(),
+                        startScraper: () => window.showAdminRequiredPopup(),
+                        stopScraper: () => window.showAdminRequiredPopup(),
+                        toggleConnection: () => window.showAdminRequiredPopup()
+                    };
+                }
+            }).catch(error => {
+                console.error('Error checking admin status:', error);
+            });
+        } else {
+            console.warn('Admin check function not available yet. QueueManager initialization delayed.');
+            
+            // Try again after a delay to allow admin-access-handler.js to load
+            setTimeout(() => {
+                if (window.isUserAdmin) {
+                    window.isUserAdmin().then(isAdmin => {
+                        if (isAdmin) {
+                            window.queueManager = new QueueManager();
+                        }
+                    });
+                }
+            }, 1000);
+        }
     }
 }); 

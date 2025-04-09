@@ -166,9 +166,9 @@
             {% endif %}
 
             <!-- Add near your sync button -->
-            <span id="webhookStatus" class="ms-2 text-muted">
-                Webhook: Disconnected
-            </span>
+            {% if current_user.is_admin %}
+            <span id="webhookStatus" class="ms-2 text-muted">Scraper: Connection Error</span>
+            {% endif %}
         </div>
     </div>
 </nav>
@@ -528,6 +528,7 @@
 
 <!-- Scripts files -->
 <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin-access-handler.js') }}"></script>
 <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
 <script src="{{ url_for('static', filename='js/aos_stuff.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filters.js') }}"></script>
@@ -709,6 +710,8 @@
 
 <!-- Add this before your closing body tag -->
 <script src="{{ url_for('static', filename='js/notification-drawer.js') }}"></script>
+
+
 
 </body>
 </html>

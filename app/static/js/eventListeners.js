@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let syncButton = document.getElementById('syncButton');
 
     if (syncButton) {
-        syncButton.addEventListener('click', function() {
+        syncButton.addEventListener('click', window.requireAdmin(function() {
             fetch('/sync', {
                 method: 'POST',
                 headers: {
@@ -39,12 +39,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error:', error);
                 alert('An error occurred: ' + error.message);
             });
-        });
+        }));
     } else {
         console.error('Sync button element not found!');
     }
 
-    document.getElementById('addBatoLinkButton').addEventListener('click', function() {
+    document.getElementById('addBatoLinkButton').addEventListener('click', window.requireAdmin(function() {
         if (currentAnilistId) {
             let link = prompt("Please enter a Bato.to or MangaUpdates link for this entry:", "http://");
             if (link !== null && link !== "") {
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             alert('No entry is focused currently.');
         }
-    });
+    }));
     
 
 

@@ -6,40 +6,61 @@ class MangaDownloader {
             return;
         }
 
-        this.initializeDownloadStatuses();
-        this.setupWebSocketListeners();
-        this.setupEventListeners();
-        
-        // Add new function call to hide buttons without Bato URLs
-        this.hideButtonsWithoutBatoUrls();
+        // Check if user is admin before initialization
+        this.checkAdminAndInitialize();
+    }
+
+    async checkAdminAndInitialize() {
+        try {
+            const isAdmin = await window.isUserAdmin();
+            if (!isAdmin) {
+                console.log('MangaDownloader not initialized - user is not admin');
+                return;
+            }
+            
+            // Only initialize for admin users
+            this.initializeDownloadStatuses();
+            this.setupWebSocketListeners();
+            this.setupEventListeners();
+            this.hideButtonsWithoutBatoUrls();
+        } catch (error) {
+            console.error('Error checking admin status:', error);
+        }
     }
 
     async initializeDownloadStatuses() {
         try {
-            // First get the queue status to get current progress for tasks
-            const queueResponse = await fetch('/api/queue/status');
-            const queueData = await queueResponse.json();
+            // First check if user is admin before making the request
+            const isAdmin = await window.isUserAdmin();
             
-            // Create a map of anilist_id to progress info
-            const progressMap = new Map();
-            
-            // Add current task if exists
-            if (queueData.current_task && queueData.current_task.anilist_id) {
-                progressMap.set(queueData.current_task.anilist_id, {
-                    current_chapter: queueData.current_task.current_chapter,
-                    total_chapters: queueData.current_task.total_chapters
-                });
-            }
-            
-            // Add queued tasks
-            queueData.queued_tasks.forEach(task => {
-                if (task.anilist_id) {
-                    progressMap.set(task.anilist_id, {
-                        current_chapter: task.current_chapter,
-                        total_chapters: task.total_chapters
+            // Get queue status (only attempt for admin users)
+            let progressMap = new Map();
+            if (isAdmin) {
+                // Only make this request if the user is an admin
+                const queueResponse = await fetch('/api/queue/status');
+                const queueData = await queueResponse.json();
+                
+                // Create a map of anilist_id to progress info
+                progressMap = new Map();
+                
+                // Add current task if exists
+                if (queueData.current_task && queueData.current_task.anilist_id) {
+                    progressMap.set(queueData.current_task.anilist_id, {
+                        current_chapter: queueData.current_task.current_chapter,
+                        total_chapters: queueData.current_task.total_chapters
                     });
                 }
-            });
+                
+                // Add queued tasks
+                queueData.queued_tasks.forEach(task => {
+                    if (task.anilist_id) {
+                        progressMap.set(task.anilist_id, {
+                            current_chapter: task.current_chapter,
+                            total_chapters: task.total_chapters
+                        });
+                    }
+                });
+            }
 
             // Now get download statuses and update with progress info
             const response = await fetch('/api/download/status');
@@ -274,6 +295,34 @@ class MangaDownloader {
 // Initialize downloader only if user is logged in
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
-        window.mangaDownloader = new MangaDownloader();
+        // Check admin status before initializing
+        if (window.isUserAdmin) {
+            window.isUserAdmin().then(isAdmin => {
+                if (isAdmin) {
+                    window.mangaDownloader = new MangaDownloader();
+                } else {
+                    // Create stub with empty methods for non-admin users
+                    window.mangaDownloader = {
+                        initializeDownloadStatuses: () => {},
+                        updateDownloadButton: () => {},
+                        toggleDownload: () => window.showAdminRequiredPopup(),
+                        hideButtonsWithoutBatoUrls: () => {}
+                    };
+                }
+            }).catch(error => {
+                console.error('Error checking admin status:', error);
+            });
+        } else {
+            // Try again after a delay to allow admin-access-handler.js to load
+            setTimeout(() => {
+                if (window.isUserAdmin) {
+                    window.isUserAdmin().then(isAdmin => {
+                        if (isAdmin) {
+                            window.mangaDownloader = new MangaDownloader();
+                        }
+                    });
+                }
+            }, 1000);
+        }
     }
 }); 

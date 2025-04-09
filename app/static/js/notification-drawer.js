@@ -6,7 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
         data() {
             return {
                 drawerVisible: false,
-                notifications: []
+                notifications: [],
+                showRead: false
             };
         },
         computed: {
@@ -33,16 +34,27 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Fetch notifications from API
             fetchNotifications() {
-                console.log("Fetching notifications");
-                fetch('/api/notifications?include_read=true')
-                    .then(response => response.json())
+                const includeRead = 'true'
+                console.log("Fetching notifications, includeRead:", includeRead);
+                
+                fetch(`/api/notifications?include_read=${includeRead}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
-                        console.log("Got notifications:", data.notifications?.length || 0);
-                        this.notifications = data.notifications || [];
+                        console.log("Received notifications data:", data);
+                        if (data.notifications) {
+                            this.notifications = data.notifications;
+                            console.log("Updated notifications:", this.notifications.length);
+                        } else {
+                            console.warn("No notifications found in response");
+                        }
                     })
                     .catch(error => {
                         console.error('Error fetching notifications:', error);
-                        this.notifications = [];
                     });
             },
             
@@ -120,21 +132,32 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update notification count badge
             updateNotificationCount() {
-                fetch('/api/notifications/count')
-                    .then(response => response.json())
-                    .then(data => {
-                        const badge = document.getElementById('notification-count');
-                        if (!badge) return;
-                        
-                        if (data.count > 0) {
-                            badge.textContent = data.count > 99 ? '99+' : data.count;
-                            badge.classList.add('has-notifications');
-                        } else {
-                            badge.textContent = '';
-                            badge.classList.remove('has-notifications');
-                        }
-                    })
-                    .catch(error => console.error('Error getting notification count:', error));
+                // First check if user is admin without triggering a popup
+                window.isUserAdmin().then(isAdmin => {
+                    if (!isAdmin) {
+                        // Skip the request for non-admin users
+                        return;
+                    }
+                    
+                    fetch('/api/notifications/count')
+                        .then(response => response.json())
+                        .then(data => {
+                            const badge = document.getElementById('notification-count');
+                            if (!badge) return;
+                            
+                            if (data.count > 0) {
+                                badge.textContent = data.count > 99 ? '99+' : data.count;
+                                badge.classList.add('has-notifications');
+                            } else {
+                                badge.textContent = '';
+                                badge.classList.remove('has-notifications');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error getting notification count:', error);
+                            // Don't show error UI for background operations
+                        });
+                }).catch(() => {/* Silently ignore errors */});
             }
         },
         mounted() {
@@ -144,15 +167,36 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         created() {
             console.log("Vue app created");
-            // Set up a global reference to the toggle method
-            window.toggleNotifications = () => {
-                this.toggleDrawer();
-            };
             
-            // Set up interval to check for new notifications
-            setInterval(() => {
-                this.updateNotificationCount();
-            }, 60000); // Every minute
+            // Set up a global reference to the toggle method
+            window.toggleNotifications = window.requireAdmin(() => {
+                this.toggleDrawer();
+            });
+            
+            // Check if user is admin before setting up notification polling
+            window.isUserAdmin().then(isAdmin => {
+                if (isAdmin) {
+                    // Only set up interval for admin users
+                    this.notificationInterval = setInterval(() => {
+                        this.updateNotificationCount();
+                    }, 60000); // Every minute
+                    
+                    // Initial update
+                    this.updateNotificationCount();
+                } else {
+                    // For non-admin users, hide the notification badge 
+                    const badge = document.getElementById('notification-count');
+                    if (badge) {
+                        badge.style.display = 'none';
+                    }
+                }
+            });
+        },
+        beforeUnmount() {
+            // Clear the interval when the component is unmounted
+            if (this.notificationInterval) {
+                clearInterval(this.notificationInterval);
+            }
         }
     };
 
