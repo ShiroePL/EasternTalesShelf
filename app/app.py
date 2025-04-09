@@ -58,7 +58,7 @@ def create_app():
     app.secret_key = Config.flask_secret_key
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SECURE'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
     
@@ -121,7 +121,7 @@ webhook_status = WebhookStatus()
 app.secret_key = Config.flask_secret_key
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'  # Or 'Lax'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Or 'Lax'
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 
