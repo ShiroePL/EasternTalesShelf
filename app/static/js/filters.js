@@ -34,7 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const matchesRereaded = !isRereaded_checkbox || item.getAttribute('data-reread-times') > '0';
             const matchesStatus = currentStatusFilter === '' || itemStatus === currentStatusFilter.toLowerCase();
             const matchesFilterType = filterLogic[currentFilterType] ? filterLogic[currentFilterType](country, type) : true;
-            const matchesReleasingStatus = currentReleasingStatusFilter === '' || itemReleasingStatus === currentReleasingStatusFilter.toLowerCase();
+            const matchesReleasingStatus = !currentReleasingStatusFilter || currentReleasingStatusFilter === '' || 
+                                           itemReleasingStatus === (currentReleasingStatusFilter || '').toLowerCase();
 
             if (matchesTitle && matchesCountry && matchesStatus && matchesFilterType && matchesReleasingStatus && matchesFavorite && matchesRereaded) {
                 item.style.display = '';

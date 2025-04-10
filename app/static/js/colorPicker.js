@@ -144,19 +144,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Apply settings to CSS variables and log each for confirmation
         document.documentElement.style.setProperty('--background-color', settings.backgroundColor || settings.background_color || '#24282d');
-        console.log("Background color applied:", settings.backgroundColor || settings.background_color || '#24282d');
     
         document.documentElement.style.setProperty('--primary-color', settings.primaryColor || settings.primary_color || '#007bff');
-        console.log("Primary color applied:", settings.primaryColor || settings.primary_color || '#007bff');
     
         document.documentElement.style.setProperty('--secondary-color', settings.secondaryColor || settings.secondary_color || '#343a40');
-        console.log("Secondary color applied:", settings.secondaryColor || settings.secondary_color || '#343a40');
-    
+        
         document.documentElement.style.setProperty('--text-color', settings.textColor || settings.text_color || '#ffffff');
-        console.log("Text color applied:", settings.textColor || settings.text_color || '#ffffff');
     
         document.documentElement.style.setProperty('--border-color', settings.borderColor || settings.border_color || '#3e3e3e');
-        console.log("Border color applied:", settings.borderColor || settings.border_color || '#3e3e3e');
     }
     
 

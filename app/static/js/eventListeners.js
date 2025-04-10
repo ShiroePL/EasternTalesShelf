@@ -174,31 +174,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('filterEntries function not found');
     }
 
-    let loginForm = document.getElementById('loginForm');
-    let loginError = document.getElementById('loginError');
-
-    loginForm.onsubmit = function(event) {
-        event.preventDefault();
-        let formData = new FormData(loginForm);
-        
-        fetch(loginUrl, {  // Use the global variable here
-            method: 'POST',
-            body: formData
-        }).then(response => response.json()).then(data => {
-            if (data.success) {
-                $('#loginModal').modal('hide');
-                loginError.style.display = 'none';
-                window.location.reload(true); // Or redirect to another page
-            } else {
-                loginError.textContent = data.message;
-                loginError.style.display = 'block';
-            }
-        }).catch(error => {
-            loginError.textContent = 'An error occurred. Please try again.';
-            loginError.style.display = 'block';
-        });
-    };
-
 
     let popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
     let popoverList = popoverTriggerList.map(function (popoverTriggerEl) {

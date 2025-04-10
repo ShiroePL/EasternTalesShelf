@@ -1,0 +1,128 @@
+/* Compact Login Modal Styling */
+.login-options-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.login-option {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.compact-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.feature-tag {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(var(--primary-color-rgb), 0.1);
+    color: var(--text-color);
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+}
+
+.feature-tag i {
+    margin-right: 4px;
+    color: var(--primary-color);
+}
+
+.feature-tag.disabled {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.feature-tag.disabled i {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.login-badge {
+    background-color: var(--secondary-color);
+    color: rgba(255, 193, 7, 1);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    margin-left: 8px;
+}
+
+.login-icon {
+    width: 20px;
+    height: auto;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+.login-btn-hover {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-btn-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(var(--primary-color-rgb), 0.4);
+}
+
+.modal-brand-icon {
+    animation: pulse 3s infinite alternate;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+}
+
+@media (min-width: 576px) {
+    .login-options-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Updated Login Modal Styling */
+.shared-features {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.features-title {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.key-difference {
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.option-description {
+    font-size: 0.85rem;
+    color: #adb5bd;
+}
