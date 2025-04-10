@@ -5,6 +5,7 @@ from werkzeug.security import check_password_hash
 from app.config import DATABASE_URI
 from sqlalchemy.sql import text
 from datetime import datetime
+from app.utils.token_encryption import encrypt_token, decrypt_token
 
 
 engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True, echo=False)  # Recycles connections after one hour
@@ -61,9 +62,18 @@ class Users(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(255), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)  # Make nullable to support OAuth-only users
+    # AniList OAuth fields
+    anilist_id = Column(Integer, unique=True, nullable=True)
+    display_name = Column(String(255), nullable=True)
+    avatar_url = Column(String(255), nullable=True)
+    access_token = Column(Text, nullable=True)
+    oauth_provider = Column(String(50), nullable=True)  # For future multi-provider support
+    is_admin = Column(Boolean, default=False)
 
     def check_password(self, password):
+        if not self.password_hash:
+            return False
         return check_password_hash(self.password_hash, password)
 
     def is_authenticated(self):
@@ -78,11 +88,65 @@ class Users(Base):
     def get_id(self):
         return str(self.id)
     
+    def get_access_token(self):
+        """Get the decrypted access token"""
+        if not self.access_token:
+            return None
+        return decrypt_token(self.access_token)
+    
+    def set_access_token(self, token):
+        """Set the encrypted access token"""
+        if not token:
+            self.access_token = None
+        else:
+            self.access_token = encrypt_token(token)
+    
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
         if not engine.dialect.has_table(engine, cls.__tablename__):
             cls.__table__.create(engine)
+        
+    @classmethod
+    def find_or_create_from_anilist(cls, db_session, anilist_data, access_token=None):
+        """Find an existing user by AniList ID or create a new one"""
+        anilist_id = anilist_data.get('id')
+        if not anilist_id:
+            return None
+            
+        # Try to find existing user
+        user = db_session.query(cls).filter_by(anilist_id=anilist_id).first()
+        
+        if user:
+            # Update existing user if needed
+            user.display_name = anilist_data.get('name')
+            avatar_large = anilist_data.get('avatar', {}).get('large')
+            if avatar_large:
+                user.avatar_url = avatar_large
+            # Update access token if provided
+            print(f"Access token: {access_token}")
+            if access_token:
+                user.set_access_token(access_token)
+            print(f"encrypted token: {user.access_token}")
+            db_session.commit()
+        else:
+            # Create new user
+            user = cls(
+                username=f"anilist_{anilist_id}",  # Generate a username from AniList ID
+                anilist_id=anilist_id,
+                display_name=anilist_data.get('name'),
+                avatar_url=anilist_data.get('avatar', {}).get('large'),
+                oauth_provider='anilist'
+            )
+            # Set access token if provided
+            print(f"Access token: {access_token}")
+            if access_token:
+                user.set_access_token(access_token)
+            print(f"encrypted token: {user.access_token}")
+            db_session.add(user)
+            db_session.commit()
+            
+        return user
 
 class MangaUpdatesDetails(Base):
     __tablename__ = 'mangaupdates_details'

@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let syncButton = document.getElementById('syncButton');
 
     if (syncButton) {
-        syncButton.addEventListener('click', function() {
+        syncButton.addEventListener('click', window.requireAdmin(function() {
             fetch('/sync', {
                 method: 'POST',
                 headers: {
@@ -39,12 +39,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error:', error);
                 alert('An error occurred: ' + error.message);
             });
-        });
+        }));
     } else {
         console.error('Sync button element not found!');
     }
 
-    document.getElementById('addBatoLinkButton').addEventListener('click', function() {
+    document.getElementById('addBatoLinkButton').addEventListener('click', window.requireAdmin(function() {
         if (currentAnilistId) {
             let link = prompt("Please enter a Bato.to or MangaUpdates link for this entry:", "http://");
             if (link !== null && link !== "") {
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             alert('No entry is focused currently.');
         }
-    });
+    }));
     
 
 
@@ -173,31 +173,6 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.error('filterEntries function not found');
     }
-
-    let loginForm = document.getElementById('loginForm');
-    let loginError = document.getElementById('loginError');
-
-    loginForm.onsubmit = function(event) {
-        event.preventDefault();
-        let formData = new FormData(loginForm);
-        
-        fetch(loginUrl, {  // Use the global variable here
-            method: 'POST',
-            body: formData
-        }).then(response => response.json()).then(data => {
-            if (data.success) {
-                $('#loginModal').modal('hide');
-                loginError.style.display = 'none';
-                window.location.reload(true); // Or redirect to another page
-            } else {
-                loginError.textContent = data.message;
-                loginError.style.display = 'block';
-            }
-        }).catch(error => {
-            loginError.textContent = 'An error occurred. Please try again.';
-            loginError.style.display = 'block';
-        });
-    };
 
 
     let popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));

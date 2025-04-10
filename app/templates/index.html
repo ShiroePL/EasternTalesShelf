@@ -62,7 +62,7 @@
         }
     </script>
     <link href="{{ url_for('static', filename='css/notifications.css') }}" rel="stylesheet">
-
+    <link href="{{ url_for('static', filename='css/login_modal.css') }}" rel="stylesheet">
     <!-- Add these links in the <head> section, just before your closing </head> tag -->
     <!-- Import Element Plus styles -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css" />
@@ -130,6 +130,16 @@
                     <span class="color-circle" id="textColorCircle" data-color-setting="textColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Text Color"></span>
                     <span class="color-circle" id="borderColorCircle" data-color-setting="borderColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Border Color"></span>
                 </div>
+
+                <!-- User Avatar for OAuth users -->
+                {% if current_user.avatar_url %}
+                <div class="d-flex align-items-center me-2">
+                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.display_name or current_user.username }}" 
+                         class="user-avatar rounded-circle" style="width: 32px; height: 32px; border: 2px solid var(--primary-color);" 
+                         data-bs-toggle="tooltip" data-bs-placement="bottom" 
+                         title="{{ current_user.display_name or current_user.username }}">
+                </div>
+                {% endif %}
             {% else %}
                 <!-- Render buttons with popovers for unauthenticated users -->
                 <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
@@ -147,45 +157,96 @@
 
             <!-- Login/Logout Button -->
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('logout') }}" class="btn btn-outline-primary ms-3">Logout</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-primary ms-2">Logout</a>
             {% else %}
                 <!-- Trigger/Login Modal Button -->
                 <button type="button" class="btn btn-primary ms-3" data-bs-toggle="modal" data-bs-target="#loginModal">
-                    Admin Login
+                    Login
                 </button>
             {% endif %}
 
             <!-- Add near your sync button -->
-            <span id="webhookStatus" class="ms-2 text-muted">
-                Webhook: Disconnected
-            </span>
+            {% if current_user.is_admin %}
+            <span id="webhookStatus" class="ms-2 text-muted">Scraper: Connection Error</span>
+            {% endif %}
         </div>
     </div>
 </nav>
 
-<!-- Login Modal with Dark Background -->
+<!-- Login Modal with Modern Dark Theme -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-content-dark">
             <!-- Modal Header -->
-            <div class="modal-header modal-header-dark">
-                <h5 class="modal-title" id="loginModalLabel">Login</h5>
+            <div class="modal-header modal-header-dark border-0">
+                <h5 class="modal-title fw-bold" id="loginModalLabel">Welcome Back</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <!-- Modal Body with Form -->
-            <div class="modal-body modal-body-dark">
-                <form id="loginForm">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Username:</label>
-                        <input type="text" class="form-control" name="username" required>
+            
+            <!-- Modal Body with Enhanced Styling -->
+            <div class="modal-body modal-body-dark pt-0 pb-4 px-4">
+                <!-- Eastern Tales Logo/Branding -->
+                <div class="text-center mb-4">
+                    <div class="modal-brand-icon mb-3">
+                        <i class="fas fa-book-open fa-3x text-primary"></i>
                     </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password:</label>
-                        <input type="password" class="form-control" name="password" required>
+                    <p class="text-muted">Sign in to access your collection</p>
+                </div>
+                
+                <!-- Common Features -->
+                <div class="shared-features mb-4">
+                    <h6 class="features-title">All login options include:</h6>
+                    <div class="row gy-2">
+                        <div class="col-6 d-flex align-items-center">
+                            <i class="fas fa-list-ul text-primary me-2"></i> Full Anilist collection
+                        </div>
+                        <div class="col-6 d-flex align-items-center">
+                            <i class="fas fa-info-circle text-primary me-2"></i> Series details
+                        </div>
+                        <div class="col-6 d-flex align-items-center">
+                            <i class="fas fa-globe text-primary me-2"></i> External integration
+                        </div>
+                        <div class="col-6 d-flex align-items-center">
+                            <i class="fas fa-bell text-primary me-2"></i> Notifications
+                        </div>
                     </div>
-                    <div class="alert alert-danger" id="loginError" style="display: none;"></div>
-                    <button type="submit" class="btn btn-primary">Login</button>
-                </form>
+                    
+                </div>
+                
+                <!-- Login Options -->
+                <div class="login-option-container">
+                    <!-- Privacy Mode Option -->
+                    <a href="{{ url_for('anilist_login') }}" class="btn btn-primary btn-lg w-100 py-3 login-btn-hover mb-3">
+                        <img src="{{ url_for('static', filename='anilist_icon.png') }}" alt="AniList" class="login-icon"> 
+                        <span>Standard Login</span>
+                        <small class="login-badge">Recommended</small>
+                    </a>
+                    <div class="option-description text-center mb-4">
+                        <i class="fas fa-shield-alt"></i> Privacy Mode (we don't store your token)
+                    </div>
+                
+                    <!-- Modern Divider -->
+                    <div class="d-flex align-items-center my-3">
+                        <div class="flex-grow-1" style="height:1px;background:rgba(255,255,255,0.1);"></div>
+                        <span class="px-2 text-muted small">OR</span>
+                        <div class="flex-grow-1" style="height:1px;background:rgba(255,255,255,0.1);"></div>
+                    </div>
+                      
+                
+                    <!-- Enhanced Features Option -->
+                    <a href="{{ url_for('anilist_login') }}?store_token=true" class="btn btn-outline-primary btn-lg w-100 py-3 login-btn-hover mt-4">
+                        <img src="{{ url_for('static', filename='anilist_icon.png') }}" alt="AniList" class="login-icon"> 
+                        <span>Login with AniList Notifications</span>
+                    </a>
+                    <div class="key-difference mt-3 text-center">
+                        <div class="badge bg-primary p-2 mb-2">
+                            <i class="fas fa-bell"></i> Adds personal notifications from AniList
+                        </div>
+                        <div class="text-warning small">
+                            <i class="fas fa-info-circle"></i> Requires storing your AniList access token
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -437,7 +498,7 @@
                 Release: {{ entry.status }}<br>
               </div>
               
-            {% if current_user.is_authenticated %}
+            {% if current_user.is_admin %}
                 <div class="manga-controls">
                     <button class="download-status-btn" 
                             data-status="{{ entry.download_status|lower }}"
@@ -488,6 +549,7 @@
 
 <!-- Scripts files -->
 <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin-access-handler.js') }}"></script>
 <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
 <script src="{{ url_for('static', filename='js/aos_stuff.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filters.js') }}"></script>
@@ -516,10 +578,6 @@
 
 <!-- Webhook Status -->
 <script src="{{ url_for('static', filename='js/webhookStatus.js') }}"></script>
-
-<script type="text/javascript">
-    var loginUrl = "{{ url_for('login') }}";
-</script>
 
 <!-- Add this before the closing </body> tag, with your other scripts -->
 <script src="{{ url_for('static', filename='js/mangaDownloader.js') }}"></script>
@@ -669,6 +727,8 @@
 
 <!-- Add this before your closing body tag -->
 <script src="{{ url_for('static', filename='js/notification-drawer.js') }}"></script>
+
+
 
 </body>
 </html>

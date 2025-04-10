@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 from typing import List, Dict, Any
 from app.functions.class_mangalist import db_session, AnilistNotification
+from app.utils.token_encryption import decrypt_token
 
 
 query = '''
@@ -60,10 +61,18 @@ query ($page: Int, $perPage: Int) {
 '''
 
 class AnilistNotificationManager:
-    def __init__(self):
-        self.bearer_token = os.getenv('ANILIST_BEARER_TOKEN')
-        if not self.bearer_token:
-            raise ValueError("ANILIST_BEARER_TOKEN environment variable is not set")
+    def __init__(self, user_token=None):
+        # Try to use user's token if provided, otherwise fall back to app token
+        self.user_token = user_token
+        # If token is encrypted, decrypt it
+        if self.user_token and not self.user_token.startswith('Bearer '):
+            self.user_token = decrypt_token(self.user_token)
+            
+        self.app_token = os.getenv('ANILIST_BEARER_TOKEN')
+        
+        if not self.user_token and not self.app_token:
+            raise ValueError("Neither user token nor ANILIST_BEARER_TOKEN environment variable is set")
+            
         self.last_notification_id = self._get_last_notification_id()
     
     def _get_last_notification_id(self) -> int:
@@ -120,9 +129,21 @@ class AnilistNotificationManager:
 
     def get_notifications(self, page: int = 1, per_page: int = 10) -> List[Dict[Any, Any]]:
         variables = {'page': page, 'perPage': per_page}
-        headers = {'Authorization': f'Bearer {self.bearer_token}'}
+        
+        # Use user token if available, otherwise use app token
+        if self.user_token:
+            headers = {'Authorization': f'Bearer {self.user_token}'}
+            can_get_user_notifications = True
+        else:
+            headers = {'Authorization': f'Bearer {self.app_token}'}
+            can_get_user_notifications = False
         
         try:
+            # If we don't have a user token, we can't get user-specific notifications
+            if not can_get_user_notifications:
+                print("User token not available - cannot fetch personal notifications")
+                return []
+                
             response = requests.post(
                 'https://graphql.anilist.co',
                 json={'query': query, 'variables': variables},
@@ -151,6 +172,10 @@ class AnilistNotificationManager:
 
     def get_new_notifications(self) -> List[Dict[Any, Any]]:
         """Get only new notifications since last check"""
+        # If we don't have a user token, we can't get user-specific notifications
+        if not self.user_token:
+            return []
+            
         notifications = self.get_notifications(per_page=50)  # Get more to ensure we don't miss any
         if not notifications:
             return []

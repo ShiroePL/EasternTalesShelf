@@ -1,6 +1,6 @@
 import app.download_covers as download_covers
 from app.functions import sqlalchemy_fns as sqlalchemy_fns
-from flask import Flask, render_template, jsonify, request, url_for, redirect, send_from_directory
+from flask import Flask, flash, render_template, jsonify, request, session, url_for, redirect, send_from_directory
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import json
 from app.config import fastapi_updater_server_IP
@@ -28,6 +28,7 @@ from typing import Optional
 import time
 from app.models.scraper_models import ScrapeQueue
 from flask_socketio import SocketIO
+from functools import wraps
 from engineio.async_drivers import gevent
 import secrets
 import hashlib
@@ -36,7 +37,9 @@ from app.services.anilist_notification import AnilistNotificationManager
 import asyncio
 from app.functions.class_mangalist import MangaStatusNotification, AnilistNotification
 from sqlalchemy import text
-
+from app.oauth_handler import AniListOAuth
+from app.oauth_config import ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI
+from app.utils.token_encryption import encrypt_token
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -56,7 +59,7 @@ def create_app():
     app.secret_key = Config.flask_secret_key
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SECURE'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
     
@@ -119,7 +122,7 @@ webhook_status = WebhookStatus()
 app.secret_key = Config.flask_secret_key
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'  # Or 'Lax'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Or 'Lax'
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 
@@ -138,6 +141,28 @@ def load_user(user_id):
 @login_manager.unauthorized_handler
 def unauthorized_callback():
     return jsonify({'error': 'Unauthorized access'}), 401
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not (current_user.is_authenticated and current_user.is_admin):
+            # Check if it's an AJAX request
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.path.startswith('/api/'):
+                return jsonify({
+                    'error': 'Unauthorized',
+                    'message': 'You need administrator privileges to access this resource.'
+                }), 403
+            else:
+                flash('You need administrator privileges to access this page.', 'danger')
+                return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/api/user/is-admin')
+def is_user_admin():
+    """Simple endpoint to check if current user is admin"""
+    is_admin = current_user.is_authenticated and getattr(current_user, 'is_admin', False)
+    return jsonify({'is_admin': is_admin})
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -189,7 +214,7 @@ def set_security_headers(response):
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://code.jquery.com https://cdn.jsdelivr.net/npm https://cdnjs.cloudflare.com; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
-        "img-src 'self' data: blob:; "
+        "img-src 'self' data: blob: https://*.anilist.co; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
         "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.shirosplayground.space wss://*.shirosplayground.space;"
     )
@@ -275,6 +300,7 @@ def home():
 
 @app.route('/sync', methods=['POST'])
 @login_required
+@admin_required
 def sync_with_fastapi():
     try:
         # Replace the URL with your actual FastAPI server address
@@ -359,6 +385,7 @@ def extract_links_from_bato(html_content):
 
 @app.route('/add_bato', methods=['POST'])
 @login_required
+@admin_required
 def add_bato_link_route():
     try:
         data = request.get_json()
@@ -624,6 +651,7 @@ def get_mangaupdates_info(anilist_id):
 
 @app.route('/api/notifications')
 @login_required
+@admin_required
 def get_notifications():
     """Get notifications from both MangaUpdates and AniList"""
     try:
@@ -710,6 +738,7 @@ def get_notifications():
 
 @app.route('/api/notifications/<string:source>/<int:notification_id>/read', methods=['POST'])
 @login_required
+@admin_required
 def mark_notification_read(source, notification_id):
     """Mark a notification as read"""
     try:
@@ -736,6 +765,7 @@ def mark_notification_read(source, notification_id):
 # Webhook routes
 @app.route('/webhook/status', methods=['GET'])
 @login_required
+@admin_required
 def get_webhook_status():
     """Get webhook server status"""
     global webhook_connection, last_heartbeat
@@ -868,6 +898,7 @@ def start_heartbeat_thread():
 
 @app.route('/webhook/toggle', methods=['POST'])
 @login_required
+@admin_required
 def toggle_webhook():
     """Connect/disconnect to webhook server"""
     global webhook_connection, heartbeat_thread
@@ -928,6 +959,7 @@ def toggle_webhook():
 
 @app.route('/webhook/start_scraper', methods=['POST'])
 @login_required
+@admin_required
 def start_scraper_command():
     global webhook_connection
     try:
@@ -971,6 +1003,7 @@ def start_scraper_command():
 
 @app.route('/webhook/stop_scraper', methods=['POST'])
 @login_required
+@admin_required
 def stop_scraper_command():
     global webhook_connection
     try:
@@ -1014,6 +1047,7 @@ def stop_scraper_command():
 
 @app.route('/api/queue/pause', methods=['POST'])
 @login_required
+@admin_required
 def pause_queue_task_route():
     try:
         data = request.json
@@ -1038,6 +1072,7 @@ def pause_queue_task_route():
 
 @app.route('/api/queue/resume', methods=['POST'])
 @login_required
+@admin_required
 def resume_queue_task_route():
     try:
         data = request.json
@@ -1060,6 +1095,7 @@ def resume_queue_task_route():
 
 @app.route('/api/queue/remove', methods=['POST'])
 @login_required
+@admin_required
 def remove_queue_task_route():
     try:
         data = request.json
@@ -1084,6 +1120,7 @@ def remove_queue_task_route():
 
 @app.route('/api/queue/force_priority', methods=['POST'])
 @login_required
+@admin_required
 def force_priority_route():
     try:
         data = request.json
@@ -1099,6 +1136,7 @@ def force_priority_route():
 
 @app.route('/api/queue/add', methods=['POST'])
 @login_required
+@admin_required
 def add_to_queue_route():
     try:
         data = request.json
@@ -1123,6 +1161,7 @@ def add_to_queue_route():
 
 @app.route('/api/queue/status')
 @login_required
+@admin_required
 def get_queue_status_route():
     try:
         current_task, pending_tasks = sqlalchemy_fns.get_queue_status()
@@ -1159,6 +1198,8 @@ socketio = SocketIO(
 )
 
 @app.route('/webhook/queue_update', methods=['POST'])
+@login_required
+@admin_required
 def queue_update_notification():
     """Endpoint for webhook server to notify about queue changes"""
     try:
@@ -1173,6 +1214,8 @@ def queue_update_notification():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/webhook/heartbeat', methods=['POST'])
+@login_required
+@admin_required
 def handle_heartbeat():
     """Handle heartbeat from webhook server"""
     global webhook_connection, last_heartbeat
@@ -1220,6 +1263,7 @@ def handle_heartbeat():
 # Add these routes for download status management
 @app.route('/api/download/status')
 @login_required
+@admin_required
 def get_download_status():
     try:
         statuses = sqlalchemy_fns.get_download_statuses()
@@ -1230,6 +1274,7 @@ def get_download_status():
 
 @app.route('/api/download/status/update', methods=['POST'])
 @login_required
+@admin_required
 def update_download_status():
     try:
         data = request.json
@@ -1272,6 +1317,7 @@ def get_manga_titles():
 
 @app.route('/api/notifications/refresh', methods=['POST'])
 @login_required
+@admin_required
 def refresh_notifications():
     """Manual refresh endpoint"""
     notifications = notification_manager.get_notifications()
@@ -1279,6 +1325,7 @@ def refresh_notifications():
 
 @app.route('/animelist')
 @login_required
+@admin_required
 def animelist():
     """Display the anime list page"""
     try:
@@ -1366,6 +1413,7 @@ def animelist():
 
 @app.route('/api/update_episodes', methods=['POST'])
 @login_required
+@admin_required
 def update_episodes():
     """Update the number of episodes watched for an anime"""
     try:
@@ -1410,6 +1458,7 @@ def update_episodes():
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 @app.route('/api/check_covers', methods=['POST'])
+@login_required
 def check_covers():
     """Check if the specified covers have been downloaded"""
     try:
@@ -1473,6 +1522,7 @@ def check_covers():
 # Add this route to mark all notifications as read
 @app.route('/api/notifications/read-all', methods=['POST'])
 @login_required
+@admin_required
 def mark_all_notifications_read():
     try:
         # Mark all AniList notifications as read
@@ -1496,6 +1546,7 @@ def mark_all_notifications_read():
 # Add this route to count unread notifications
 @app.route('/api/notifications/count')
 @login_required
+@admin_required
 def count_notifications():
     try:
         # Count unread AniList notifications
@@ -1514,6 +1565,60 @@ def count_notifications():
         return jsonify({'count': total_count})
     except Exception as e:
         return jsonify({'count': 0, 'error': str(e)}), 500
+
+# AniList OAuth routes
+@app.route('/auth/anilist')
+def anilist_login():
+    """Initiate AniList OAuth login flow"""
+    # Check if user wants enhanced features
+    store_token = request.args.get('store_token', 'false').lower() == 'true'
+    
+    # Store preference in session
+    session['store_anilist_token'] = store_token
+    
+    return redirect(AniListOAuth.get_auth_url())
+
+@app.route('/auth/anilist/callback')
+def anilist_callback():
+    """Handle the callback from AniList OAuth"""
+    try:
+        code = request.args.get('code')
+        state = request.args.get('state')
+        
+        # Get preference from session (default to False for privacy)
+        store_token = session.get('store_anilist_token', False)
+        
+        if not code:
+            flash('Authentication failed: No authorization code received', 'error')
+            return redirect(url_for('home'))
+            
+        # Process the callback and get user info and access token
+        user_info, access_token = AniListOAuth.handle_callback(code, state, store_token)
+        
+        if not user_info or 'id' not in user_info:
+            flash('Authentication failed: Could not retrieve user information', 'error')
+            return redirect(url_for('home'))
+            
+        # Find or create user with encrypted token
+        user = Users.find_or_create_from_anilist(db_session, user_info, access_token)
+        
+        if user:
+            # Log in the user
+            login_user(user, remember=True)
+            if store_token:
+                flash(f'Welcome, {user.display_name or user.username}! Enhanced features are enabled.', 'success')
+            else:
+                flash(f'Welcome, {user.display_name or user.username}! (Privacy mode enabled)', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Authentication failed: User could not be created', 'error')
+            return redirect(url_for('home'))
+            
+    except Exception as e:
+        db_session.rollback()
+        app.logger.error(f"AniList OAuth error: {str(e)}")
+        flash(f'Authentication error: {str(e)}', 'error')
+        return redirect(url_for('home'))
 
 if __name__ == '__main__':
     # For local development

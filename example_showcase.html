@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eastern Tales Shelf - Showcase</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- AOS CSS -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --bg-color: #1a1a2e; /* Slightly bluer dark background */
+            --card-bg: #162447; /* Dark blue card */
+            --primary-color: #e94560; /* Kept vibrant red */
+            --secondary-color: #7b68ee; /* Kept purple */
+            --accent-color: #00b4d8; /* Kept cyan */
+            --sakura-pink: #FFC0CB; /* Added light pink */
+            --sakura-dark: #e75480; /* Darker pink for contrast */
+            --text-color: #f0f0f0;
+            --muted-text: #b0b0b0;
+            --border-color: #3a3a5e; /* Adjusted border */
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            /* Remove left padding as we're using a full-page SVG now */
+        }
+        
+        .container {
+            max-width: 1200px; 
+            margin: 0 auto;
+            padding: 0 20px;
+            position: relative;
+            z-index: 2; /* Above the branch SVG */
+        }
+        
+        section {
+            padding: 80px 0;
+            position: relative;
+            overflow: visible; /* Allow the branch to flow out */
+        }
+        
+        /* Hero section */
+        .hero {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, var(--secondary-color) 0%, transparent 30%),
+                        radial-gradient(circle at bottom left, var(--primary-color) 0%, transparent 30%);
+            opacity: 0.15;
+            z-index: -1;
+        }
+        
+        .floating-particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+        
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.3;
+        }
+        
+        .hero-content h1 {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .hero-content p {
+            font-size: 1.5rem;
+            max-width: 800px;
+            margin: 0 auto 40px;
+            color: var(--muted-text);
+        }
+        
+        .hero-btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            text-decoration: none;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            margin: 10px;
+        }
+        
+        .hero-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Features section */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 50px;
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 50px;
+            position: relative;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+        
+        .feature-card {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 30px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid var(--border-color);
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--sakura-pink), var(--secondary-color));
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 0 25px rgba(255, 192, 203, 0.3); /* Sakura pink glow */
+        }
+        
+        .feature-card i {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, var(--sakura-pink), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card p {
+            color: var(--muted-text);
+            line-height: 1.6;
+        }
+        
+        /* Showcase section */
+        .showcase {
+            position: relative;
+        }
+        
+        .showcase-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .showcase-item {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            height: 300px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .showcase-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        
+        .showcase-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+            transform: translateY(100%);
+            transition: transform 0.5s ease;
+        }
+        
+        .showcase-item:hover .showcase-content {
+            transform: translateY(0);
+        }
+        
+        .showcase-item:hover .showcase-image {
+            transform: scale(1.1);
+        }
+        
+        /* Tech stack section */
+        .tech-stack {
+            background-color: rgba(30, 30, 30, 0.5);
+            border-radius: 20px;
+            padding: 50px;
+            margin: 50px 0;
+        }
+        
+        .tech-icons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 30px;
+        }
+        
+        .tech-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 120px;
+        }
+        
+        .tech-icon i {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--accent-color);
+        }
+        
+        .tech-icon span {
+            color: var(--muted-text);
+        }
+        
+        /* 3D Card Effect */
+        .manga-card-wrapper {
+            perspective: 1000px;
+            width: 300px;
+            height: 450px;
+            margin: 0 auto;
+        }
+        
+        .manga-card {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        .manga-card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            backface-visibility: hidden;
+        }
+        
+        .manga-card-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+            color: white;
+        }
+        
+        .manga-card-info h3 {
+            margin-bottom: 10px;
+        }
+        
+        .manga-card-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            background-color: var(--primary-color);
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+        
+        /* Animation demo section */
+        .animation-demo {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 50px;
+        }
+        
+        .demo-card {
+            width: 350px;
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        
+        .demo-card h3 {
+            margin-bottom: 20px;
+        }
+        
+        .heart-demo {
+            position: relative;
+            height: 150px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .heart-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            transition: transform 0.3s ease;
+        }
+        
+        .heart-btn:hover {
+            transform: scale(1.2);
+        }
+        
+        .heart-particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .scroll-demo {
+            height: 150px;
+            overflow: hidden;
+            position: relative;
+            border-radius: 10px;
+            background-color: var(--border-color);
+        }
+        
+        .scroll-item {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        /* CTA section */
+        .cta {
+            text-align: center;
+            padding: 100px 0;
+        }
+        
+        .cta h2 {
+            font-size: 3rem;
+            margin-bottom: 30px;
+        }
+        
+        .cta p {
+            max-width: 600px;
+            margin: 0 auto 40px;
+            color: var(--muted-text);
+            font-size: 1.2rem;
+        }
+        
+        /* Footer */
+        footer {
+            padding: 30px 0;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        footer p {
+            color: var(--muted-text);
+        }
+        
+        /* Floating elements */
+        .floating-circle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.1;
+            z-index: -1;
+        }
+        
+        /* New Sakura branch overlay */
+        #sakura-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        #sakura-overlay svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        .branch-path {
+            fill: none;
+            stroke: rgba(231, 84, 128, 0.8);
+            stroke-width: 5;
+            stroke-linecap: round;
+        }
+        
+        .sakura-petal {
+            fill: var(--sakura-pink);
+            stroke: var(--sakura-dark);
+            stroke-width: 1;
+            opacity: 0;
+            transform-origin: center;
+            transform: scale(0) rotate(0deg);
+        }
+        
+        /* Small petals that might fall */
+        .falling-petal {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: var(--sakura-pink);
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            /* Existing responsive styles */
+        }
+    </style>
+</head>
+<body>
+    <!-- Sakura Branch Overlay - Full page overlay for the animated branch -->
+    <div id="sakura-overlay">
+        <!-- SVG will be dynamically inserted by JavaScript -->
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="floating-particles" id="heroParticles"></div>
+        <div class="container">
+            <div class="hero-content" data-aos="fade-up">
+                <h1>Eastern Tales Shelf</h1>
+                <p>Your personal platform for organizing and tracking Eastern novels and manga with seamless AniList integration</p>
+                <div>
+                    <a href="#features" class="hero-btn">Explore Features</a>
+                    <a href="#demo" class="hero-btn">View Demo</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Features Section -->
+    <section id="features">
+        <div class="container">
+            <h2 class="section-title" data-aos="fade-up">Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card" data-aos="flip-left" data-aos-delay="100">
+                    <i class="fas fa-sync-alt"></i>
+                    <h3>AniList Integration</h3>
+                    <p>Synchronize your manga and novel collection with AniList for seamless tracking across platforms.</p>
+                </div>
+                
+                <div class="feature-card" data-aos="flip-left" data-aos-delay="200">
+                    <i class="fas fa-palette"></i>
+                    <h3>Customizable UI</h3>
+                    <p>Personalize your reading experience with custom color themes that match your style.</p>
+                </div>
+                
+                <div class="feature-card" data-aos="flip-left" data-aos-delay="300">
+                    <i class="fas fa-tasks"></i>
+                    <h3>Reading Status Tracking</h3>
+                    <p>Track what you're currently reading, planning to read, or have completed.</p>
+                </div>
+                
+                <div class="feature-card" data-aos="flip-left" data-aos-delay="400">
+                    <i class="fas fa-bell"></i>
+                    <h3>Real-time Updates</h3>
+                    <p>Get notifications when new chapters are available for your favorite titles.</p>
+                </div>
+                
+                <div class="feature-card" data-aos="flip-left" data-aos-delay="500">
+                    <i class="fas fa-link"></i>
+                    <h3>Source Linking</h3>
+                    <p>Easily link to sources like Bato.to for convenient reading.</p>
+                </div>
+                
+                <div class="feature-card" data-aos="flip-left" data-aos-delay="600">
+                    <i class="fas fa-filter"></i>
+                    <h3>Advanced Filtering</h3>
+                    <p>Filter your collection by type, status, country of origin, and more.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Animation Demo Section -->
+    <section id="demo">
+        <div class="container">
+            <h2 class="section-title" data-aos="fade-up">UI and Animations</h2>
+            <p style="text-align:center; margin-bottom:50px; color:var(--muted-text);" data-aos="fade-up">Experience the beautiful and interactive animations that make Eastern Tales Shelf stand out</p>
+            
+            <div class="animation-demo">
+                <div class="demo-card" data-aos="zoom-in">
+                    <h3>3D Card Effect</h3>
+                    <div class="manga-card-wrapper" id="mangaCard">
+                        <div class="manga-card">
+                            <img src="https://i.imgur.com/JFKd5m5.jpg" alt="Manga Cover" class="manga-card-img">
+                            <div class="manga-card-info">
+                                <h3>Solo Leveling</h3>
+                                <p>Chapter 179</p>
+                                <span class="manga-card-status">Reading</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="demo-card" data-aos="zoom-in" data-aos-delay="200">
+                    <h3>Heart Animation</h3>
+                    <div class="heart-demo">
+                        <button class="heart-btn" id="heartBtn">
+                            <i class="far fa-heart"></i>
+                        </button>
+                        <div class="heart-particles" id="heartParticles"></div>
+                    </div>
+                    <p>Click the heart to see GSAP animation</p>
+                </div>
+                
+                <div class="demo-card" data-aos="zoom-in" data-aos-delay="400">
+                    <h3>Scroll Updates</h3>
+                    <div class="scroll-demo" id="scrollDemo">
+                        <div class="scroll-item">Tower of God - Chapter 550 updated</div>
+                        <div class="scroll-item">The Beginning After The End - New chapter</div>
+                        <div class="scroll-item">Omniscient Reader - Chapter 140 updated</div>
+                        <div class="scroll-item">Overgeared - New translation available</div>
+                        <div class="scroll-item">Eleceed - Chapter 210 updated</div>
+                        <div class="scroll-item">Second Life Ranker - New chapter</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Tech Stack Section -->
+    <section>
+        <div class="container">
+            <div class="tech-stack" data-aos="fade-up">
+                <h2 class="section-title" style="margin-top: 0;">Technical Stack</h2>
+                <div class="tech-icons">
+                    <div class="tech-icon" data-aos="zoom-in" data-aos-delay="100">
+                        <i class="fab fa-python"></i>
+                        <span>Flask</span>
+                    </div>
+                    <div class="tech-icon" data-aos="zoom-in" data-aos-delay="200">
+                        <i class="fas fa-database"></i>
+                        <span>SQLAlchemy</span>
+                    </div>
+                    <div class="tech-icon" data-aos="zoom-in" data-aos-delay="300">
+                        <i class="fab fa-bootstrap"></i>
+                        <span>Bootstrap 5</span>
+                    </div>
+                    <div class="tech-icon" data-aos="zoom-in" data-aos-delay="400">
+                        <i class="fab fa-js"></i>
+                        <span>GSAP</span>
+                    </div>
+                    <div class="tech-icon" data-aos="zoom-in" data-aos-delay="500">
+                        <i class="fas fa-code"></i>
+                        <span>AOS</span>
+                    </div>
+                    <div class="tech-icon" data-aos="zoom-in" data-aos-delay="600">
+                        <i class="fab fa-docker"></i>
+                        <span>Docker</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="container">
+            <h2 data-aos="fade-up">Ready to Organize Your Collection?</h2>
+            <p data-aos="fade-up" data-aos-delay="200">Start tracking your favorite Eastern novels and manga with a platform designed specifically for fans.</p>
+            <a href="#" class="hero-btn" data-aos="zoom-in" data-aos-delay="400">Get Started Now</a>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>Made with ❤️ for fans of Eastern tales</p>
+        </div>
+    </footer>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+    <!-- GSAP ScrollTrigger Plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/ScrollTrigger.min.js"></script>
+    
+    <!-- AOS JS -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    
+    <!-- Custom JS -->
+    <script>
+        // Initialize AOS and register plugins
+        AOS.init({
+            duration: 800,
+            easing: 'ease-in-out',
+            once: false
+        });
+        
+        gsap.registerPlugin(ScrollTrigger);
+        
+        // Original functions from previous version
+        // Create floating particles for hero background
+        function createHeroParticles() {
+            const container = document.getElementById('heroParticles');
+            const colors = ['#ef5466', '#7b68ee', '#00b4d8'];
+            
+            for (let i = 0; i < 30; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                
+                const size = Math.random() * 15 + 5;
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                particle.style.backgroundColor = color;
+                
+                const posX = Math.random() * 100;
+                const posY = Math.random() * 100;
+                
+                particle.style.left = `${posX}%`;
+                particle.style.top = `${posY}%`;
+                
+                container.appendChild(particle);
+                
+                // Animate with GSAP
+                gsap.to(particle, {
+                    x: Math.random() * 100 - 50,
+                    y: Math.random() * 100 - 50,
+                    opacity: Math.random() * 0.5 + 0.1,
+                    duration: Math.random() * 20 + 10,
+                    repeat: -1,
+                    yoyo: true,
+                    ease: "sine.inOut"
+                });
+            }
+        }
+        
+        // 3D Card Effect
+        function initMangaCard() {
+            const card = document.getElementById('mangaCard');
+            if (!card) return;
+            
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const rotateY = (x - centerX) / 10;
+                const rotateX = (centerY - y) / 10;
+                
+                gsap.to(card.querySelector('.manga-card'), {
+                    rotateY: rotateY,
+                    rotateX: rotateX,
+                    duration: 0.5,
+                    ease: "power2.out"
+                });
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                gsap.to(card.querySelector('.manga-card'), {
+                    rotateY: 0,
+                    rotateX: 0,
+                    duration: 0.5,
+                    ease: "power2.out"
+                });
+            });
+        }
+        
+        // Heart Animation with GSAP
+        function initHeartAnimation() {
+            const heartBtn = document.getElementById('heartBtn');
+            const particlesContainer = document.getElementById('heartParticles');
+            
+            if (!heartBtn || !particlesContainer) return;
+            
+            heartBtn.addEventListener('click', () => {
+                // Change heart icon
+                const icon = heartBtn.querySelector('i');
+                if (icon.classList.contains('far')) {
+                    icon.classList.remove('far');
+                    icon.classList.add('fas');
+                    icon.style.color = '#ef5466';
+                    
+                    // Create heart particles
+                    for (let i = 0; i < 15; i++) {
+                        createHeartParticle(particlesContainer);
+                    }
+                    
+                    // Pulse animation
+                    gsap.fromTo(heartBtn, 
+                        { scale: 1 },
+                        { scale: 1.4, duration: 0.2, ease: "power1.out", yoyo: true, repeat: 1 }
+                    );
+                } else {
+                    icon.classList.remove('fas');
+                    icon.classList.add('far');
+                    icon.style.color = '';
+                }
+            });
+        }
+        
+        function createHeartParticle(container) {
+            const particle = document.createElement('div');
+            particle.innerHTML = '❤️';
+            particle.style.position = 'absolute';
+            particle.style.fontSize = `${Math.random() * 15 + 10}px`;
+            particle.style.top = '50%';
+            particle.style.left = '50%';
+            particle.style.pointerEvents = 'none';
+            particle.style.opacity = 1;
+            
+            container.appendChild(particle);
+            
+            // Random direction animation
+            gsap.to(particle, {
+                x: (Math.random() - 0.5) * 100,
+                y: (Math.random() - 0.5) * 100,
+                opacity: 0,
+                duration: Math.random() + 0.5,
+                onComplete: () => {
+                    container.removeChild(particle);
+                }
+            });
+        }
+        
+        // Scroll notification animation
+        function initScrollDemo() {
+            const scrollDemo = document.getElementById('scrollDemo');
+            if (!scrollDemo) return;
+            
+            const items = scrollDemo.querySelectorAll('.scroll-item');
+            if (!items.length) return;
+            
+            let currentIndex = 0;
+            
+            function animateScroll() {
+                gsap.to(items[currentIndex], {
+                    y: -40,
+                    opacity: 0,
+                    duration: 0.5,
+                    ease: "power2.in",
+                    onComplete: () => {
+                        // Move first item to the bottom
+                        items[currentIndex].style.opacity = 0;
+                        items[currentIndex].style.transform = 'translateY(40px)';
+                        scrollDemo.appendChild(items[currentIndex]);
+                        
+                        // Animate in the new first item
+                        gsap.to(items[currentIndex], {
+                            y: 0,
+                            opacity: 1,
+                            duration: 0.5,
+                            ease: "power2.out"
+                        });
+                    }
+                });
+                
+                setTimeout(animateScroll, 3000);
+            }
+            
+            // Start animation after a delay
+            setTimeout(animateScroll, 3000);
+        }
+        
+        // Rest of your new functions
+        function createSakuraBranch() {
+            console.log("Creating Sakura Branch");
+            // Get dimensions for proper scaling
+            const pageHeight = Math.max(
+                document.body.scrollHeight,
+                document.body.offsetHeight,
+                document.documentElement.clientHeight,
+                document.documentElement.scrollHeight,
+                document.documentElement.offsetHeight
+            );
+            console.log("Page Height:", pageHeight);
+            
+            // Create SVG element
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("viewBox", `0 0 1000 ${pageHeight}`);
+            svg.setAttribute("preserveAspectRatio", "xMidYMin slice");
+            svg.style.height = pageHeight + "px";
+            svg.style.width = "100%";
+            
+            // Create the branch path that flows across the page with more dramatic curves
+            const branchPath = document.createElementNS(svgNS, "path");
+            branchPath.classList.add("branch-path");
+            branchPath.setAttribute("id", "main-branch");
+            
+            // Create a much more expressive path with dramatic curves around content
+            // Start from center top
+            let pathD = "M 500 50";
+            
+            // Flow around hero section with a spiral
+            pathD += " C 700 150, 300 250, 500 350";
+            
+            // Flow into features section with circular motion
+            pathD += " C 700 450, 300 500, 600 600";
+            
+            // Flow around demo section with dramatic curves
+            pathD += " C 800 650, 200 700, 400 800";
+            
+            // Flow around tech stack section with swooping motion
+            pathD += " C 600 850, 300 900, 700 950";
+            
+            // Flow to footer with final flourish
+            pathD += " C 500 1000, 300 1050, 500 " + (pageHeight - 100);
+            
+            branchPath.setAttribute("d", pathD);
+            svg.appendChild(branchPath);
+            
+            // Get the overlay container and add the SVG
+            const overlay = document.getElementById("sakura-overlay");
+            if (!overlay) {
+                console.error("Sakura overlay element not found!");
+                return null;
+            }
+            
+            overlay.innerHTML = ''; // Clear any existing content
+            overlay.appendChild(svg);
+            
+            // Now add petals along the path - many more for visibility
+            return createPetalsAlongPath(svg, branchPath, 50); // Create 50 petals
+        }
+        
+        function createPetalsAlongPath(svg, path, petalCount) {
+            console.log("Creating petals along path");
+            const pathLength = path.getTotalLength();
+            console.log("Path Length:", pathLength);
+            
+            const petals = [];
+            const svgNS = "http://www.w3.org/2000/svg";
+            
+            for (let i = 0; i < petalCount; i++) {
+                // Distribute petals along the path
+                const progress = i / (petalCount - 1);
+                const point = path.getPointAtLength(progress * pathLength);
+                
+                // Create a more detailed sakura petal
+                const petal = document.createElementNS(svgNS, "path");
+                petal.classList.add("sakura-petal");
+                
+                // Make petals even larger for better visibility
+                const petalSize = 25 + Math.random() * 20; // Size between 25-45
+                const rotation = Math.random() * 360; // Random rotation
+                
+                // More defined petal shape with 5 lobes like a real sakura
+                // Create a more detailed sakura flower with 5 petals
+                const sakuraLobeSize = petalSize * 0.6;
+                const petalPath = `
+                    M ${point.x},${point.y - petalSize/2}
+                    C ${point.x + sakuraLobeSize/2},${point.y - petalSize/1.5} ${point.x + sakuraLobeSize},${point.y - petalSize/3} ${point.x + sakuraLobeSize/2},${point.y}
+                    C ${point.x + sakuraLobeSize},${point.y + petalSize/3} ${point.x + sakuraLobeSize/2},${point.y + petalSize/1.5} ${point.x},${point.y + petalSize/2}
+                    C ${point.x - sakuraLobeSize/2},${point.y + petalSize/1.5} ${point.x - sakuraLobeSize},${point.y + petalSize/3} ${point.x - sakuraLobeSize/2},${point.y}
+                    C ${point.x - sakuraLobeSize},${point.y - petalSize/3} ${point.x - sakuraLobeSize/2},${point.y - petalSize/1.5} ${point.x},${point.y - petalSize/2}
+                    Z
+                `;
+                
+                petal.setAttribute("d", petalPath);
+                petal.setAttribute("transform", `rotate(${rotation} ${point.x} ${point.y})`);
+                petal.setAttribute("data-progress", progress);
+                
+                // Set styles directly to ensure visibility
+                petal.style.fill = "#FFC0CB";
+                petal.style.stroke = "#e75480";
+                petal.style.strokeWidth = "1px";
+                petal.style.opacity = "0";
+                
+                svg.appendChild(petal);
+                petals.push(petal);
+                
+                console.log(`Created petal at x:${point.x}, y:${point.y}, progress:${progress}`);
+            }
+            
+            return {path, petals};
+        }
+        
+        function animateSakuraBranch(branchElements) {
+            if (!branchElements) {
+                console.error("No branch elements to animate");
+                return;
+            }
+            
+            console.log("Animating Sakura Branch");
+            const {path, petals} = branchElements;
+            const pathLength = path.getTotalLength();
+            
+            // Set up initial states with stronger styles
+            gsap.set(path, {
+                strokeDasharray: pathLength,
+                strokeDashoffset: pathLength,
+                stroke: "rgba(231, 84, 128, 0.8)", // Make even more visible
+                strokeWidth: 5 // Make even thicker
+            });
+            
+            console.log("Creating ScrollTrigger animation");
+            
+            // Create the main timeline with better viewport triggers
+            const tl = gsap.timeline({
+                scrollTrigger: {
+                    trigger: "body",
+                    start: "top top", // Start right away
+                    end: "bottom bottom", // End at the bottom
+                    scrub: 0.5, // Smoother scrubbing
+                    markers: true, // Show markers to debug (remove in production)
+                    onUpdate: self => {
+                        console.log("ScrollTrigger progress:", self.progress.toFixed(2));
+                    }
+                }
+            });
+            
+            // Animate the branch drawing
+            tl.to(path, {
+                strokeDashoffset: 0,
+                ease: "none",
+                duration: 1
+            }, 0);
+            
+            // Animate each petal with a more visible bloom that stays
+            petals.forEach(petal => {
+                const progress = parseFloat(petal.getAttribute("data-progress"));
+                
+                // Bloom the petal as the branch reaches it
+                tl.to(petal, {
+                    opacity: 0.9, // Make very visible
+                    scale: 1,
+                    rotation: "+=45", // More rotation during bloom
+                    duration: 0.1,
+                    ease: "back.out(2)" // More pronounced bounce
+                }, progress * 0.95); // Just before the branch gets there
+                
+                // Add subtle movement after blooming - all petals sway slightly
+                tl.to(petal, {
+                    rotation: "+=15",
+                    scale: 1.1, // Slight pulse
+                    duration: 0.2,
+                    repeat: 1,
+                    yoyo: true,
+                    ease: "sine.inOut"
+                }, ">");
+            });
+            
+            return tl;
+        }
+        
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM Content Loaded - Starting animations");
+            
+            // Initialize existing animations if elements exist
+            createHeroParticles();
+            initMangaCard();
+            initHeartAnimation();
+            initScrollDemo();
+            
+            // Wait for layout to stabilize
+            setTimeout(() => {
+                console.log("Creating and animating Sakura branch");
+                // Create and animate the new sakura branch
+                const branchElements = createSakuraBranch();
+                animateSakuraBranch(branchElements);
+                
+                // Re-run on window resize (debounced)
+                let resizeTimeout;
+                window.addEventListener('resize', () => {
+                    clearTimeout(resizeTimeout);
+                    resizeTimeout = setTimeout(() => {
+                        console.log("Window resized - recreating branch");
+                        const branchElements = createSakuraBranch();
+                        animateSakuraBranch(branchElements);
+                    }, 250);
+                });
+            }, 1000); // Longer delay for safety
+            
+            // Animate title with GSAP
+            gsap.from('.hero-content h1', {
+                y: 50,
+                opacity: 0,
+                duration: 1,
+                ease: "power3.out"
+            });
+            
+            gsap.from('.hero-content p', {
+                y: 50,
+                opacity: 0,
+                duration: 1,
+                delay: 0.3,
+                ease: "power3.out"
+            });
+            
+            gsap.from('.hero-btn', {
+                y: 50,
+                opacity: 0,
+                duration: 1,
+                delay: 0.6,
+                ease: "power3.out",
+                stagger: 0.2
+            });
+            
+            // Create floating circles in background
+            const colors = ['#ef5466', '#7b68ee', '#00b4d8'];
+            const sections = document.querySelectorAll('section');
+            
+            sections.forEach(section => {
+                for (let i = 0; i < 3; i++) {
+                    const circle = document.createElement('div');
+                    circle.classList.add('floating-circle');
+                    
+                    const size = Math.random() * 300 + 100;
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    circle.style.width = `${size}px`;
+                    circle.style.height = `${size}px`;
+                    circle.style.backgroundColor = color;
+                    
+                    const posX = Math.random() * 100;
+                    const posY = Math.random() * 100;
+                    
+                    circle.style.left = `${posX}%`;
+                    circle.style.top = `${posY}%`;
+                    
+                    section.appendChild(circle);
+                    
+                    // Animate with GSAP
+                    gsap.to(circle, {
+                        x: Math.random() * 50 - 25,
+                        y: Math.random() * 50 - 25,
+                        duration: Math.random() * 20 + 10,
+                        repeat: -1,
+                        yoyo: true,
+                        ease: "sine.inOut"
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

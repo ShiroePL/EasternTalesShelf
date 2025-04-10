@@ -1,4 +1,23 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // First check if user is admin
+    if (typeof window.isUserAdmin === 'function') {
+        try {
+            const isAdmin = await window.isUserAdmin();
+            if (!isAdmin) {
+                // Hide webhook status element for non-admin users
+                const webhookStatus = document.getElementById('webhookStatus');
+                if (webhookStatus) {
+                    webhookStatus.style.display = 'none';
+                }
+                // Don't set up any listeners for non-admin users
+                return;
+            }
+        } catch (error) {
+            console.error('Error checking admin status:', error);
+        }
+    }
+
+    // Only proceed with webhook status initialization for admin users
     const webhookStatus = document.getElementById('webhookStatus');
     if (!webhookStatus) return;
 
@@ -45,34 +64,53 @@ function formatUptime(minutes) {
     return `${hours}h ${remainingMinutes}m`;
 }
 
-// Only start WebSocket listener for logged-in users
-if (typeof io !== 'undefined' && isLoggedIn) {
-    const socket = io();
+// Move the socket connection inside the admin check
+document.addEventListener('DOMContentLoaded', async function() {
+    // Skip socket setup for non-admins
+    if (typeof window.isUserAdmin === 'function') {
+        try {
+            const isAdmin = await window.isUserAdmin();
+            if (!isAdmin) return;
+        } catch (error) {
+            console.error('Error checking admin status:', error);
+            return;
+        }
+    }
     
-    // Handle connection states
-    socket.on('webhook_status', (data) => {
-        if (data.status === 'retrying') {
-            webhookStatus.dataset.retrying = 'true';
-            webhookStatus.textContent = `Scraper: Reconnecting (${data.attempt}/${data.max_attempts})`;
-            webhookStatus.classList.remove('connected');
-        } else if (data.status === 'failed') {
-            webhookStatus.dataset.retrying = 'false';
-            webhookStatus.textContent = 'Scraper: Connection lost';
-            webhookStatus.classList.remove('connected');
-        } else if (data.status === 'connected') {
-            webhookStatus.dataset.retrying = 'false';
-            webhookStatus.textContent = `Scraper: Connected (${formatUptime(data.uptime)})`;
-            webhookStatus.classList.add('connected');
-        } else if (data.status === 'disconnected') {
-            webhookStatus.dataset.retrying = 'false';
-            webhookStatus.textContent = 'Scraper: Disconnected';
-            webhookStatus.classList.remove('connected');
-        }
+    const webhookStatus = document.getElementById('webhookStatus');
+    if (!webhookStatus) return;
+    
+    // Only start WebSocket listener for logged-in admin users
+    if (typeof io !== 'undefined' && isLoggedIn) {
+        const socket = io();
         
-        // Update QueueManager state if it exists
-        if (window.queueManager) {
-            window.queueManager.isConnected = (data.status === 'connected');
-            window.queueManager.updateConnectionUI();
-        }
-    });
-} 
+        // Handle connection states
+        socket.on('webhook_status', (data) => {
+            if (!webhookStatus) return; // Check again in case element was removed
+            
+            if (data.status === 'retrying') {
+                webhookStatus.dataset.retrying = 'true';
+                webhookStatus.textContent = `Scraper: Reconnecting (${data.attempt}/${data.max_attempts})`;
+                webhookStatus.classList.remove('connected');
+            } else if (data.status === 'failed') {
+                webhookStatus.dataset.retrying = 'false';
+                webhookStatus.textContent = 'Scraper: Connection lost';
+                webhookStatus.classList.remove('connected');
+            } else if (data.status === 'connected') {
+                webhookStatus.dataset.retrying = 'false';
+                webhookStatus.textContent = `Scraper: Connected (${formatUptime(data.uptime)})`;
+                webhookStatus.classList.add('connected');
+            } else if (data.status === 'disconnected') {
+                webhookStatus.dataset.retrying = 'false';
+                webhookStatus.textContent = 'Scraper: Disconnected';
+                webhookStatus.classList.remove('connected');
+            }
+            
+            // Update QueueManager state if it exists
+            if (window.queueManager) {
+                window.queueManager.isConnected = (data.status === 'connected');
+                window.queueManager.updateConnectionUI();
+            }
+        });
+    }
+}); 
