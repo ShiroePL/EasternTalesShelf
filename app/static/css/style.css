@@ -765,14 +765,7 @@ opacity: 1;
     box-shadow: 0 0 8px #000;
 }
 
-@keyframes rotate {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
-}
+
 
 #sidebar-title, #sidebar-title-placeholder {
     font-family: 'Roboto', sans-serif;
@@ -1104,6 +1097,7 @@ body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-3px); }
 }
+
 
 @keyframes fade {
     0%, 100% { opacity: 1; }
@@ -1543,10 +1537,7 @@ body {
     100% { transform: scale(1); }
 }
 
-@keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
-}
+
 
 /* Apply animations to different states */
 .download-status-btn[data-status="downloading"] {

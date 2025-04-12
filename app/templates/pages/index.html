@@ -1,0 +1,40 @@
+<!-- pages/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+    <!-- Left Sidebar -->
+    {% include 'components/_left_sidebar.html' %}
+    
+    <!-- Right Sidebar -->
+    {% include 'components/_right_sidebar.html' %}
+    
+    <!-- Main Content Area -->
+    <div id="main">
+        <div class="content-area">
+            {% include 'sections/_manga_grid.html' %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script type="module" src="static/js/RightSidebarUtilities.js"></script>
+    <script type="module" src="static/js/RightSidebarDataHandlers.js"></script>
+    <script type="module" src="static/js/RightSidebarUIUpdaters.js"></script>
+    <script type="module" src="static/js/RightsidebarAnimations.js"></script>
+    <script type="module" src="static/js/RightSidebarEventListeners.js"></script>
+    <script type="module" src="static/js/RightSidebarMain.js"></script>
+    <script type="module" src="static/js/UIUpdaters.js"></script>
+    <script src="static/js/ChatBoxRelated.js"></script>
+    <script src="{{ url_for('static', filename='js/colorPicker.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/queueManager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/webhookStatus.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/mangaDownloader.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/notification-drawer.js') }}"></script>
+    
+    <script>
+        // Cover image loading code
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cover loading code here
+        });
+    </script>
+{% endblock %}

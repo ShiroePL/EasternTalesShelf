@@ -295,7 +295,7 @@ def home():
     color_settings = load_color_settings()
     
     # Pass the entries and color settings to the template.
-    return render_template('index.html', manga_entries=manga_entries, mangaupdates_details=mangaupdates_details, color_settings=color_settings)
+    return render_template('pages/index.html', manga_entries=manga_entries, mangaupdates_details=mangaupdates_details, color_settings=color_settings)
 
 
 @app.route('/sync', methods=['POST'])

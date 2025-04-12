@@ -1,0 +1,78 @@
+<!-- Login Modal with Modern Dark Theme -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-dark">
+            <!-- Modal Header -->
+            <div class="modal-header modal-header-dark border-0">
+                <h5 class="modal-title fw-bold" id="loginModalLabel">Welcome Back</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- Modal Body with Enhanced Styling -->
+            <div class="modal-body modal-body-dark pt-0 pb-4 px-4">
+                <!-- Eastern Tales Logo/Branding -->
+                <div class="text-center mb-4">
+                    <div class="modal-brand-icon mb-3">
+                        <i class="fas fa-book-open fa-3x text-primary"></i>
+                    </div>
+                    <p class="text-muted">Sign in to access your collection</p>
+                </div>
+                
+                <!-- Common Features -->
+                <div class="shared-features mb-4">
+                    <h6 class="features-title">All login options include:</h6>
+                    <div class="row gy-2">
+                        <div class="col-6 d-flex align-items-center">
+                            <i class="fas fa-list-ul text-primary me-2"></i> Full Anilist collection
+                        </div>
+                        <div class="col-6 d-flex align-items-center">
+                            <i class="fas fa-info-circle text-primary me-2"></i> Series details
+                        </div>
+                        <div class="col-6 d-flex align-items-center">
+                            <i class="fas fa-globe text-primary me-2"></i> External integration
+                        </div>
+                        <div class="col-6 d-flex align-items-center">
+                            <i class="fas fa-bell text-primary me-2"></i> Notifications
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                <!-- Login Options -->
+                <div class="login-option-container">
+                    <!-- Privacy Mode Option -->
+                    <a href="{{ url_for('anilist_login') }}" class="btn btn-primary btn-lg w-100 py-3 login-btn-hover mb-3">
+                        <img src="{{ url_for('static', filename='anilist_icon.png') }}" alt="AniList" class="login-icon"> 
+                        <span>Standard Login</span>
+                        <small class="login-badge">Recommended</small>
+                    </a>
+                    <div class="option-description text-center mb-4">
+                        <i class="fas fa-shield-alt"></i> Privacy Mode (we don't store your token)
+                    </div>
+                
+                    <!-- Modern Divider -->
+                    <div class="d-flex align-items-center my-3">
+                        <div class="flex-grow-1" style="height:1px;background:rgba(255,255,255,0.1);"></div>
+                        <span class="px-2 text-muted small">OR</span>
+                        <div class="flex-grow-1" style="height:1px;background:rgba(255,255,255,0.1);"></div>
+                    </div>
+                      
+                
+                    <!-- Enhanced Features Option -->
+                    <a href="{{ url_for('anilist_login') }}?store_token=true" class="btn btn-outline-primary btn-lg w-100 py-3 login-btn-hover mt-4">
+                        <img src="{{ url_for('static', filename='anilist_icon.png') }}" alt="AniList" class="login-icon"> 
+                        <span>Login with AniList Notifications</span>
+                    </a>
+                    <div class="key-difference mt-3 text-center">
+                        <div class="badge bg-primary p-2 mb-2">
+                            <i class="fas fa-bell"></i> Adds personal notifications from AniList
+                        </div>
+                        <div class="text-warning small">
+                            <i class="fas fa-info-circle"></i> Requires storing your AniList access token
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

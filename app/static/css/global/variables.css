@@ -1,0 +1,24 @@
+:root {
+    --background-color: #24282d;
+    --primary-color: #007bff;
+    --secondary-color: #343a40;
+    --text-color: #ffffff;
+    --border-color: #3e3e3e;
+    --hover-color: #005dc0;
+    --favorite-color: red;
+    --reread-color: #007bff;
+    --completed-color: rgb(40, 167, 69);
+    --planning-color: rgb(255, 193, 7);
+    --current-color: rgb(14, 159, 212);
+    --paused-color: rgb(224, 33, 8);
+    --mangaupdates-status-color: rgb(55, 160, 249);
+    --mangaupdates-completed-color: rgb(40, 167, 69);
+    --mangaupdates-licensed-color: #007bff;
+    --mangaupdates-last-updated-color: #007bff;
+    --mangaupdates-info-bg: #1c1e22;
+    --mangaupdates-info-shadow: rgba(0, 0, 0, 0.1);
+    --mangaupdates-info-border-radius: 5px;
+    --mangaupdates-info-padding: 0.5rem;
+    --mangaupdates-info-margin-bottom: 1rem;
+    --mangaupdates-info-box-shadow: inset 0 2px 4px var(--mangaupdates-info-shadow);
+} 

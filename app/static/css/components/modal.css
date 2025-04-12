@@ -1,0 +1,70 @@
+/* Custom dark theme for modal */
+.modal-content-dark {
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+}
+
+.modal-header-dark {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-body-dark {
+    background-color: var(--secondary-color);
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Custom styles for input fields in the dark-themed modal */
+.modal-content-dark .form-control {
+    background-color: #495057;
+    color: var(--text-color);
+    border: 0px solid #495057;
+}
+
+.modal-content-dark .form-control:focus {
+    background-color: #495057;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.modal-content-dark .form-label {
+    color: var(--text-color);
+}
+
+/* Login text visibility fix */
+.modal-content-dark .text-muted {
+    color: rgb(180 180 180) !important;
+}
+
+/* Login divider */
+.login-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 20px 0;
+    color: #777;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #444;
+}
+
+.login-divider::before {
+    margin-right: 10px;
+}
+
+.login-divider::after {
+    margin-left: 10px;
+}
+
+.login-divider span {
+    padding: 0 10px;
+    background-color: #1e1e1e;
+    color: #777;
+    font-size: 0.85rem;
+} 
