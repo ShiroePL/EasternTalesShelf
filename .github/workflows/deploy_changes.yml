@@ -25,8 +25,10 @@ jobs:
       - name: Git Pull Changes
         working-directory: /home/ubuntu/docker/EasternTalesShelf  
         run: |
-          git pull
+          git fetch --all
           git checkout ${{ github.ref_name }}
+          git reset --hard origin/${{ github.ref_name }}
+          
 
       - name: Restart Containers
         working-directory: /home/ubuntu/docker/EasternTalesShelf  

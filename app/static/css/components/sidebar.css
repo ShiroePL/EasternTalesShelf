@@ -1,0 +1,499 @@
+/* LEFT SIDE MENU */
+#side-menu {
+    width: 250px;
+    position: fixed;
+    left: 0;
+    top: 55px;
+    height: 100%;
+    overflow-x: hidden;
+    padding-top: 60px;
+    color: white;
+}
+
+/* Style for the input field */
+#side-menu .form-control {
+    background-color: #2b2b2b;
+    border: 1px solid var(--border-color);
+    color: white;
+}
+
+/* Style for the select dropdown */
+#side-menu .form-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: #2b2b2b;
+    border: 1px solid var(--border-color);
+    color: white;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="white"><polygon points="0,0 20,0 10,10"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.25rem;
+    padding-right: 2.25rem;
+}
+
+/* Style for the checkboxes */
+#side-menu .form-check-input {
+    background-color: #2b2b2b;
+    border-color: var(--border-color);
+}
+
+/* Style for the labels */
+#side-menu .form-check-label {
+    color: white;
+}
+
+/* Subheadings */
+#side-menu h5 {
+    margin-top: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+#side-menu #menu-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 1rem;
+}
+
+.status-filter {
+    background-color: #2b2b2b;
+    border-radius: 5px;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.status-option {
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.status-option:hover, .status-option.selected {
+    background-color: #3e3e3e;
+}
+
+/* Applies color to the icons in the status filter options */
+#list-status-filter .status-option[data-value="COMPLETED"] i {
+    color: var(--completed-color); /* green for completed */
+}
+
+#list-status-filter .status-option[data-value="CURRENT"] i {
+    color: var(--current-color); /* blue for current/reading */
+}
+
+#list-status-filter .status-option[data-value="PAUSED"] i {
+    color: var(--paused-color); /* red for paused */
+}
+
+#list-status-filter .status-option[data-value="PLANNING"] i {
+    color: var(--planning-color); /* yellow for planning */
+}
+
+
+.statusReleasing-option {
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.statusReleasing-option:hover, .statusReleasing-option.selected {
+    background-color: #3e3e3e;
+}
+
+.status-count {
+    float: right;
+    background-color: var(--primary-color);
+    color: white;
+    padding: 0.1rem 0.5rem;
+    border-radius: 10px;
+    margin-left: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* RIGHT SIDE MENU */
+#side-menu-right {
+    width: 250px;
+    position: fixed;
+    right: 0;
+    top: 55px;
+    height: 100%;
+    max-height: calc(100% - 70px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: 70px;
+    color: var(--text-color);
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 10;
+    background-color: var(--secondary-color);
+}
+
+.heart {
+    position: absolute;
+    bottom: 0;
+    color: red;
+    font-size: 40px;
+    z-index: 9999;
+}
+
+#side-menu-right.active {
+    transform: translateX(0);
+    padding-bottom: 80px;
+}
+
+/* SIDEBAR BUTTONS */
+#side-menu-right .btn {
+    font-family: 'Roboto', sans-serif;
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    cursor: pointer;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+/* Primary styles for buttons */
+#side-menu-right .btn-primary {
+    color: white;
+    background-color: var(--primary-color);
+}
+
+/* Hover state for primary buttons */
+#side-menu-right .btn-primary:hover {
+    background-color: var(--hover-color);
+}
+
+/* Service-specific button styles */
+#side-menu-right .btn.tapas {
+    background-color: #F7E600;
+    color:black;
+}
+
+#side-menu-right .btn.tappytoon {
+    background-color: #545454;
+    color:white;
+}
+
+#side-menu-right .btn.webtoons {
+    background-color: #00FF00;
+    color: #000;
+}
+
+#side-menu-right .btn.yenpress {
+    background-color: #3b8f3b;
+}
+
+#side-menu-right .btn.sevenseas {
+    background-color: #b8b8b8;
+    color:#000;
+}
+
+#side-menu-right .btn.jnovel {
+    background-color: #0400ff;
+    color:#fff;
+}
+
+#side-menu-right .btn.mangaupdates {
+    background-color: #9a471e;
+    color:#fff;
+}
+
+/* Hover styles for service buttons */
+#side-menu-right .btn.tapas:hover {
+    background-color: #7d7507;
+    color: white;
+}
+
+#side-menu-right .btn.tappytoon:hover {
+    background-color: rgb(63, 94, 49);
+    color:white;
+}
+
+#side-menu-right .btn.webtoons:hover {
+    background-color: #00cc00;
+}
+
+#side-menu-right .btn.yenpress:hover {
+    background-color: rgb(25, 105, 25);
+}
+
+#side-menu-right .btn.sevenseas:hover {
+    background-color: rgb(128, 128, 128);
+    color:#fff;
+}
+
+#side-menu-right .btn.jnovel:hover {
+    background-color: rgb(1, 1, 83);
+    color:#fff;
+}
+
+#side-menu-right .btn.mangaupdates:hover {
+    background-color: rgba(96, 45, 20, 0.952);
+    color:#fff;
+}
+
+#sidebar-links {
+    justify-content: center;
+    display: flex;
+    gap: 10px;
+}
+
+#sidebar-links .btn img {
+    border-radius: 6px; /* Adjust the border-radius value as needed */
+}
+
+.btn-solo, .btn-pair, .btn-trio {
+    flex: 1;
+}
+
+/* Read more and notes buttons */
+#sidebar-buttons-container {
+    margin-top: 10px;
+}
+
+#sidebar-description {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.5em;
+    max-height: 7.5em;
+}
+
+#sidebar-description.expanded {
+    white-space: normal;
+}
+
+#sidebar-buttons-container > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#side-menu-right a {
+    text-decoration: none;
+    display: block;
+}
+
+#mangaupdates-info {
+    font-family: 'Roboto', sans-serif;
+    display: none;
+    background-color: var(--mangaupdates-info-bg);
+    padding: var(--mangaupdates-info-padding);
+    border-radius: var(--mangaupdates-info-border-radius);
+    margin-bottom: var(--mangaupdates-info-margin-bottom);
+    box-shadow: var(--mangaupdates-info-box-shadow);
+}
+
+#mangaupdates-info h6 {
+    font-size: 1.14rem;
+    font-family: 'Roboto', sans-serif;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+#mangaupdates-info p {
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+#mangaupdates-info .fas {
+    color: var(--mangaupdates-status-color);
+    font-size: 1.2rem;
+    margin-right: 5px;
+}
+
+/* Toggle link and notes styles */
+.toggle-link {
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: color 0.3s ease;
+    padding: 0;
+}
+
+.notes-toggle {
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: color 0.3s ease;
+    padding: 0;
+    margin-left: 10px;
+}
+
+.toggle-link:hover, .notes-toggle:hover {
+    text-decoration: underline;
+    color: var(--hover-color);
+}
+
+#sidebar-notes {
+    display: block;
+    transition: max-height 0.5s ease, opacity 0.5s ease; 
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+#sidebar-notes.expanded {
+    max-height: 500px;
+    opacity: 1;
+    display: block;
+}
+
+.sidebar-hidden {
+    transform: translateX(100%);
+    background-color: var(--secondary-color);
+}
+
+.sidebar-visible {
+    transform: translateX(0);
+    background-color: var(--secondary-color);
+}
+
+#side-menu-right .img-fluid {
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+#sidebar-favorite-icon {
+    color: var(--favorite-color);
+    position: absolute;
+    bottom: 25px;
+    right: 10px;
+    text-shadow: 0 0 20px pink;
+    font-size: 2.5rem;
+    z-index: 10;
+}
+
+#sidebar-reread-icon {
+    position: absolute;
+    top: 0px;
+    right: -10px;
+    z-index: 100000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.5s ease-in-out;
+}
+
+#sidebar-reread-icon.scale-up {
+    transform: scale(2);
+}
+
+#sidebar-reread-icon .fas {
+    color: var(--mangaupdates-status-color);
+    position: absolute;
+    font-size: 2rem;
+    animation: rotate 2s linear infinite;
+    z-index: 100000;
+}
+
+#sidebar-reread-icon .reread-count {
+    color: white;
+    background-color: #2a2a2a;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1rem;
+    z-index: 10000;
+    box-shadow: 0 0 8px #000;
+}
+
+#sidebar-title, #sidebar-title-placeholder {
+    font-family: 'Roboto', sans-serif;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    word-break: break-word;
+}
+
+#sidebar-info {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--mangaupdates-info-bg);
+    padding: var(--mangaupdates-info-padding);
+    border-radius: var(--mangaupdates-info-border-radius);
+    margin-bottom: var(--mangaupdates-info-margin-bottom);
+    box-shadow: var(--mangaupdates-info-box-shadow);
+}
+
+#sidebar-info p {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+    color: var(--text-color);
+}
+
+#sidebar-info i {
+    color: var(--primary-color);
+    margin-right: 0.5rem;
+    width: 1.5em;
+    text-align: center;
+}
+
+#sidebar-info p.date-info {
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.25rem;
+    color: var(--primary-color);
+}
+
+.icon-placeholder {
+    display: inline-block;
+    width: calc(24px + 1em);
+    visibility: hidden;
+}
+
+.date-info i {
+    flex-shrink: 0;
+    width: 1.5em;
+    visibility: visible;
+}
+
+/* Hide scrollbar for sidebar */
+#side-menu-right::-webkit-scrollbar {
+    display: none;
+}
+
+#side-menu::-webkit-scrollbar {
+    display: none;
+}
+
+/* Form checkboxes and flags */
+.form-check-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.form-check-label img.flag-icon {
+    width: 20px;
+    height: auto;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.color-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-left: 8px;
+    cursor: pointer;
+    border: 1px solid #fff;
+}
+
+.color-circle.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+} 

@@ -8,6 +8,9 @@
 /* Updated notification panel positioning and styling */
 .notifications-panel {
     position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: 350px;
     max-height: 80vh;
     background: var(--secondary-color);
@@ -19,6 +22,12 @@
     overflow-y: auto;
     overflow-x: hidden;
 }
+
+.notification-season_end { border-left: 4px solid #007bff; }
+.notification-hiatus { border-left: 4px solid #dc3545; }
+.notification-series_end { border-left: 4px solid #28a745; }
+.notification-side_story { border-left: 4px solid #ffc107; }
+.notification-license { border-left: 4px solid #6c757d; }
 
 .notifications-header {
     display: flex;

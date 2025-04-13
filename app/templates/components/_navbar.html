@@ -1,0 +1,85 @@
+<!-- Top Navigation Bar -->
+<nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+    <div class="container-fluid justify-content-between">
+        <!-- Left side: Brand and navigation links -->
+        <div class="d-flex align-items-center">
+            <a class="navbar-brand me-4" href="#">Eastern Tales Shelf</a>
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item me-2">
+                    <a class="nav-link active" onclick="filterByType('ALL')" href="#">All</a>
+                </li>
+                <li class="nav-item me-2">
+                    <a class="nav-link" onclick="filterByType('NOVEL')" href="#">Novels</a>
+                </li>
+                <li class="nav-item me-2">
+                    <a class="nav-link" onclick="filterByType('MANHWA')" href="#">Korean Manhwas</a>
+                </li>
+                <li class="nav-item me-2">
+                    <a class="nav-link" onclick="filterByType('MANGA')" href="#">Japanese Mangas</a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Right side: Buttons and color circles -->
+        <div class="d-flex align-items-center">
+            {% if current_user.is_authenticated %}
+                <!-- Render buttons normally for authenticated users -->
+                <button id="syncButton" type="button" class="btn btn-primary me-2">Sync List</button>
+                <button id="addBatoLinkButton" type="button" class="btn btn-primary me-2">Add Bato Link</button>
+                
+                <!-- Fix notification button styling -->
+                <button id="notification-button" class="btn me-2" onclick="toggleNotifications()" title="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notification-count"></span>
+                </button>
+                
+                <!-- Color Circles -->
+                <div class="color-settings d-flex align-items-center">
+                    <span class="color-circle" id="backgroundColorCircle" data-color-setting="backgroundColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Background Color"></span>
+                    <span class="color-circle" id="primaryColorCircle" data-color-setting="primaryColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Primary Color"></span>
+                    <span class="color-circle" id="secondaryColorCircle" data-color-setting="secondaryColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Secondary Color"></span>
+                    <span class="color-circle" id="textColorCircle" data-color-setting="textColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Text Color"></span>
+                    <span class="color-circle" id="borderColorCircle" data-color-setting="borderColor" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Border Color"></span>
+                </div>
+
+                <!-- User Avatar for OAuth users -->
+                {% if current_user.avatar_url %}
+                <div class="d-flex align-items-center me-2">
+                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.display_name or current_user.username }}" 
+                         class="user-avatar rounded-circle" style="width: 32px; height: 32px; border: 2px solid var(--primary-color);" 
+                         data-bs-toggle="tooltip" data-bs-placement="bottom" 
+                         title="{{ current_user.display_name or current_user.username }}">
+                </div>
+                {% endif %}
+            {% else %}
+                <!-- Render buttons with popovers for unauthenticated users -->
+                <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
+                    <button id="syncButton" type="button" class="btn btn-primary" disabled>Sync List</button>
+                </span>
+                <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
+                    <button id="addBatoLinkButton" type="button" class="btn btn-primary" disabled>Add Bato Link</button>
+                </span>
+                <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
+                    <button class="btn btn-outline-light" disabled>
+                        <i class="fas fa-bell"></i>
+                    </button>
+                </span>
+            {% endif %}
+
+            <!-- Login/Logout Button -->
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-primary ms-2">Logout</a>
+            {% else %}
+                <!-- Trigger/Login Modal Button -->
+                <button type="button" class="btn btn-primary ms-3" data-bs-toggle="modal" data-bs-target="#loginModal">
+                    Login
+                </button>
+            {% endif %}
+
+            <!-- Add near your sync button -->
+            {% if current_user.is_admin %}
+            <span id="webhookStatus" class="ms-2 text-muted">Scraper: Connection Error</span>
+            {% endif %}
+        </div>
+    </div>
+</nav> 

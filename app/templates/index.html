@@ -216,7 +216,7 @@
                 <!-- Login Options -->
                 <div class="login-option-container">
                     <!-- Privacy Mode Option -->
-                    <a href="{{ url_for('anilist_login') }}" class="btn btn-primary btn-lg w-100 py-3 login-btn-hover mb-3">
+                    <a href="{{ url_for('auth.anilist_login') }}" class="btn btn-primary btn-lg w-100 py-3 login-btn-hover mb-3">
                         <img src="{{ url_for('static', filename='anilist_icon.png') }}" alt="AniList" class="login-icon"> 
                         <span>Standard Login</span>
                         <small class="login-badge">Recommended</small>
@@ -234,7 +234,7 @@
                       
                 
                     <!-- Enhanced Features Option -->
-                    <a href="{{ url_for('anilist_login') }}?store_token=true" class="btn btn-outline-primary btn-lg w-100 py-3 login-btn-hover mt-4">
+                    <a href="{{ url_for('auth.anilist_login') }}?store_token=true" class="btn btn-outline-primary btn-lg w-100 py-3 login-btn-hover mt-4">
                         <img src="{{ url_for('static', filename='anilist_icon.png') }}" alt="AniList" class="login-icon"> 
                         <span>Login with AniList Notifications</span>
                     </a>

@@ -1,0 +1,17 @@
+/* Import global styles */
+@import './global/variables.css';
+@import './global/base.css';
+
+/* Import component styles */
+@import './components/modal.css';
+@import './components/grid-item.css';
+@import './components/sidebar.css';
+@import './components/navbar.css';
+@import './components/chatbot.css';
+@import './components/layout.css';
+
+/* Import existing component styles */
+@import './login_modal.css';
+@import './notifications.css';
+@import './queue_manager.css';
+@import './animelist.css'; 

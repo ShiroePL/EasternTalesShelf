@@ -1,0 +1,37 @@
+.sticky-top {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.navbar-nav {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.container-fluid {
+    width: 100%;
+}
+
+body .navbar.navbar-expand-md.navbar-dark.bg-dark .navbar-nav .nav-link.active {
+    color: #0fd3e184;
+    font-size: 20px;
+}
+
+/* User Avatar Styling */
+.user-avatar {
+    transition: all 0.3s ease;
+    object-fit: cover;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.user-avatar:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    border-color: var(--secondary-color) !important;
+} 

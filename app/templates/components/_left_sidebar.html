@@ -1,0 +1,66 @@
+<!-- LEFT Side Menu -->
+<div id="side-menu" class="bg-dark text-white p-3">
+    <input type="text" id="titleFilter" class="form-control mb-3" placeholder="Search by title" oninput="filterEntries()">
+
+    <h5>List</h5>
+    <div id="list-status-filter" class="status-filter">
+        <div class="status-option" data-value=""><i class="fas fa-stream"></i> All Statuses <span class="status-count" id="count-all-user-stats">0</span></div>
+        <div class="status-option" data-value="CURRENT"><i class="fas fa-book-open"></i> Reading <span class="status-count" id="count-current">0</span></div>
+        <div class="status-option" data-value="COMPLETED"><i class="fas fa-check-circle"></i> Completed <span class="status-count" id="count-completed">0</span></div>
+        <div class="status-option" data-value="PLANNING"><i class="fas fa-lightbulb"></i> Planning <span class="status-count" id="count-planning">0</span></div>
+        <div class="status-option" data-value="PAUSED"><i class="fas fa-pause-circle"></i> On Hold <span class="status-count" id="count-paused">0</span></div>
+    </div>
+    
+    <h5>Status of OG release</h5>
+    <div id="release-status-filter" class="status-filter">
+        <div class="statusReleasing-option" data-value=""><i class="fas fa-stream"></i> All Statuses <span class="status-count" id="count-all-release-stats">0</span></div>
+        <div class="statusReleasing-option" data-value="RELEASING"><i class="fas fa-play-circle"></i> Releasing <span class="status-count" id="count-releasing">0</span></div>
+        <div class="statusReleasing-option" data-value="FINISHED"><i class="fas fa-flag-checkered"></i> Finished <span class="status-count" id="count-finished">0</span></div>
+    </div>
+
+    <h5>Country</h5>
+    <div class="mb-3">
+        <div class="row">
+            <div class="col">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="JP" id="countryJapan" onchange="filterEntries()">
+                    <label class="form-check-label" for="countryJapan">
+                        <img src="/static/japanese_flag.png" alt="Japan" class="flag-icon"> Japan
+                    </label>
+                </div>
+            </div>
+            <div class="col">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="KR" id="countryKorea" onchange="filterEntries()">
+                    <label class="form-check-label" for="countryKorea">
+                        <img src="/static/Flag-South-Korea.jpg" alt="Korea" class="flag-icon"> Korea
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h5>Other Options</h5>
+    <div class="mb-3">
+        <div class="row" style="--bs-gutter-x: 1.0rem;">
+            <div class="col">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="" id="isFavorite_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="isFavorite_checkbox">
+                        <i class="fas fa-heart" style="color: red;"></i>Favorite
+                    </label>
+                </div>
+            </div>
+            <div class="col">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="" id="isRereaded_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="isRereaded_checkbox">
+                        <i class="fas fa-book-reader" style="color: #007bff;"></i>Reread
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <img src="/static/picture1.avif" alt="Menu Image" id="menu-image" />
+</div> 
