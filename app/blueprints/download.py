@@ -37,10 +37,14 @@ def update_download_status():
         sqlalchemy_fns.update_download_status(anilist_id, status)
         
         # Notify clients about the status update
-        current_app.socketio.emit('download_status_update', {
-            'anilist_id': anilist_id,
-            'status': status
-        })
+        try:
+            current_app.socketio.emit('download_status_update', {
+                'anilist_id': anilist_id,
+                'status': status
+            })
+        except Exception as e:
+            logging.error(f"Error emitting socketio event: {e}")
+            # Continue even if the socketio event fails
         
         return jsonify({'success': True}), 200
     except Exception as e:
@@ -54,23 +58,38 @@ def update_download_status():
 def add_to_queue_route():
     try:
         data = request.json
+        if not data:
+            logging.error("No JSON data received in request")
+            return jsonify({'error': 'No data provided'}), 400
+            
         title = data.get('title')
         bato_url = data.get('bato_url')
         anilist_id = data.get('anilist_id')
 
+        logging.info(f"Adding to queue: title={title}, anilist_id={anilist_id}")
+        
         if not all([title, bato_url]):
-            return jsonify({'error': 'Missing required fields'}), 400
+            return jsonify({'error': 'Missing required fields (title or bato_url)'}), 400
 
-        if sqlalchemy_fns.add_to_queue(title, bato_url, anilist_id):
-            # Emit WebSocket event for real-time update
+        # Add to queue
+        result = sqlalchemy_fns.add_to_queue(title, bato_url, anilist_id)
+        if not result:
+            return jsonify({'error': 'Failed to add to queue - database operation failed'}), 500
+            
+        # Emit WebSocket event for real-time update
+        try:
             current_app.socketio.emit('download_status_update', {
                 'anilist_id': anilist_id,
                 'status': 'pending'
             })
-            return jsonify({'success': True}), 200
-        return jsonify({'error': 'Failed to add to queue'}), 500
+            logging.info(f"Emitted download_status_update event for anilist_id={anilist_id}")
+        except Exception as e:
+            logging.error(f"Error emitting socketio event: {e}")
+            # Continue even if the socketio event fails
+            
+        return jsonify({'success': True}), 200
     except Exception as e:
-        logging.error(f"Error adding to queue: {e}")
+        logging.exception(f"Error adding to queue: {e}")
         return jsonify({'error': str(e)}), 500
 
 @download_bp.route('/queue/status')
@@ -113,15 +132,22 @@ def pause_queue_task_route():
             return jsonify({'error': 'Title is required'}), 400
 
         task = db_session.query(ScrapeQueue).filter_by(manhwa_title=title).first()
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+            
         if task and task.anilist_id:
             sqlalchemy_fns.pause_queue_task(title)
             # Emit both events
-            current_app.socketio.emit('queue_update', {'type': 'task_paused'})
-            current_app.socketio.emit('download_status_update', {
-                'anilist_id': task.anilist_id,
-                'status': 'stopped'
-            })
-            logging.info(f"Emitted status update for {task.anilist_id}: stopped")  # Debug log
+            try:
+                current_app.socketio.emit('queue_update', {'type': 'task_paused'})
+                current_app.socketio.emit('download_status_update', {
+                    'anilist_id': task.anilist_id,
+                    'status': 'stopped'
+                })
+                logging.info(f"Emitted status update for {task.anilist_id}: stopped")
+            except Exception as e:
+                logging.error(f"Error emitting socketio events: {e}")
+                # Continue even if the socketio events fail
         return jsonify({'success': True}), 200
     except Exception as e:
         logging.error(f"Error in pause_queue_task_route: {e}")
@@ -138,16 +164,23 @@ def resume_queue_task_route():
             return jsonify({'error': 'Title is required'}), 400
 
         task = db_session.query(ScrapeQueue).filter_by(manhwa_title=title).first()
-        if task and task.anilist_id:  # Add this check
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+            
+        if task and task.anilist_id:
             sqlalchemy_fns.resume_queue_task(title)
-            current_app.socketio.emit('queue_update', {'type': 'task_resumed'})
-            # Add this emit for download status
-            current_app.socketio.emit('download_status_update', {
-                'anilist_id': task.anilist_id,
-                'status': 'pending'
-            })
+            try:
+                current_app.socketio.emit('queue_update', {'type': 'task_resumed'})
+                current_app.socketio.emit('download_status_update', {
+                    'anilist_id': task.anilist_id,
+                    'status': 'pending'
+                })
+            except Exception as e:
+                logging.error(f"Error emitting socketio events: {e}")
+                # Continue even if the socketio events fail
         return jsonify({'success': True}), 200
     except Exception as e:
+        logging.error(f"Error in resume_queue_task_route: {e}")
         return jsonify({'error': str(e)}), 500
 
 @download_bp.route('/queue/remove', methods=['POST'])
@@ -161,18 +194,27 @@ def remove_queue_task_route():
             return jsonify({'error': 'Title is required'}), 400
 
         task = db_session.query(ScrapeQueue).filter_by(manhwa_title=title).first()
-        if task and task.anilist_id:  # Add this check
+        if not task:
+            return jsonify({'error': 'Task not found'}), 404
+            
+        if task and task.anilist_id:
+            # Store the anilist_id before removing the task
+            anilist_id = task.anilist_id
+            
             if sqlalchemy_fns.remove_queue_task(title):
-                current_app.socketio.emit('queue_update', {'type': 'task_removed'})
-                # Add this emit for download status
-                current_app.socketio.emit('download_status_update', {
-                    'anilist_id': task.anilist_id,
-                    'status': 'not_downloaded'
-                })
+                try:
+                    current_app.socketio.emit('queue_update', {'type': 'task_removed'})
+                    current_app.socketio.emit('download_status_update', {
+                        'anilist_id': anilist_id,
+                        'status': 'not_downloaded'
+                    })
+                except Exception as e:
+                    logging.error(f"Error emitting socketio events: {e}")
+                    # Continue even if the socketio events fail
                 return jsonify({'success': True}), 200
-        return jsonify({'error': 'Task not found'}), 404
-
+        return jsonify({'error': 'Failed to remove task'}), 500
     except Exception as e:
+        logging.error(f"Error in remove_queue_task_route: {e}")
         return jsonify({'error': str(e)}), 500
 
 @download_bp.route('/queue/force_priority', methods=['POST'])
@@ -185,8 +227,16 @@ def force_priority_route():
         if not title:
             return jsonify({'error': 'Title is required'}), 400
 
-        sqlalchemy_fns.force_task_priority(title)
-        current_app.socketio.emit('queue_update', {'type': 'priority_changed'})
+        if not sqlalchemy_fns.force_task_priority(title):
+            return jsonify({'error': 'Failed to update priority'}), 500
+            
+        try:
+            current_app.socketio.emit('queue_update', {'type': 'priority_changed'})
+        except Exception as e:
+            logging.error(f"Error emitting socketio event: {e}")
+            # Continue even if the socketio event fails
+            
         return jsonify({'success': True}), 200
     except Exception as e:
+        logging.error(f"Error in force_priority_route: {e}")
         return jsonify({'error': str(e)}), 500 
