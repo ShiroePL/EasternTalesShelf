@@ -1,80 +1,14 @@
-{% for entry in manga_entries %}
-{% set details = mangaupdates_details | selectattr('anilist_id', 'equalto', entry.id_anilist) | first %}
-<div class="grid-item {% if not entry.is_cover_downloaded %}skeleton-cover{% endif %}"
-    onclick="showDetails(this)"
-    data-anilist-id="{{ entry.id_anilist }}"
-    data-id-mal="{{ entry.id_mal }}"
-    data-user-status="{{ entry.on_list_status }}"
-    data-release-status="{{ entry.status }}"
-    data-type="{{ entry.media_format }}"
-    data-title="{{ entry.title_english }}"
-    data-title-romaji="{{ entry.title_romaji }}"
-    data-chapters-progress = "{{ entry.chapters_progress }}"
-    data-all-chapters="{{ entry.all_chapters }}"
-    data-volumes-progress="{{ entry.volumes_progress }}"
-    data-all-volumes="{{ entry.all_volumes }}"
-    data-anilist-url="{{ entry.anilist_url }}"
-    data-cover="{{ entry.cover_image }}"
-    data-country="{{ entry.country_of_origin }}"
-    data-description="{{ entry.description }}"
-    data-external-links="{{ entry.external_links }}"
-    data-release-status="{{ entry.status }}"
-    data-genres="{{ entry.genres}}"
-    data-score="{{ entry.score }}"
-    data-notes="{{ entry.notes }}"
-    data-user-startedat	= "{{ entry.user_startedAt }}"
-    data-user-completedat = "{{ entry.user_completedAt }}"
-    data-media-start-date = "{{ entry.media_start_date }}"
-    data-media-end-date = "{{ entry.media_end_date }}"
-    data-is-favourite = "{{ entry.is_favourite }}"
-    data-reread-times = "{{ entry.reread_times }}"
-    data-bato-link = "{{ entry.bato_link }}"
-    data-mangaupdates-status="{{ details.status if details else '' }}"
-    data-mangaupdates-licensed="{{ details.licensed if details else '' }}"
-    data-mangaupdates-completed="{{ details.completed if details else '' }}"
-    data-mangaupdates-last-updated="{{ details.last_updated_timestamp if details else '' }}"
-    {% if entry.is_cover_downloaded %}
-    style="background-image: url('{% if isDevelopment %}/dev_covers/{{ entry.id_anilist }}.avif{% else %}/static/covers/{{ entry.id_anilist }}.avif{% endif %}'); background-size: cover; background-position: center;"
-    {% endif %}
-    data-aos="fade-up" 
-    data-aos-offset="200"
-    data-aos-duration="1000">
-
-    {% if not entry.is_cover_downloaded %}
-    <div class="skeleton-placeholder">
-        <div class="skeleton-animation"></div>
+<!-- Dynamic manga grid container -->
+<div id="manga-grid-container" 
+     data-is-admin="{{ current_user.is_admin }}" 
+     data-is-development="{{ isDevelopment }}">
+    <!-- Loading placeholder -->
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>Loading manga collection...</p>
     </div>
-    {% endif %}
-
-    <div class="grid-item-title">{{ entry.title_english }}</div> <!-- Assuming 'english' is the key for the English title -->
-   
-    <!-- Score Icon -->
-    <div class="score-icon" data-score="{{ entry.score }}" id="score-icon-{{ loop.index }}"></div>
-    <div class="favorite-icon" data-is-favourite="{{ entry.is_favourite }}"></div>
-    <div class="reread-cover-icon"  data-reread-times="  {{ entry.reread_times }}"></div>
-    
-            
-    <!-- AniList Icon -->
-    <div class="bato-icon" onclick="openBatoFromCover(this.parentNode.getAttribute('data-bato-link'))"></div>
-    <div class="anilist-icon" onclick="openAniList(this.parentNode.getAttribute('data-anilist-url'))"></div>
-
-    <div class="stats">
-        Chapters: {{ entry.chapters_progress }}/{{ entry.all_chapters or '?' }}<br>
-        Volumes: {{ entry.volumes_progress }}/{{ entry.all_volumes or '?' }}<br>
-        Status: {{ entry.on_list_status }}<br>
-        Release: {{ entry.status }}<br>
-      </div>
-      
-    {% if current_user.is_admin %}
-        <div class="manga-controls">
-            <button class="download-status-btn" 
-                    data-status="{{ entry.download_status|lower }}"
-                    data-anilist-id="{{ entry.id_anilist }}"
-                    data-title="{{ entry.title_english }}"
-                    data-bato-url="{{ entry.bato_link }}">
-                <i class="fas fa-arrow-circle-down"></i>
-            </button>
-        </div>
-    {% endif %}
 </div>
-{% endfor %} 
+
+<!-- Include the MangaGridLoader script -->
+<script type="module" src="{{ url_for('static', filename='js/MangaGridLoader.js') }}"></script>
+

@@ -53,18 +53,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Explicit check if 'active' class is present
         if (sideMenu.hasClass('active')) {
-
             if (currentActiveAnilistId === clickedAnilistId) {
                 sideMenu.removeClass('active');
                 currentActiveAnilistId = null; // Clear the active ID since we closed the menu
-            } else {
-                currentActiveAnilistId = clickedAnilistId; // Update to the new active ID
+                return; // Exit early to prevent fetching details for a closing panel
             }
-        } else {
-            
-            sideMenu.addClass('active');
-            currentActiveAnilistId = clickedAnilistId; // Set active ID
         }
         
+        // If we're opening a new panel or switching to different manga
+        currentActiveAnilistId = clickedAnilistId; // Update to the new active ID
+        
+        // Call the showDetails function with this element
+        window.showDetails(this);
     });
 });

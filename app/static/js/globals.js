@@ -42,3 +42,15 @@ let timeouts = {
 
 
 let mangaUpdatesHTML = '';
+
+// Global utility functions
+
+// Open AniList URL in a new tab
+function openAniList(url) {
+    if (url) {
+        window.open(url, '_blank');
+    }
+}
+
+// Make functions available globally
+window.openAniList = openAniList;

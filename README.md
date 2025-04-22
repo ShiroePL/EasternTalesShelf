@@ -34,25 +34,6 @@ Eastern Tales Shelf features a rich, interactive user interface with various ani
 - **Hover Effects**: Enhanced visual feedback on interactive elements
 - **Status Color Coding**: Visual distinction between reading statuses (reading, completed, planning, etc.)
 
-## 🔧 Technical Stack
-
-- **Backend**: Flask (Python)
-- **Database**: SQLAlchemy with MariaDB / SQLite
-- **Frontend**: HTML, CSS, JavaScript, Bootstrap 5
-- **Animation Libraries**: 
-  - GSAP (GreenSock Animation Platform) for complex animations
-  - AOS (Animate on Scroll) for scroll-based animations
-- **Containers**: Docker support for easy deployment
-- **APIs**: 
-  - AniList API integration for synchronizing collections
-  - OpenAI API for content analysis and recommendations
-  - Custom REST API endpoints for frontend communication
-- **Real-time Updates**: WebSocket support
-- **Web Scraping**: 
-  - Scrapy for updates from various sources
-  - Custom spiders for MangaUpdates and Bato.to
-  - Automated data extraction and processing pipeline
-  - Rate-limiting and respectful crawling practices
 
 ## 🚀 Getting Started
 

@@ -49,6 +49,7 @@ from app.blueprints.download import download_bp
 from app.blueprints.webhook import webhook_bp, webhook_status
 from app.blueprints.notifications import notifications_bp
 from app.blueprints.manga import manga_bp
+from app.blueprints.graphql import graphql_bp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -79,6 +80,7 @@ def create_app():
     app.register_blueprint(webhook_bp)
     app.register_blueprint(notifications_bp)
     app.register_blueprint(manga_bp)
+    app.register_blueprint(graphql_bp)
 
     with app.app_context():
         # Initialize notification manager and background tasks

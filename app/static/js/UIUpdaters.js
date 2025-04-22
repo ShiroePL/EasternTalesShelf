@@ -64,6 +64,16 @@ document.querySelectorAll('.score-icon').forEach(function(element, index) {
 });
 
 $(document).ready(function() {
+    // Apply border classes based on status
+    $('.grid-item').each(function() {
+        let status = $(this).data('user-status');
+        if(status) {
+            status = status.toLowerCase();
+            let statusClass = 'border-' + status;
+            $(this).addClass(statusClass);
+        }
+    });
+
     $('.favorite-icon').each(function() {
         let isFavourite = $(this).data('is-favourite');
         if (isFavourite === 1) {
@@ -88,10 +98,10 @@ $(document).ready(function() {
     // Check if the URL exists and is valid
     if (url && url !== "None") {
         // If the URL exists, ensure the icon is visible
-        $(this).show(); // This line assumes you're using display:none to hide by default
+        $(this).hide(); // This line assumes you're using display:none to hide by default
     } else {
         // If the URL does not exist, hide the icon
-        $(this).hide(); // Ensure the icon is not visible
+        $(this).show(); // Ensure the icon is not visible
     }
     });
 
