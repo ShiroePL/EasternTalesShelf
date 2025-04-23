@@ -4,12 +4,13 @@ import { showDetails } from './RightSidebarMain.js';
 // Constants for controlling progressive loading
 const BATCH_SIZE = 12; // Number of manga entries to render at once
 const BATCH_DELAY = 100; // Milliseconds between batches
+const PAGE_SIZE = 50; // Number of manga entries to fetch per GraphQL request
 
 // Main function to load manga grid data
 export async function loadMangaGrid() {
+    const container = document.getElementById('manga-grid-container');
     try {
         // Display initial loading state
-        const container = document.getElementById('manga-grid-container');
         container.innerHTML = `
             <div class="loading-container">
                 <div class="loading-spinner"></div>
@@ -17,36 +18,74 @@ export async function loadMangaGrid() {
             </div>
         `;
 
-        // Fetch manga data and download statuses in parallel
-        const [mangaData, downloadStatuses] = await Promise.all([
-            fetchMangaGridFromGraphQL(),
-            fetchDownloadStatuses()
+        // Fetch download statuses and MangaUpdates details once at the beginning
+        const [downloadStatuses, mangaUpdatesDetailsMap] = await Promise.all([
+            fetchDownloadStatuses(),
+            fetchMangaUpdatesDetailsMap() // Fetch all MU details once
         ]);
 
-        if (!mangaData || mangaData.length === 0) {
-            console.error('No manga data found or empty response');
-            container.innerHTML = '<p class="error-message">No manga found. Please check your connection.</p>';
-            return;
-        }
-
-        // Merge manga data with download statuses
-        const mergedData = mangaData.map(manga => ({
-            ...manga,
-            download_status: downloadStatuses[manga.id_anilist] || 'not_downloaded'
-        }));
-
-        // Clear the loading container
+        // Clear the loading container before rendering the first batch
         container.innerHTML = '';
 
-        // Start progressive loading of manga entries
-        await loadMangaProgressively(mergedData, container);
-        
-        // Apply event listeners after all items are loaded
+        let currentPage = 1;
+        let allMangaLoaded = false;
+
+        while (!allMangaLoaded) {
+            console.log(`Fetching page ${currentPage}...`);
+            const mangaDataPage = await fetchMangaGridFromGraphQL(currentPage, PAGE_SIZE);
+
+            if (!mangaDataPage || mangaDataPage.length === 0) {
+                console.log('No more manga data found. All pages loaded.');
+                allMangaLoaded = true;
+                break; // Exit the loop if no data is returned
+            }
+
+            // Merge manga data with download statuses and MangaUpdates details
+            const mergedDataPage = mangaDataPage.map(manga => ({
+                ...manga,
+                download_status: downloadStatuses[manga.id_anilist] || 'not_downloaded',
+                mangaupdates_details: mangaUpdatesDetailsMap[manga.id_anilist] || null
+            }));
+
+            // Load the current page of manga entries progressively
+            await loadMangaProgressively(mergedDataPage, container);
+
+            // Move to the next page
+            currentPage++;
+
+            // Optional: Add a small delay between page fetches if needed
+            // await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        // Apply event listeners after all items from all pages are loaded
         applyGridItemEventListeners();
+
+        // Initialize AOS after all content is loaded
+        initializeAOS();
+
     } catch (error) {
         console.error('Error loading manga grid:', error);
-        document.getElementById('manga-grid-container').innerHTML = '<p class="error-message">Error loading manga data. Please try again.</p>';
+        container.innerHTML = '<p class="error-message">Error loading manga data. Please try again.</p>';
     }
+}
+
+// Initialize or refresh AOS
+function initializeAOS() {
+    // Delay slightly to ensure DOM is fully updated
+    setTimeout(() => {
+        if (typeof AOS !== 'undefined') {
+            console.log('Initializing AOS for dynamic content');
+            // Refresh AOS to recognize all the newly added items
+            AOS.refresh();
+            
+            // Optionally trigger the global refresh if needed elsewhere
+            if (window.refreshAOS) {
+                // window.refreshAOS(); // We call AOS.refresh directly here, so this might be redundant
+            }
+        } else {
+            console.warn('AOS library not loaded or available');
+        }
+    }, 200); // Increased delay slightly
 }
 
 // Load manga entries progressively in batches
@@ -76,12 +115,17 @@ async function loadMangaProgressively(mangaEntries, container) {
         // Add this batch to the DOM
         container.appendChild(fragment);
         
+        // Apply visual enhancements to this batch
+        applyUiEnhancements();
+        
+        // Refresh AOS after each batch to handle scrolling during loading
+        if (typeof AOS !== 'undefined' && i > 0 && i % (BATCH_SIZE * 2) === 0) {
+            AOS.refresh();
+        }
+        
         // Allow the browser to render and process this batch
         await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
     }
-    
-    // Apply visual enhancements to all loaded items
-    applyUiEnhancements();
 }
 
 // Create a single grid item element
@@ -92,9 +136,12 @@ function createGridItem(entry, isDevelopment, isAdmin) {
     gridItem.setAttribute('data-title', entry.title_english);
     gridItem.setAttribute('data-user-status', entry.on_list_status);
     gridItem.setAttribute('data-bato-link', entry.bato_link || '');
+    
+    // Set AOS attributes
     gridItem.setAttribute('data-aos', 'fade-up');
-    gridItem.setAttribute('data-aos-offset', '200');
-    gridItem.setAttribute('data-aos-duration', '1000');
+    gridItem.setAttribute('data-aos-offset', '120');
+    gridItem.setAttribute('data-aos-duration', '800');
+    gridItem.setAttribute('data-aos-delay', '50');
     
     // Set background image if cover is downloaded
     if (entry.is_cover_downloaded) {
@@ -223,11 +270,11 @@ async function checkAndLoadCover(entry, gridItem, isDevelopment) {
     img.src = coverUrl;
 }
 
-// Fetch manga data from GraphQL endpoint
-async function fetchMangaGridFromGraphQL() {
+// Fetch manga data from GraphQL endpoint for a specific page
+async function fetchMangaGridFromGraphQL(page, limit) {
     const query = `
-    query GetAllManga {
-        manga_list {
+    query GetMangaPage($page: Int, $limit: Int) {
+        manga_list(sort: ["-last_updated_on_site"], page: $page, limit: $limit) {
             id_anilist
             id_mal
             title_english
@@ -242,7 +289,45 @@ async function fetchMangaGridFromGraphQL() {
             is_favourite
             reread_times
             bato_link
+            last_updated_on_site
         }
+        # Note: Fetching mangaupdates_details here for every page might be inefficient.
+        # Consider fetching all mangaupdates_details separately once if performance is an issue.
+        # For simplicity now, we fetch them separately.
+    }`;
+
+    const variables = { page, limit };
+
+    try {
+        const response = await fetch('/graphql/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ query, variables }) // Pass variables here
+        });
+
+        const result = await response.json();
+
+        if (result.errors) {
+            console.error('GraphQL errors:', result.errors);
+            return [];
+        }
+
+        // Return only the manga_list part for this page
+        return result.data.manga_list || [];
+
+    } catch (error) {
+        console.error(`Error fetching manga grid data for page ${page}:`, error);
+        return []; // Return empty array on error to avoid breaking the loop
+    }
+}
+
+// Fetch ALL MangaUpdates details and return a map
+async function fetchMangaUpdatesDetailsMap() {
+    const query = `
+    query GetAllMangaUpdatesDetails {
         mangaupdates_details {
             anilist_id
             status
@@ -251,9 +336,7 @@ async function fetchMangaGridFromGraphQL() {
             last_updated_timestamp
         }
     }`;
-
     try {
-        // First, fetch the manga and mangaupdates details
         const response = await fetch('/graphql/', {
             method: 'POST',
             headers: {
@@ -262,32 +345,20 @@ async function fetchMangaGridFromGraphQL() {
             },
             body: JSON.stringify({ query })
         });
-
         const result = await response.json();
-        
         if (result.errors) {
-            console.error('GraphQL errors:', result.errors);
-            return [];
+            console.error('GraphQL errors fetching MangaUpdates details:', result.errors);
+            return {};
         }
-
-        // Process manga entries with their corresponding details
-        const mangaEntries = result.data.manga_list || [];
-        const mangaUpdatesDetails = result.data.mangaupdates_details || [];
-
-        // Map mangaupdates_details by anilist_id for easier lookup
         const detailsMap = {};
-        mangaUpdatesDetails.forEach(detail => {
+        (result.data.mangaupdates_details || []).forEach(detail => {
             detailsMap[detail.anilist_id] = detail;
         });
-        
-        // Return merged data without download statuses (those are fetched separately)
-        return mangaEntries.map(manga => ({
-            ...manga,
-            mangaupdates_details: detailsMap[manga.id_anilist] || null
-        }));
+        console.log(`Fetched ${Object.keys(detailsMap).length} MangaUpdates details.`);
+        return detailsMap;
     } catch (error) {
-        console.error('Error fetching manga grid data:', error);
-        return [];
+        console.error('Error fetching MangaUpdates details:', error);
+        return {};
     }
 }
 

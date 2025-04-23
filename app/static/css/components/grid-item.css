@@ -13,6 +13,7 @@
     width: 184px;
     transform: perspective(1000px) rotateY(30deg); /* Slight 3D rotation */
     box-shadow: 0 10px 10px rgba(0, 0, 0, 5.2); /* Subtle shadow */
+    transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
 /* Scale up and rotate slightly more on hover */
@@ -528,6 +529,16 @@
     100% {
         transform: translateX(100%);
     }
+}
+
+/* Fix for AOS animations with dynamic content */
+.grid-item[data-aos].aos-animate {
+    opacity: 1;
+}
+
+/* Style for items scrolled out of view (used by aos_stuff.js) */
+.grid-item.fade-out {
+    opacity: 0;
 }
 
 

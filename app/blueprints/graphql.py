@@ -12,7 +12,12 @@ graphql_bp = Blueprint('graphql', __name__, url_prefix='/graphql')
 @login_required  # Keep authentication if needed for your app's endpoint
 def graphql_proxy_endpoint():
     """Proxies GraphQL requests to the Directus instance."""
-    directus_url = os.getenv('DIRECTUS_URL')
+    
+    if os.getenv('FLASK_ENV') == 'development':
+        directus_url = os.getenv('DIRECTUS_URL')
+    else:
+        directus_url = os.getenv('DIRECTUS_URL_VPS')
+
     directus_token = os.getenv('DIRECTUS_STATIC_TOKEN') # Or however you handle auth
 
     if not directus_url:
