@@ -35,12 +35,15 @@ def graphql_proxy_endpoint():
     current_app.logger.info(f"Proxying GraphQL request to: {directus_url.rstrip('/')}/graphql")
     current_app.logger.info(f"Request data: {json.dumps(data, indent=2)}")
     
+    final_directus_endpoint = f"{directus_url.rstrip('/')}/graphql" # Add back the /graphql path
+    current_app.logger.info(f"Attempting POST request to: {final_directus_endpoint}")
+    
     try:
         # Start timing the request
         start_time = time.time()
         
         response = requests.post(
-            f"{directus_url.rstrip('/')}/graphql", # Add back the /graphql path
+            final_directus_endpoint, # Use the variable here
             json=data,
             headers=headers,
             timeout=10 # Add a reasonable timeout
