@@ -53,10 +53,24 @@ export function updateSidebarCover(data) {
 }
 
 export function updateSidebarTitle(data) {
-    $('#sidebar-title-placeholder').text(data.title);
-    let titleHeight = $('#sidebar-title-placeholder').height();
-    $('#sidebar-title-container').height(titleHeight);
-    document.getElementById('sidebar-title').innerHTML = '';
+    // Set the placeholder text to calculate the required height
+    const titlePlaceholder = $('#sidebar-title-placeholder');
+    const titleContainer = $('#sidebar-title-container');
+    
+    // Set the text and make sure it's visible for accurate measurement
+    titlePlaceholder.text(data.title);
+    
+    // Wait a tiny bit to ensure the browser has calculated dimensions
+    setTimeout(() => {
+        // Add extra padding to ensure enough space
+        let titleHeight = titlePlaceholder.height() + 15;
+        
+        // Set container height with additional buffer
+        titleContainer.height(titleHeight);
+        
+        // Ensure the title element is completely empty
+        document.getElementById('sidebar-title').textContent = '';
+    }, 0);
 }
 
 export function updateSidebarInfo(data) {

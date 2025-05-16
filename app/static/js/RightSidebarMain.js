@@ -17,6 +17,7 @@ let currentAnilistId;
 let currentSeriesName;
 
 export async function showDetails(element) {
+    // First, immediately reset animations and clear existing timers
     resetAnimationsAndTimers();
 
     // Get the anilist ID from the clicked element
@@ -32,9 +33,9 @@ export async function showDetails(element) {
             return;
         }
 
-        // Update UI elements
-        updateSidebarCover(data);
+        // Update UI elements (title first to ensure container is sized properly)
         updateSidebarTitle(data);
+        updateSidebarCover(data);
         updateSidebarInfo(data);
         updateMangaUpdatesInfo(data);
         updateSidebarDescription(data);
@@ -49,11 +50,17 @@ export async function showDetails(element) {
         // Start animation sequence
         startAnimationSequence();
 
-        // Start typewriter effect for title
+        // Wait a bit longer before starting typewriter effect for title
         window.typewriterTimeout = setTimeout(function() {
-            typeWriter(data.title, 'sidebar-title', 40);
+            // Calculate typing speed - much faster now, especially for longer titles
+            // For short titles (< 15 chars), use 30ms delay
+            // For longer titles, use even shorter delays (15-20ms)
+            const typingSpeed = data.title.length < 15 ? 30 : 15;
+            
+            // Fade in and start typewriter after title container is properly sized
             $('#sidebar-title').fadeIn(300);
-        }, 650);
+            typeWriter(data.title, 'sidebar-title', typingSpeed);
+        }, 800);
     } catch (error) {
         console.error('Error showing details:', error);
     }
@@ -166,13 +173,27 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
 }
 
 function resetAnimationsAndTimers() {
-    // Reset animations and clear timeouts
+    // Reset UI elements
     $('#sidebar-toggle').html('Read more &#9660;');
     $('#sidebar-shownotes').html('Show Notes');
     $('#sidebar-links a').hide();
     $('#sidebar-reread-icon').remove();
+    
+    // Clear the title completely
+    if (document.getElementById('sidebar-title')) {
+        document.getElementById('sidebar-title').textContent = '';
+    }
+    
+    // Stop any ongoing animations and hide elements
     $('#sidebar-cover, #sidebar-toggle, #sidebar-title, #sidebar-info, #mangaupdates-info, #sidebar-description, #sidebar-notes, #sidebar-external-links, #sidebar-genres, #sidebar-links, #sidebar-shownotes').stop(true, true).hide();
+    
+    // Clear all animation timeouts
     clearTimeout(window.typewriterTimeout);
+    
+    // Clear any global animation variables that might exist
+    window.typewriterCompleted = false;
+    
+    // Ensure sidebar is visible
     $('#side-menu-right').removeClass('sidebar-hidden').addClass('sidebar-visible');
 }
 

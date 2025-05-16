@@ -1,13 +1,17 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from app.functions.class_mangalist import db_session, MangaList, MangaUpdatesDetails, MangaStatusNotification, AnilistNotification
+from app.functions.class_mangalist import db_session, MangaList, MangaUpdatesDetails, MangaStatusNotification, AnilistNotification, Users
 from app.functions import sqlalchemy_fns
 import logging
 from sqlalchemy import text
 from app.admin import admin_required
 from functools import wraps
+import datetime
+from flask_cors import CORS, cross_origin
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
+# Enable CORS for the entire blueprint
+CORS(api_bp, supports_credentials=True)
 
 @api_bp.route('/user/is-admin')
 def is_user_admin():
@@ -327,4 +331,4 @@ def refresh_notifications():
     """Manual refresh endpoint"""
     from flask import current_app
     notifications = current_app.notification_manager.get_notifications()
-    return jsonify(notifications) 
+    return jsonify(notifications)

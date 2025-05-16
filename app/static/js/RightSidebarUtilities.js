@@ -1,13 +1,27 @@
 export function typeWriter(text, elementId, speed) {
-    let i = 0;
-    function type() {
-        if (i < text.length) {
-            document.getElementById(elementId).innerHTML += text.charAt(i);
-            i++;
-            window.typewriterTimeout = setTimeout(type, speed);
+    // Clear any existing text and stop any ongoing animation
+    clearTimeout(window.typewriterTimeout);
+    const element = document.getElementById(elementId);
+    element.textContent = '';
+    
+    // Keep track of which characters have been displayed
+    let displayedText = '';
+    let currentIndex = 0;
+    
+    function typeNextChar() {
+        if (currentIndex < text.length) {
+            // Add the next character to our displayed text
+            displayedText += text[currentIndex];
+            // Update the element with the current text
+            element.textContent = displayedText;
+            currentIndex++;
+            // Schedule the next character
+            window.typewriterTimeout = setTimeout(typeNextChar, speed);
         }
     }
-    type();
+    
+    // Start the animation
+    typeNextChar();
 }
 
 // format dates in sidebar info and media info sections 

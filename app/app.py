@@ -40,6 +40,7 @@ from sqlalchemy import text
 from app.oauth_handler import AniListOAuth
 from app.oauth_config import ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI
 from app.utils.token_encryption import encrypt_token
+from flask_cors import CORS
 
 # Import blueprints
 from app.blueprints.auth import auth_bp
@@ -50,6 +51,7 @@ from app.blueprints.webhook import webhook_bp, webhook_status
 from app.blueprints.notifications import notifications_bp
 from app.blueprints.manga import manga_bp
 from app.blueprints.graphql import graphql_bp
+from app.blueprints.extension import extension_bp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -72,6 +74,17 @@ def create_app():
     app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
     
+    # Initialize CORS with permissive settings for development
+    # In production, you should specify allowed origins for security
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": "*",  # Allow requests from any origin to /api/ routes
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
+        }
+    })
+    
     # Register all blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -81,6 +94,7 @@ def create_app():
     app.register_blueprint(notifications_bp)
     app.register_blueprint(manga_bp)
     app.register_blueprint(graphql_bp)
+    app.register_blueprint(extension_bp)
 
     with app.app_context():
         # Initialize notification manager and background tasks
@@ -156,8 +170,19 @@ def set_security_headers(response):
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https://*.anilist.co; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
-        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.shirosplayground.space wss://*.shirosplayground.space;"
+        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.shirosplayground.space wss://*.shirosplayground.space chrome-extension://* http://localhost:* https://localhost:*;"
     )
+
+    # Add CORS headers for API requests
+    if request.path.startswith('/api/'):
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        
+        # Handle preflight OPTIONS requests
+        if request.method == 'OPTIONS':
+            response.status_code = 200
+            return response
 
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-Content-Type-Options'] = 'nosniff'

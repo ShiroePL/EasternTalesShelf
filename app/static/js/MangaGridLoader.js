@@ -18,40 +18,37 @@ export async function loadMangaGrid() {
             </div>
         `;
 
-        // Fetch download statuses and MangaUpdates details once at the beginning
-        const [downloadStatuses, mangaUpdatesDetailsMap] = await Promise.all([
-            fetchDownloadStatuses(),
-            fetchMangaUpdatesDetailsMap() // Fetch all MU details once
-        ]);
+        // Get collection counts to determine total pages
+        const counts = await fetchCollectionCounts();
+        console.log(`Total manga items: ${counts.mangaCount}, Total pages: ${counts.totalPages}`);
+
+        // Fetch download statuses once at the beginning
+        const downloadStatuses = await fetchDownloadStatuses();
 
         // Clear the loading container before rendering the first batch
         container.innerHTML = '';
 
-        let currentPage = 1;
-        let allMangaLoaded = false;
+        // Use the total pages from our count
+        const totalPages = counts.totalPages;
 
-        while (!allMangaLoaded) {
-            console.log(`Fetching page ${currentPage}...`);
-            const mangaDataPage = await fetchMangaGridFromGraphQL(currentPage, PAGE_SIZE);
-
-            if (!mangaDataPage || mangaDataPage.length === 0) {
-                console.log('No more manga data found. All pages loaded.');
-                allMangaLoaded = true;
-                break; // Exit the loop if no data is returned
+        for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
+            console.log(`Fetching page ${currentPage} of ${totalPages}...`);
+            const pageData = await fetchMangaGridFromGraphQL(currentPage, PAGE_SIZE);
+            
+            if (!pageData || !pageData.mangaList || pageData.mangaList.length === 0) {
+                console.log(`No data for page ${currentPage}, stopping.`);
+                break;
             }
 
             // Merge manga data with download statuses and MangaUpdates details
-            const mergedDataPage = mangaDataPage.map(manga => ({
+            const mergedDataPage = pageData.mangaList.map(manga => ({
                 ...manga,
                 download_status: downloadStatuses[manga.id_anilist] || 'not_downloaded',
-                mangaupdates_details: mangaUpdatesDetailsMap[manga.id_anilist] || null
+                mangaupdates_details: pageData.detailsMap[manga.id_anilist] || null
             }));
 
             // Load the current page of manga entries progressively
             await loadMangaProgressively(mergedDataPage, container);
-
-            // Move to the next page
-            currentPage++;
 
             // Optional: Add a small delay between page fetches if needed
             // await new Promise(resolve => setTimeout(resolve, 200));
@@ -270,6 +267,50 @@ async function checkAndLoadCover(entry, gridItem, isDevelopment) {
     img.src = coverUrl;
 }
 
+// First, fetch collection counts to calculate pages
+async function fetchCollectionCounts() {
+    const query = `
+    query GetCollectionCounts {
+        manga_list_aggregated {
+            count {
+                id_anilist
+            }
+        }
+    }`;
+
+    try {
+        const response = await fetch('/graphql/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ query })
+        });
+
+        const result = await response.json();
+
+        if (result.errors) {
+            console.error('GraphQL errors fetching collection counts:', result.errors);
+            return { mangaCount: 0, totalPages: 0 };
+        }
+
+        // Extract the counts from the aggregated results
+        const mangaCount = result.data.manga_list_aggregated[0]?.count?.id_anilist || 0;
+        
+        // Calculate total pages
+        const totalPages = Math.ceil(mangaCount / PAGE_SIZE);
+
+        return {
+            mangaCount,
+            totalPages
+        };
+    } catch (error) {
+        console.error('Error fetching collection counts:', error);
+        return { mangaCount: 0, totalPages: 0 };
+    }
+}
+
 // Fetch manga data from GraphQL endpoint for a specific page
 async function fetchMangaGridFromGraphQL(page, limit) {
     const query = `
@@ -291,9 +332,13 @@ async function fetchMangaGridFromGraphQL(page, limit) {
             bato_link
             last_updated_on_site
         }
-        # Note: Fetching mangaupdates_details here for every page might be inefficient.
-        # Consider fetching all mangaupdates_details separately once if performance is an issue.
-        # For simplicity now, we fetch them separately.
+        mangaupdates_details {
+            anilist_id
+            status
+            licensed
+            completed
+            last_updated_timestamp
+        }
     }`;
 
     const variables = { page, limit };
@@ -305,60 +350,33 @@ async function fetchMangaGridFromGraphQL(page, limit) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
             },
-            body: JSON.stringify({ query, variables }) // Pass variables here
+            body: JSON.stringify({ query, variables })
         });
 
         const result = await response.json();
 
         if (result.errors) {
             console.error('GraphQL errors:', result.errors);
-            return [];
+            return { mangaList: [], detailsMap: {} };
         }
 
-        // Return only the manga_list part for this page
-        return result.data.manga_list || [];
+        // Process manga entries and details
+        const mangaList = result.data.manga_list || [];
+        const mangaUpdatesDetails = result.data.mangaupdates_details || [];
 
-    } catch (error) {
-        console.error(`Error fetching manga grid data for page ${page}:`, error);
-        return []; // Return empty array on error to avoid breaking the loop
-    }
-}
-
-// Fetch ALL MangaUpdates details and return a map
-async function fetchMangaUpdatesDetailsMap() {
-    const query = `
-    query GetAllMangaUpdatesDetails {
-        mangaupdates_details {
-            anilist_id
-            status
-            licensed
-            completed
-            last_updated_timestamp
-        }
-    }`;
-    try {
-        const response = await fetch('/graphql/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ query })
-        });
-        const result = await response.json();
-        if (result.errors) {
-            console.error('GraphQL errors fetching MangaUpdates details:', result.errors);
-            return {};
-        }
+        // Map mangaupdates_details by anilist_id for easier lookup
         const detailsMap = {};
-        (result.data.mangaupdates_details || []).forEach(detail => {
+        mangaUpdatesDetails.forEach(detail => {
             detailsMap[detail.anilist_id] = detail;
         });
-        console.log(`Fetched ${Object.keys(detailsMap).length} MangaUpdates details.`);
-        return detailsMap;
+
+        return {
+            mangaList,
+            detailsMap
+        };
     } catch (error) {
-        console.error('Error fetching MangaUpdates details:', error);
-        return {};
+        console.error(`Error fetching manga grid data for page ${page}:`, error);
+        return { mangaList: [], detailsMap: {} };
     }
 }
 
