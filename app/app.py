@@ -74,6 +74,20 @@ def create_app():
     app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
     
+    # Add MIME type configuration for static files
+    app.config['MIME_TYPES'] = {
+        '.css': 'text/css',
+        '.js': 'application/javascript',
+        '.json': 'application/json',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+        '.webp': 'image/webp',
+        '.avif': 'image/avif'
+    }
+    
     # Initialize CORS with permissive settings for development
     # In production, you should specify allowed origins for security
     CORS(app, resources={
