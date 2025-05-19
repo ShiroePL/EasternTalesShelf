@@ -184,7 +184,7 @@ def set_security_headers(response):
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https://*.anilist.co; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
-        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.shirosplayground.space wss://*.shirosplayground.space chrome-extension://* http://localhost:* https://localhost:*;"
+        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.easterntalesshelf.site wss://*.easterntalesshelf.site chrome-extension://* http://localhost:* https://localhost:*;"
     )
 
     # Add CORS headers for API requests
