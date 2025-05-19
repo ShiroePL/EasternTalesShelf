@@ -18,6 +18,24 @@ export async function loadMangaGrid() {
             </div>
         `;
 
+        // Check admin status directly using window.isUserAdmin
+        let isAdmin = false;
+        try {
+            if (typeof window.isUserAdmin === 'function') {
+                isAdmin = await window.isUserAdmin();
+                console.log('Admin status determined:', isAdmin);
+            } else {
+                console.log('isUserAdmin function not available, defaulting to data attribute');
+                isAdmin = container.dataset.isAdmin === 'true';
+            }
+        } catch (error) {
+            console.error('Error checking admin status:', error);
+            isAdmin = container.dataset.isAdmin === 'true';
+        }
+        
+        // Store admin status on the container for access by other functions
+        container.dataset.isAdminChecked = isAdmin.toString();
+
         // Get collection counts to determine total pages
         const counts = await fetchCollectionCounts();
         console.log(`Total manga items: ${counts.mangaCount}, Total pages: ${counts.totalPages}`);
@@ -48,7 +66,7 @@ export async function loadMangaGrid() {
             }));
 
             // Load the current page of manga entries progressively
-            await loadMangaProgressively(mergedDataPage, container);
+            await loadMangaProgressively(mergedDataPage, container, isAdmin);
 
             // Optional: Add a small delay between page fetches if needed
             // await new Promise(resolve => setTimeout(resolve, 200));
@@ -59,6 +77,13 @@ export async function loadMangaGrid() {
 
         // Initialize AOS after all content is loaded
         initializeAOS();
+        
+        // Dispatch a custom event signaling that the manga grid is fully loaded
+        console.log('Manga grid fully loaded, dispatching event');
+        const gridLoadedEvent = new CustomEvent('mangaGridLoaded', { 
+            detail: { totalItems: counts.mangaCount }
+        });
+        document.dispatchEvent(gridLoadedEvent);
 
     } catch (error) {
         console.error('Error loading manga grid:', error);
@@ -86,9 +111,8 @@ function initializeAOS() {
 }
 
 // Load manga entries progressively in batches
-async function loadMangaProgressively(mangaEntries, container) {
-    // Prepare container for grid items
-    const isAdmin = container.dataset.isAdmin === 'true';
+async function loadMangaProgressively(mangaEntries, container, isAdmin) {
+    // Get container properties
     const isDevelopment = container.dataset.isDevelopment === 'true';
     
     // Create a fragment to minimize DOM operations
