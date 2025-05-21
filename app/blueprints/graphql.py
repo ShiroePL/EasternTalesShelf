@@ -15,9 +15,23 @@ graphql_bp = Blueprint('graphql', __name__, url_prefix='/graphql')
 def validate_request_origin():
     """Validate the request is coming from an allowed origin and referer"""
     # Get allowed domains from environment
-    allowed_domains = os.getenv('WEBSITE_ALLOWED_DOMAINS', '').split(',')
-    # Strip whitespace and ensure we have at least one domain
-    allowed_domains = [domain.strip() for domain in allowed_domains if domain.strip()]
+    allowed_domains_raw = os.getenv('WEBSITE_ALLOWED_DOMAINS', '')
+    
+ 
+    
+    # Split by comma and clean up each domain
+    allowed_domains = []
+    for domain in allowed_domains_raw.split(','):
+        domain = domain.strip()
+        # Remove protocol (http:// or https://)
+        domain = re.sub(r'^https?://', '', domain)
+        # Remove trailing slash
+        domain = domain.rstrip('/')
+        # Remove 'www.' prefix if present
+        domain = re.sub(r'^www\.', '', domain)
+        
+        if domain:
+            allowed_domains.append(domain)
     
     # Add localhost/127.0.0.1 for development if in development mode
     if os.getenv('FLASK_ENV') == 'development':
@@ -28,6 +42,8 @@ def validate_request_origin():
         current_app.logger.warning("WEBSITE_ALLOWED_DOMAINS not set, skipping origin validation")
         return True
     
+    current_app.logger.info(f"Allowed domains: {allowed_domains}")
+    
     # Check Origin header (used in CORS preflight and AJAX requests)
     origin = request.headers.get('Origin', '')
     
@@ -36,10 +52,16 @@ def validate_request_origin():
     
     # Function to check if a URL matches our allowed domains
     def url_matches_allowed_domains(url):
+        if not url:
+            return False
+            
+        # Clean up the URL for matching - remove protocol and trailing slash
+        cleaned_url = re.sub(r'^https?://', '', url).rstrip('/')
+        
         for domain in allowed_domains:
-            # Create a pattern that matches the domain at the beginning or after ://
-            pattern = r'^https?://{0}(/|$)|^https?://[^/]+\.{0}(/|$)'.format(re.escape(domain))
-            if re.search(pattern, url):
+            # Create a pattern that matches the domain exactly or as a subdomain
+            pattern = r'^{0}$|^[^/]+\.{0}$|^{0}:[0-9]+$'.format(re.escape(domain))
+            if re.search(pattern, cleaned_url):
                 return True
         return False
     
