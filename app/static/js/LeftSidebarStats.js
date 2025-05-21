@@ -79,16 +79,8 @@ async function fetchSidebarStats() {
     }`;
 
     try {
-        const response = await fetch('/graphql/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ query })
-        });
-
-        const result = await response.json();
+        // Use the common GraphQL request handler to handle authentication/fallback
+        const result = await window.sendGraphQLRequest({ query });
 
         if (result.errors) {
             console.error('GraphQL errors in sidebar stats query:', result.errors);
@@ -137,16 +129,8 @@ async function fetchSidebarStatsFallback() {
             }
         }`;
         
-        const response = await fetch('/graphql/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ query: totalQuery })
-        });
-        
-        const result = await response.json();
+        // Use the common GraphQL request handler
+        const result = await window.sendGraphQLRequest({ query: totalQuery });
         
         if (result.errors) {
             console.error('Error in fallback query:', result.errors);
@@ -366,16 +350,8 @@ async function fetchIndividualStats() {
         // Helper function to fetch a single count
         async function fetchCount(query) {
             try {
-                const response = await fetch('/graphql/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({ query })
-                });
+                const result = await window.sendGraphQLRequest({ query });
                 
-                const result = await response.json();
                 if (result.errors) {
                     return 0;
                 }

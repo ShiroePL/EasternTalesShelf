@@ -302,31 +302,21 @@ async function checkAndLoadCover(entry, gridItem, isDevelopment) {
     img.src = coverUrl;
 }
 
-// Fetch collection counts to calculate pages
+// Fetch collection counts from GraphQL endpoint
 async function fetchCollectionCounts() {
     const query = `
     query GetCollectionCounts {
         manga_list_aggregated {
-            count {
-                id_anilist
-            }
+            count { id_anilist }
         }
     }`;
 
     try {
-        const response = await fetch('/graphql/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ query })
-        });
-
-        const result = await response.json();
+        // Use the common GraphQL request handler to handle authentication
+        const result = await window.sendGraphQLRequest({ query });
 
         if (result.errors) {
-            console.error('GraphQL errors fetching collection counts:', result.errors);
+            console.error('GraphQL errors:', result.errors);
             return { mangaCount: 0, totalPages: 0 };
         }
 
@@ -382,16 +372,8 @@ async function fetchMangaGridFromGraphQL(page, limit) {
     const variables = { page, limit };
 
     try {
-        const response = await fetch('/graphql/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ query, variables })
-        });
-
-        const result = await response.json();
+        // Use the common GraphQL request handler to handle authentication
+        const result = await window.sendGraphQLRequest({ query, variables });
 
         if (result.errors) {
             console.error('GraphQL errors:', result.errors);

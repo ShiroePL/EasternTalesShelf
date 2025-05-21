@@ -103,23 +103,12 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
     }
 `;
 
-
-
-
     try {
-        const response = await fetch('/graphql/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-                query,
-                variables: { id: anilistId.toString() } // Convert to string as Directus expects string IDs
-            })
+        // Use the common GraphQL request handler to handle authentication/fallback
+        const result = await window.sendGraphQLRequest({
+            query,
+            variables: { id: anilistId.toString() } // Convert to string as Directus expects string IDs
         });
-
-        const result = await response.json();
         
         if (result.errors) {
             console.error('GraphQL errors:', result.errors);

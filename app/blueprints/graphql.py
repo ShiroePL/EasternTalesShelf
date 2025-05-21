@@ -2,16 +2,100 @@ import os
 import requests
 import json
 import time
-from flask import Blueprint, request, jsonify, current_app, Response
-from flask_login import login_required
+import re
+from flask import Blueprint, request, jsonify, current_app, Response, session
+from flask_login import login_required, current_user
+from flask_cors import cross_origin
+
+from app.admin import admin_required
 
 # Create Blueprint
 graphql_bp = Blueprint('graphql', __name__, url_prefix='/graphql')
 
-@graphql_bp.route('/', methods=['POST'])
-@login_required  # Keep authentication if needed for your app's endpoint
+def validate_request_origin():
+    """Validate the request is coming from an allowed origin and referer"""
+    # Get allowed domains from environment
+    allowed_domains = os.getenv('WEBSITE_ALLOWED_DOMAINS', '').split(',')
+    # Strip whitespace and ensure we have at least one domain
+    allowed_domains = [domain.strip() for domain in allowed_domains if domain.strip()]
+    
+    # Add localhost/127.0.0.1 for development if in development mode
+    if os.getenv('FLASK_ENV') == 'development':
+        allowed_domains.extend(['localhost', '127.0.0.1', 'localhost:5001', '127.0.0.1:5001'])
+    
+    # If no domains are specified, skip this check
+    if not allowed_domains:
+        current_app.logger.warning("WEBSITE_ALLOWED_DOMAINS not set, skipping origin validation")
+        return True
+    
+    # Check Origin header (used in CORS preflight and AJAX requests)
+    origin = request.headers.get('Origin', '')
+    
+    # Check Referer header (used in regular requests)
+    referer = request.headers.get('Referer', '')
+    
+    # Function to check if a URL matches our allowed domains
+    def url_matches_allowed_domains(url):
+        for domain in allowed_domains:
+            # Create a pattern that matches the domain at the beginning or after ://
+            pattern = r'^https?://{0}(/|$)|^https?://[^/]+\.{0}(/|$)'.format(re.escape(domain))
+            if re.search(pattern, url):
+                return True
+        return False
+    
+    # If either header matches our allowed domains, allow the request
+    origin_valid = url_matches_allowed_domains(origin) if origin else False
+    referer_valid = url_matches_allowed_domains(referer) if referer else False
+    
+    # Log the result
+    if origin:
+        current_app.logger.info(f"Origin validation: {origin} -> {'✓' if origin_valid else '❌'}")
+    if referer:
+        current_app.logger.info(f"Referer validation: {referer} -> {'✓' if referer_valid else '❌'}")
+    
+    return origin_valid or referer_valid
+
+def validate_graphql_key():
+    """Validate the GraphQL API key from request headers"""
+    # Get the expected key from environment variables
+    expected_key = os.getenv('GRAPHQL_SAFETY_KEY')
+    
+    if not expected_key:
+        current_app.logger.warning("GRAPHQL_SAFETY_KEY not set in environment variables")
+        return False
+    
+    # Get the provided key from headers
+    provided_key = request.headers.get('X-GraphQL-Key')
+    
+    if not provided_key:
+        current_app.logger.warning("Missing GraphQL safety key in request headers")
+        return False
+        
+    # Validate the key
+    key_match = provided_key == expected_key
+    
+    if not key_match:
+        current_app.logger.warning(f"GraphQL key validation failed - provided: {provided_key[:5]}...")
+    
+    return key_match
+
+@graphql_bp.route('/', methods=['POST', 'OPTIONS'])
+@cross_origin(supports_credentials=True)
+@admin_required
+@login_required
 def graphql_proxy_endpoint():
     """Proxies GraphQL requests to the Directus instance."""
+    # Handle OPTIONS request for CORS preflight
+    if request.method == 'OPTIONS':
+        return Response(), 200
+    
+    # Validate the request origin
+    if not validate_request_origin():
+        return jsonify({'errors': ['Request origin not allowed']}), 403
+    
+    # Validate the GraphQL safety key
+    if not validate_graphql_key():
+        return jsonify({'errors': ['Invalid or missing API key']}), 403
     
     if os.getenv('FLASK_ENV') == 'development':
         directus_url = os.getenv('DIRECTUS_URL')
@@ -102,6 +186,102 @@ def graphql_proxy_endpoint():
         current_app.logger.error(f"Unexpected error in GraphQL proxy: {e}")
         return jsonify({'errors': ['An unexpected error occurred.']}), 500
 
+@graphql_bp.route('/public', methods=['POST', 'OPTIONS'])
+@cross_origin(supports_credentials=True)
+def public_graphql_endpoint():
+    """Public GraphQL endpoint that serves demo data without authentication."""
+    # Handle OPTIONS request for CORS preflight
+    if request.method == 'OPTIONS':
+        return Response(), 200
+    
+    # Validate the request origin
+    if not validate_request_origin():
+        return jsonify({'errors': ['Request origin not allowed']}), 403
+    
+    # Validate the GraphQL safety key
+    if not validate_graphql_key():
+        return jsonify({'errors': ['Invalid or missing API key']}), 403
+    
+    if os.getenv('FLASK_ENV') == 'development':
+        directus_url = os.getenv('DIRECTUS_URL')
+    else:
+        directus_url = os.getenv('DIRECTUS_URL_VPS')
+
+    directus_token = os.getenv('DIRECTUS_STATIC_TOKEN')
+
+    if not directus_url:
+        return jsonify({'errors': ['Directus URL not configured in Flask app.']}), 500
+
+    # Prepare headers for Directus request
+    headers = {'Content-Type': 'application/json'}
+    if directus_token:
+        headers['Authorization'] = f'Bearer {directus_token}'
+
+    # Get the original request data
+    data = request.get_json()
+    
+    # Only allow specific queries for public access
+    # This ensures that only demo data is accessible
+    if data and 'query' in data:
+        # Check if the query contains operations that should be allowed for public access
+        query = data['query'].lower()
+        allowed_tables = ['manga_list', 'manga_list_aggregated']
+        
+        # Simple check to ensure the query only accesses allowed tables
+        # For a more robust solution, you'd want to use a proper GraphQL parser
+        is_allowed = any(table in query for table in allowed_tables)
+        
+        if not is_allowed:
+            return jsonify({'errors': ['This query is not allowed for public access']}), 403
+    else:
+        return jsonify({'errors': ['Invalid GraphQL request']}), 400
+    
+    final_directus_endpoint = f"{directus_url.rstrip('/')}/graphql"
+    current_app.logger.info(f"Proxying public GraphQL request to: {final_directus_endpoint}")
+    
+    try:
+        # Start timing the request
+        start_time = time.time()
+        
+        response = requests.post(
+            final_directus_endpoint,
+            json=data,
+            headers=headers,
+            timeout=10
+        )
+        
+        # Calculate elapsed time
+        elapsed_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+        
+        try:
+            # Try to parse response as JSON
+            response_json = response.json()
+            
+            # Add timing and demo mode information
+            if isinstance(response_json, dict):
+                response_json['_meta'] = {
+                    'requestTimeMs': round(elapsed_time, 2),
+                    'demoMode': True
+                }
+            
+            # Return the modified response
+            return jsonify(response_json), response.status_code
+            
+        except:
+            # If response is not JSON, return it as-is
+            return Response(
+                response.content, 
+                status=response.status_code, 
+                mimetype=response.headers.get('Content-Type', 'application/json')
+            )
+
+    except requests.exceptions.RequestException as e:
+        current_app.logger.error(f"Error proxying public GraphQL request: {e}")
+        return jsonify({'errors': [f'Failed to connect to Directus GraphQL endpoint: {str(e)}']}), 502
+
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in public GraphQL proxy: {e}")
+        return jsonify({'errors': ['An unexpected error occurred.']}), 500
 
 # Keep GraphiQL interface for development/testing - point it to the proxy endpoint
 # @graphql_bp.route('/graphiql', methods=['GET'])

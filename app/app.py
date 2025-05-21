@@ -174,8 +174,15 @@ def inject_debug():
         time_of_load = now
     # Print the time
     print("Time of the page load: ", time_of_load)
+    
+    # Get GraphQL safety key from environment
+    graphql_safety_key = os.getenv('GRAPHQL_SAFETY_KEY', '')
+    
     # printing in what mode the program is runned
-    return dict(isDevelopment=(os.getenv('FLASK_ENV') == 'development'))
+    return dict(
+        isDevelopment=(os.getenv('FLASK_ENV') == 'development'),
+        graphql_safety_key=graphql_safety_key
+    )
 
 @app.after_request
 def set_security_headers(response):
