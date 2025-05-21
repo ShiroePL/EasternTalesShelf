@@ -53,6 +53,7 @@ from app.blueprints.manga import manga_bp
 from app.blueprints.graphql import graphql_bp
 from app.blueprints.extension import extension_bp
 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Setup for Scrapy to work asynchronously with Flask
@@ -156,7 +157,9 @@ def load_user(user_id):
 def unauthorized_callback():
     return jsonify({'error': 'Unauthorized access'}), 401
 
-
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(app.static_folder, 'favicon.png', mimetype='image/x-icon')
 
 @app.context_processor
 def inject_debug():
@@ -173,8 +176,6 @@ def inject_debug():
     print("Time of the page load: ", time_of_load)
     # printing in what mode the program is runned
     return dict(isDevelopment=(os.getenv('FLASK_ENV') == 'development'))
-
-
 
 @app.after_request
 def set_security_headers(response):
@@ -202,7 +203,6 @@ def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Content-Security-Policy'] = csp_policy
     return response
-
 
 @app.teardown_appcontext
 def cleanup(resp_or_exc):

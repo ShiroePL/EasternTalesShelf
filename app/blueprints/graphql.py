@@ -54,8 +54,8 @@ def graphql_proxy_endpoint():
         current_app.logger.info(f"Directus request completed in {elapsed_time:.2f}ms")
         
         # Log response for debugging
-        current_app.logger.info(f"Response status: {response.status_code}")
-        current_app.logger.info(f"Response headers: {dict(response.headers)}")
+        #current_app.logger.info(f"Response status: {response.status_code}")
+        #current_app.logger.info(f"Response headers: {dict(response.headers)}")
         
         try:
             # Try to parse response as JSON
@@ -67,8 +67,18 @@ def graphql_proxy_endpoint():
                     'requestTimeMs': round(elapsed_time, 2)
                 }
             
-            # Log the response body
-            current_app.logger.info(f"Response body: {json.dumps(response_json, indent=2)}")
+            # Log a summary of the response body instead of the whole thing
+            if isinstance(response_json, dict):
+                items_count = 0
+                if 'data' in response_json:
+                    # Count items in each collection
+                    for key, value in response_json['data'].items():
+                        if isinstance(value, list):
+                            items_count += len(value)
+                
+                current_app.logger.info(f"Response successful with {items_count} total items")
+            else:
+                current_app.logger.info("Response received (body not logged)")
             
             # Return the modified response
             return jsonify(response_json), response.status_code
