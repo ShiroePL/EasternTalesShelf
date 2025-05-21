@@ -23,9 +23,7 @@ export async function loadMangaGrid() {
         try {
             if (typeof window.isUserAdmin === 'function') {
                 isAdmin = await window.isUserAdmin();
-                console.log('Admin status determined:', isAdmin);
             } else {
-                console.log('isUserAdmin function not available, defaulting to data attribute');
                 isAdmin = container.dataset.isAdmin === 'true';
             }
         } catch (error) {
@@ -38,7 +36,6 @@ export async function loadMangaGrid() {
 
         // Get collection counts to determine total pages
         const counts = await fetchCollectionCounts();
-        console.log(`Total manga items: ${counts.mangaCount}, Total pages: ${counts.totalPages}`);
 
         // Fetch download statuses once at the beginning
         const downloadStatuses = await fetchDownloadStatuses();
@@ -50,11 +47,9 @@ export async function loadMangaGrid() {
         const totalPages = counts.totalPages;
 
         for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
-            console.log(`Fetching page ${currentPage} of ${totalPages}...`);
             const pageData = await fetchMangaGridFromGraphQL(currentPage, PAGE_SIZE);
             
             if (!pageData || !pageData.mangaList || pageData.mangaList.length === 0) {
-                console.log(`No data for page ${currentPage}, stopping.`);
                 break;
             }
 
@@ -67,9 +62,6 @@ export async function loadMangaGrid() {
 
             // Load the current page of manga entries progressively
             await loadMangaProgressively(mergedDataPage, container, isAdmin);
-
-            // Optional: Add a small delay between page fetches if needed
-            // await new Promise(resolve => setTimeout(resolve, 200));
         }
 
         // Apply event listeners after all items from all pages are loaded
@@ -79,9 +71,10 @@ export async function loadMangaGrid() {
         initializeAOS();
         
         // Dispatch a custom event signaling that the manga grid is fully loaded
-        console.log('Manga grid fully loaded, dispatching event');
         const gridLoadedEvent = new CustomEvent('mangaGridLoaded', { 
-            detail: { totalItems: counts.mangaCount }
+            detail: { 
+                totalItems: counts.mangaCount
+            }
         });
         document.dispatchEvent(gridLoadedEvent);
 
@@ -96,7 +89,6 @@ function initializeAOS() {
     // Delay slightly to ensure DOM is fully updated
     setTimeout(() => {
         if (typeof AOS !== 'undefined') {
-            console.log('Initializing AOS for dynamic content');
             // Refresh AOS to recognize all the newly added items
             AOS.refresh();
             
@@ -153,10 +145,31 @@ async function loadMangaProgressively(mangaEntries, container, isAdmin) {
 function createGridItem(entry, isDevelopment, isAdmin) {
     const gridItem = document.createElement('div');
     gridItem.className = `grid-item ${!entry.is_cover_downloaded ? 'skeleton-cover' : ''}`;
+    
+    // Determine which title to use - use title_romaji if title_english is 'None' or null/undefined
+    const displayTitle = (entry.title_english === 'None' || !entry.title_english) ? 
+                         entry.title_romaji : 
+                         entry.title_english;
+    
     gridItem.setAttribute('data-anilist-id', entry.id_anilist);
-    gridItem.setAttribute('data-title', entry.title_english);
+    gridItem.setAttribute('data-title', displayTitle);
     gridItem.setAttribute('data-user-status', entry.on_list_status);
     gridItem.setAttribute('data-bato-link', entry.bato_link || '');
+    
+    // Add release status data attribute for filtering - critical for OG release filtering
+    gridItem.setAttribute('data-release-status', entry.status);
+    
+    // Add country of origin data attribute for filtering
+    gridItem.setAttribute('data-country', entry.country_of_origin || '');
+    
+    // Add manga format/type data attribute for filtering
+    gridItem.setAttribute('data-type', entry.media_format || '');
+    
+    // Add reread-times as data attribute for filtering
+    gridItem.setAttribute('data-reread-times', entry.reread_times || 0);
+    
+    // Add is-favourite as data attribute for filtering
+    gridItem.setAttribute('data-is-favourite', entry.is_favourite ? 1 : 0);
     
     // Set AOS attributes
     gridItem.setAttribute('data-aos', 'fade-up');
@@ -184,7 +197,7 @@ function createGridItem(entry, isDevelopment, isAdmin) {
     // Add title
     const titleDiv = document.createElement('div');
     titleDiv.className = 'grid-item-title';
-    titleDiv.textContent = entry.title_english;
+    titleDiv.textContent = displayTitle;
     gridItem.appendChild(titleDiv);
     
     // Add score icon
@@ -237,7 +250,7 @@ function createGridItem(entry, isDevelopment, isAdmin) {
         downloadBtn.className = 'download-status-btn';
         downloadBtn.setAttribute('data-status', entry.download_status || 'not_downloaded');
         downloadBtn.setAttribute('data-anilist-id', entry.id_anilist);
-        downloadBtn.setAttribute('data-title', entry.title_english);
+        downloadBtn.setAttribute('data-title', displayTitle);
         downloadBtn.setAttribute('data-bato-link', entry.bato_link || '');
         
         const icon = document.createElement('i');
@@ -282,16 +295,14 @@ async function checkAndLoadCover(entry, gridItem, isDevelopment) {
     };
     
     img.onerror = function() {
-        // Cover doesn't exist or error loading
-        console.log(`Cover for ${entry.title_english} (ID: ${entry.id_anilist}) not found or error loading`);
-        // Keep the skeleton placeholder visible
+        // Cover doesn't exist or error loading - keep the skeleton placeholder visible
     };
     
     // Start loading the image
     img.src = coverUrl;
 }
 
-// First, fetch collection counts to calculate pages
+// Fetch collection counts to calculate pages
 async function fetchCollectionCounts() {
     const query = `
     query GetCollectionCounts {
@@ -343,6 +354,7 @@ async function fetchMangaGridFromGraphQL(page, limit) {
             id_anilist
             id_mal
             title_english
+            title_romaji
             on_list_status
             status
             all_chapters
@@ -355,6 +367,8 @@ async function fetchMangaGridFromGraphQL(page, limit) {
             reread_times
             bato_link
             last_updated_on_site
+            country_of_origin
+            media_format
         }
         mangaupdates_details {
             anilist_id
