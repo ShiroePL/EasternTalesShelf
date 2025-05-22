@@ -1,5 +1,10 @@
 // Loader listening for enter press on chatInput
 document.addEventListener('DOMContentLoaded', function() {
+    // Add debugging to check global variables on load
+    console.log('DEBUG: Page loaded, debugging globals:');
+    console.log('DEBUG: window.currentAnilistId =', window.currentAnilistId);
+    console.log('DEBUG: window.currentSeriesName =', window.currentSeriesName);
+    
     // Code for chatInput
     let chatInput = document.getElementById('chatInput');
     if (chatInput) {
@@ -45,7 +50,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.getElementById('addBatoLinkButton').addEventListener('click', window.requireAdmin(function() {
-        if (currentAnilistId) {
+        console.log('DEBUG: Add Bato Link button clicked');
+        console.log('DEBUG: Global variables at click time:', {
+            windowCurrentAnilistId: window.currentAnilistId,
+            windowCurrentSeriesName: window.currentSeriesName
+        });
+        
+        if (window.currentAnilistId) {
+            console.log('DEBUG: Using window.currentAnilistId:', window.currentAnilistId);
             let link = prompt("Please enter a Bato.to or MangaUpdates link for this entry:", "http://");
             if (link !== null && link !== "") {
                 fetch('/add_bato', {
@@ -54,9 +66,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        anilistId: currentAnilistId,
+                        anilistId: window.currentAnilistId,
                         batoLink: link,
-                        seriesname: currentSeriesName
+                        seriesname: window.currentSeriesName
                     })
                 })
                 .then(response => {
@@ -83,6 +95,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('No link entered. Please enter a valid Bato link.');
             }
         } else {
+            console.log('DEBUG: No entry is focused currently - window.currentAnilistId is falsy');
+            console.log('DEBUG: window object properties related to currentAnilistId:', 
+                Object.keys(window).filter(key => key.toLowerCase().includes('current') || key.toLowerCase().includes('anilist')));
             alert('No entry is focused currently.');
         }
     }));

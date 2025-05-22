@@ -13,20 +13,36 @@ import {
     updateSidebarLinks
 } from './RightSidebarUIUpdaters.js';
 
-let currentAnilistId;
-let currentSeriesName;
+// Use local variables for the function's private use
+let localAnilistId;
+let localSeriesName;
 
 export async function showDetails(element) {
     // First, immediately reset animations and clear existing timers
     resetAnimationsAndTimers();
 
     // Get the anilist ID from the clicked element
-    currentAnilistId = $(element).data('anilist-id');
-    currentSeriesName = $(element).data('title');
+    localAnilistId = $(element).data('anilist-id');
+    localSeriesName = $(element).data('title');
+    
+    console.log('DEBUG: showDetails called for:', { 
+        element: element,
+        dataAnilistId: $(element).data('anilist-id'),
+        dataTitle: $(element).data('title')
+    });
+    
+    // Set the global variables that other modules expect
+    window.currentAnilistId = localAnilistId;
+    window.currentSeriesName = localSeriesName;
+    
+    console.log('DEBUG: Global variables set to:', { 
+        currentAnilistId: window.currentAnilistId,
+        currentSeriesName: window.currentSeriesName
+    });
 
     try {
         // Fetch data from GraphQL
-        const data = await fetchMangaDetailsFromGraphQL(currentAnilistId);
+        const data = await fetchMangaDetailsFromGraphQL(localAnilistId);
         
         if (!data) {
             console.error('Failed to fetch manga details');
@@ -63,6 +79,9 @@ export async function showDetails(element) {
         }, 800);
     } catch (error) {
         console.error('Error showing details:', error);
+        // Reset global variables when an error occurs
+        window.currentAnilistId = null;
+        window.currentSeriesName = null;
     }
 }
 
@@ -122,6 +141,8 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
                             
         if (!manga) {
             console.error('No manga found with ID:', anilistId);
+            window.currentAnilistId = null; // Reset global variable if no manga found
+            window.currentSeriesName = null;
             return null;
         }
 
