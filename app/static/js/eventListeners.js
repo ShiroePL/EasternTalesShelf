@@ -81,7 +81,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log('Success:', data);
                     alert(data.message || 'Bato link added successfully!');
                     
-                    // Update the Bato link in the UI immediately
+                    // Update the specific grid item with the new bato link
+                    updateGridItemBatoLink(window.currentAnilistId, link);
+                    
+                    // Update the Bato link in the right sidebar if it's currently shown
                     if (link.includes('bato.to')) {
                         $('#link-bato').attr('href', link).show();
                         adjustButtonSpacing();
@@ -148,5 +151,43 @@ function updateMangaUpdatesInfo(data) {
             <p>Completed: ${data.completed ? 'Yes' : 'No'}</p>
             <p>Last Updated: ${data.last_updated ? new Date(data.last_updated).toLocaleDateString() : 'N/A'}</p>
         `;
+    }
+}
+
+// Function to update a specific grid item's bato link without refreshing the whole grid
+function updateGridItemBatoLink(anilistId, newBatoLink) {
+    console.log('DEBUG: Updating grid item bato link for ID:', anilistId, 'with link:', newBatoLink);
+    
+    // Find the specific grid item
+    const gridItem = document.querySelector(`.grid-item[data-anilist-id="${anilistId}"]`);
+    
+    if (!gridItem) {
+        console.log('DEBUG: Grid item not found for anilist ID:', anilistId);
+        return;
+    }
+    
+    // Update the data attribute
+    gridItem.setAttribute('data-bato-link', newBatoLink);
+    
+    // Find the bato icon within this grid item
+    const batoIcon = gridItem.querySelector('.bato-icon');
+    
+    if (batoIcon) {
+        // Show the bato icon since we now have a link
+        if (newBatoLink && newBatoLink !== 'None' && newBatoLink !== '') {
+            batoIcon.style.display = ''; // Show the icon
+            console.log('DEBUG: Bato icon shown for anilist ID:', anilistId);
+            
+            // Update the click handler for the bato icon
+            batoIcon.onclick = function(e) {
+                e.stopPropagation();
+                window.open(newBatoLink, '_blank');
+            };
+        } else {
+            batoIcon.style.display = 'none'; // Hide the icon
+            console.log('DEBUG: Bato icon hidden for anilist ID:', anilistId);
+        }
+    } else {
+        console.log('DEBUG: Bato icon not found in grid item for anilist ID:', anilistId);
     }
 }
