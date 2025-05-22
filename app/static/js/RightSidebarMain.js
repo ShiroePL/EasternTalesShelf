@@ -93,6 +93,7 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
         manga_list(filter: { id_anilist: { _eq: $id } }, limit: 1) {
             id_anilist
             title_english
+            title_romaji
             is_favourite
             on_list_status
             score
@@ -147,9 +148,14 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
         }
 
         // Format the data to match what the UI expects
+        // Determine which title to use - use title_romaji if title_english is 'None' or null/undefined
+        const displayTitle = (manga.title_english === 'None' || !manga.title_english) ? 
+                             manga.title_romaji : 
+                             manga.title_english;
+        
         return {
             anilistId: manga.id_anilist,
-            title: manga.title_english,
+            title: displayTitle,
             anilistUrl: `https://anilist.co/manga/${manga.id_anilist}`,
             id_mal: manga.id_mal || 0,
             myanimelistUrl: manga.id_mal ? `https://myanimelist.net/manga/${manga.id_mal}` : null,

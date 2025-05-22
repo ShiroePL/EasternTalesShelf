@@ -90,14 +90,17 @@ export function animateHeartBurstWithParticles() {
                 height: '6px',
                 borderRadius: '50%',
                 backgroundColor: color,
+                pointerEvents: 'none',
+                zIndex: 1001
             });
 
-            $('#side-menu-right').append(particle);
+            // Add particles to the hearts container to keep them contained
+            $('#hearts-animation-container').append(particle);
 
-            // Animate particle
+            // Animate particle with limited spread to keep within bounds
             gsap.to(particle, {
-                x: (Math.random() - 0.5) * 500, // Wider spread
-                y: (Math.random() - 0.5) * 500, // Wider spread
+                x: (Math.random() - 0.5) * 200, // Reduced spread to keep within sidebar
+                y: (Math.random() - 0.5) * 200, // Reduced spread to keep within sidebar
                 opacity: 0,
                 duration: 1 + Math.random(), // Random duration
                 ease: "power1.out",
@@ -120,22 +123,24 @@ export function startHeartsFlowingEffect() {
         // Create a heart element with initial properties
         let heart = $('<i class="fas fa-heart heart"></i>').css({
             position: 'absolute',
-            top: titleBottomPosition + 250 + 'px', // Start from the bottom of the title container
+            top: titleBottomPosition + 'px', // Start from the title container
             left: Math.random() * containerWidth + 'px', // Random horizontal start position
             opacity: 0, // Start fully transparent
             fontSize: '25px', // Adjust size as needed
-            color: 'red' // Heart color
+            color: 'red', // Heart color
+            pointerEvents: 'none', // Make sure hearts don't interfere with interactions
+            zIndex: 1000 // Keep hearts above other content but not interfering
         });
 
-        // Append the heart to the side menu
-        $('#side-menu-right').append(heart);
+        // Append the heart to the dedicated hearts container instead of the main sidebar
+        $('#hearts-animation-container').append(heart);
 
-        // Animate the heart towards the bottom
+        // Animate the heart falling down with a limited distance to prevent extending sidebar
         gsap.fromTo(heart, {
             y: 0,
             opacity: 1
         }, {
-            y: containerHeight - titleBottomPosition, // Adjust the end position based on title position
+            y: Math.min(400, containerHeight - titleBottomPosition - 100), // Limit fall distance to prevent extending sidebar
             opacity: 0,
             duration: 2 + Math.random() * 2, // Randomize duration for variation
             ease: 'power1.inOut',

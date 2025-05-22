@@ -37,6 +37,9 @@ export function updateSidebarCover(data) {
     }
 
     if (data.reread_times > 0) {
+        // Remove any existing reread icon first to prevent duplicates
+        $('#sidebar-reread-icon').remove();
+        
         let rereadDisplayOriginal = `
             <div id="sidebar-reread-icon" class="reread-icon">
                 <i class="fas fa-sync-alt rotate"></i>
