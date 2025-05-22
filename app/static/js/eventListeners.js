@@ -166,7 +166,7 @@ function updateGridItemBatoLink(anilistId, newBatoLink) {
         return;
     }
     
-    // Update the data attribute
+    // Update the data attribute on the grid item itself
     gridItem.setAttribute('data-bato-link', newBatoLink);
     
     // Find the bato icon within this grid item
@@ -189,5 +189,29 @@ function updateGridItemBatoLink(anilistId, newBatoLink) {
         }
     } else {
         console.log('DEBUG: Bato icon not found in grid item for anilist ID:', anilistId);
+    }
+    
+    // Also update the download button's data-bato-link attribute
+    const downloadBtn = gridItem.querySelector('.download-status-btn');
+    if (downloadBtn) {
+        downloadBtn.setAttribute('data-bato-link', newBatoLink);
+        console.log('DEBUG: Download button data-bato-link updated for anilist ID:', anilistId);
+        
+        // Manually show/hide the download button based on bato link availability
+        if (newBatoLink && newBatoLink !== 'None' && newBatoLink !== '') {
+            downloadBtn.style.display = 'flex'; // Show the button
+            console.log('DEBUG: Download button shown for anilist ID:', anilistId);
+        } else {
+            downloadBtn.style.display = 'none'; // Hide the button
+            console.log('DEBUG: Download button hidden for anilist ID:', anilistId);
+        }
+    } else {
+        console.log('DEBUG: Download button not found in grid item for anilist ID:', anilistId);
+    }
+    
+    // Also trigger the global hide/show method if available
+    if (window.mangaDownloader && typeof window.mangaDownloader.hideButtonsWithoutBatoUrls === 'function') {
+        window.mangaDownloader.hideButtonsWithoutBatoUrls();
+        console.log('DEBUG: Called mangaDownloader.hideButtonsWithoutBatoUrls()');
     }
 }
