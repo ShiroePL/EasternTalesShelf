@@ -56,6 +56,7 @@ IMPORTANT: Return ONLY a JSON object without any additional text or explanation.
 }
 
 Only include manga where significant changes occurred.
+If there are no significant changes (so nothing changed), don't mention it.
 Compare the statuses carefully - look for changes in chapter counts, season completions, or status changes.
 If there are few notification for one manhwa, glue them to one notificiation.
 Example of significant change: "S4: 36 Chapters (116~)" to "S4: 40 Chapters (116~155)" indicates season 4 completion.

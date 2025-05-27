@@ -43,7 +43,7 @@ def send_to_groq(data_from_vdb, question):
     messages = construct_messages(data_from_vdb, question)
     
     completion = client.chat.completions.create(
-        model="llama-3.3-70b-versatile", 
+        model="meta-llama/llama-4-maverick-17b-128e-instruct", 
         messages=messages
     )
     answer = completion.choices[0].message.content

@@ -48,7 +48,7 @@ def send_to_groq(messages):
 
     completion = client.chat.completions.create(
         #model="llama3-70b-8192", 
-        model="llama-3.3-70b-versatile", 
+        model="meta-llama/llama-4-maverick-17b-128e-instruct", 
         messages=messages
     )
     answer = completion.choices[0].message.content
@@ -84,7 +84,7 @@ async def send_to_groq_vision(question, image_url):
     
     completion = client.chat.completions.create(
         #model="llama3-70b-8192", 
-        model="llama-3.2-90b-vision-preview", 
+        model="meta-llama/llama-4-maverick-17b-128e-instruct", 
         messages=[
             # this groq says tdont work now {"role": "system", "content": "You are Ai-Chan, the mascot of the Bakakats Discord server. You are a prankster who occasionally jokes around instead of helping. You love to troll everyone in the server, making jokes on expense of others and pinging users."},
             {
