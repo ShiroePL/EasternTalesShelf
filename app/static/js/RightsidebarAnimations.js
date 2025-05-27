@@ -90,17 +90,14 @@ export function animateHeartBurstWithParticles() {
                 height: '6px',
                 borderRadius: '50%',
                 backgroundColor: color,
-                pointerEvents: 'none',
-                zIndex: 1001
             });
 
-            // Add particles to the hearts container to keep them contained
-            $('#hearts-animation-container').append(particle);
+            $('#side-menu-right').append(particle);
 
-            // Animate particle with limited spread to keep within bounds
+            // Animate particle
             gsap.to(particle, {
-                x: (Math.random() - 0.5) * 200, // Reduced spread to keep within sidebar
-                y: (Math.random() - 0.5) * 200, // Reduced spread to keep within sidebar
+                x: (Math.random() - 0.5) * 500, // Wider spread
+                y: (Math.random() - 0.5) * 500, // Wider spread
                 opacity: 0,
                 duration: 1 + Math.random(), // Random duration
                 ease: "power1.out",
@@ -117,30 +114,54 @@ export function startHeartsFlowingEffect() {
     let containerHeight = $('#side-menu-right').height();
     // Calculate the bottom position of the title container relative to the side-menu-right container
     let titleBottomPosition = $('#sidebar-title-container').position().top + $('#sidebar-title-container').outerHeight();
+    
+    // Create or find the bottom marker element
+    let bottomMarker = $('#hearts-bottom-marker');
+    if (bottomMarker.length === 0) {
+        // Create a marker element at the bottom of the rightside menu
+        bottomMarker = $('<div id="hearts-bottom-marker"></div>').css({
+            position: 'absolute',
+            bottom: '10px', // 10px from the bottom of the rightside menu
+            width: '1px',
+            height: '1px',
+            visibility: 'hidden',
+            pointerEvents: 'none', // Don't interfere with interactions
+            zIndex: -1 // Behind everything
+        });
+        $('#side-menu-right').append(bottomMarker);
+    }
+    
+    // Calculate the fall distance using the marker
+    let markerPosition = bottomMarker.position().top;
+    let maxFallDistance = markerPosition - titleBottomPosition - 250; // Distance to the marker
+    
     let heartsCount = 20; // Number of hearts for the effect
 
     for (let i = 0; i < heartsCount; i++) {
         // Create a heart element with initial properties
         let heart = $('<i class="fas fa-heart heart"></i>').css({
             position: 'absolute',
-            top: titleBottomPosition + 'px', // Start from the title container
+            top: titleBottomPosition + 250 + 'px', // Start from the bottom of the title container
             left: Math.random() * containerWidth + 'px', // Random horizontal start position
             opacity: 0, // Start fully transparent
             fontSize: '25px', // Adjust size as needed
             color: 'red', // Heart color
-            pointerEvents: 'none', // Make sure hearts don't interfere with interactions
-            zIndex: 1000 // Keep hearts above other content but not interfering
+            zIndex: 1000, // Ensure they're on top
+            pointerEvents: 'none', // Don't interfere with interactions
+            width: '25px', // Fixed width
+            height: '25px', // Fixed height
+            overflow: 'hidden' // Prevent any overflow
         });
 
-        // Append the heart to the dedicated hearts container instead of the main sidebar
-        $('#hearts-animation-container').append(heart);
+        // Append the heart to the side menu
+        $('#side-menu-right').append(heart);
 
-        // Animate the heart falling down with a limited distance to prevent extending sidebar
+        // Animate the heart towards the bottom marker
         gsap.fromTo(heart, {
             y: 0,
             opacity: 1
         }, {
-            y: Math.min(400, containerHeight - titleBottomPosition - 100), // Limit fall distance to prevent extending sidebar
+            y: Math.max(maxFallDistance, 200), // Ensure hearts fall a reasonable distance
             opacity: 0,
             duration: 2 + Math.random() * 2, // Randomize duration for variation
             ease: 'power1.inOut',
