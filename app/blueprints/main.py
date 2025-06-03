@@ -51,6 +51,30 @@ def home():
     # Determine if we're in development mode
     is_development = os.getenv('FLASK_ENV') == 'development'
     
+    # Restore cover downloading functionality using lightweight query
+    # Only fetch cover-related data (id_anilist, is_cover_downloaded, cover_image) for entries that need covers
+    manga_entries_with_missing_covers = sqlalchemy_fns.get_cover_data_only()
+    
+    if manga_entries_with_missing_covers:
+        # Extract IDs that need downloading (all entries returned already need covers)
+        ids_to_download = [entry['id_anilist'] for entry in manga_entries_with_missing_covers]
+        
+        # Start a background thread to download covers instead of blocking the page load
+        def download_covers_background():
+            try:
+                successful_ids = download_covers.download_covers_concurrently(ids_to_download, manga_entries_with_missing_covers)
+                # Bulk update the database to mark the covers as downloaded only for successful ones
+                if successful_ids:
+                    sqlalchemy_fns.update_cover_download_status_bulk(successful_ids, True)
+                    print(f"Successfully downloaded and marked {len(successful_ids)} covers as downloaded")
+            except Exception as e:
+                print(f"Error during download or database update: {e}")
+        
+        # Start the download thread
+        download_thread = Thread(target=download_covers_background, daemon=True)
+        download_thread.start()
+        print(f"Started background download for {len(ids_to_download)} missing covers")
+    
     # Pass only color settings to the template.
     # The manga data will be loaded dynamically via GraphQL
     return render_template('pages/index.html', 

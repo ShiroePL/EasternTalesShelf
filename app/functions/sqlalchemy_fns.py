@@ -73,6 +73,34 @@ def update_cover_download_status_bulk(ids_to_download, status):
     finally:
         db_session.remove()
 
+def get_cover_data_only():
+    """ Lightweight function to fetch only cover-related data for download checking. """
+    try:
+        # Only fetch the minimal fields needed for cover downloading
+        cover_data = db_session.query(
+            MangaList.id_anilist,
+            MangaList.is_cover_downloaded,
+            MangaList.cover_image
+        ).filter(
+            MangaList.is_cover_downloaded == 0  # Only get entries that need covers
+        ).all()
+        
+        # Convert to list of dictionaries for compatibility with download_covers_concurrently
+        return [
+            {
+                'id_anilist': row.id_anilist,
+                'is_cover_downloaded': row.is_cover_downloaded,
+                'cover_image': row.cover_image
+            }
+            for row in cover_data
+        ]
+    except Exception as e:
+        print("Error while fetching cover data:", e)
+        db_session.rollback()
+        return []
+    finally:
+        db_session.remove()
+
 def update_manga_links(id_anilist, bato_link, extracted_links):
     """Update manga entry with Bato and MangaUpdates links."""
     try:
