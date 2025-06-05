@@ -53,21 +53,27 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Navigation -->
-    {% include 'components/_navbar.html' %}
-    
-    <!-- Main content -->
-    {% block content %}{% endblock %}
-    
-    <!-- Common modals -->
-    {% include 'components/_login_modal.html' %}
-    {% include 'components/_color_picker_modal.html' %}
-    
-    <!-- Chatbot -->
-    {% include 'components/_chatbot.html' %}
-    
-    <!-- Footer -->
-    {% include 'components/_footer.html' %}
+    <!-- Ultra-wide wrapper for full background extension -->
+    <div class="ultra-wide-wrapper">
+        <!-- Navigation (extends full width) -->
+        {% include 'components/_navbar.html' %}
+        
+        <!-- Main content container (constrained to 16:9) -->
+        <div class="main-content-container">
+            <!-- Main content -->
+            {% block content %}{% endblock %}
+            
+            <!-- Common modals -->
+            {% include 'components/_login_modal.html' %}
+            {% include 'components/_color_picker_modal.html' %}
+            
+            <!-- Chatbot -->
+            {% include 'components/_chatbot.html' %}
+        </div>
+        
+        <!-- Footer (extends full width) -->
+        {% include 'components/_footer.html' %}
+    </div>
     
     <!-- Hidden elements -->
     <div id="colorSettings" data-color-settings="{{ color_settings | tojson }}"></div>

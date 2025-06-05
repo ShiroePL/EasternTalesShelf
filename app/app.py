@@ -93,7 +93,7 @@ def create_app():
     # In production, you should specify allowed origins for security
     CORS(app, resources={
         r"/api/*": {
-            "origins": "*",  # Allow requests from any origin to /api/ routes
+            "origins": ["http://localhost:5001", "https://easterntalesshelf.site"],  # Restrict to localhost:5001 and your website
             "methods": ["GET", "POST", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True

@@ -8,6 +8,17 @@
     overflow-x: hidden;
     padding-top: 60px;
     color: white;
+    
+    /* Ultra-wide monitor support */
+    @media (min-width: 2560px) {
+        left: calc((100vw - min(calc(100vh * 16/9), 1920px)) / 2);
+        left: max(0px, calc((100vw - min(calc(100vh * 16/9), 1920px)) / 2));
+    }
+    
+    @media (min-aspect-ratio: 21/9) {
+        left: calc((100vw - min(calc(100vw * 0.8), 1920px)) / 2);
+        left: max(0px, calc((100vw - min(calc(100vw * 0.8), 1920px)) / 2));
+    }
 }
 
 /* Style for the input field */
@@ -130,6 +141,17 @@
     transition: transform 0.3s ease-in-out;
     z-index: 10;
     background-color: var(--secondary-color);
+    
+    /* Ultra-wide monitor support */
+    @media (min-width: 2560px) {
+        right: calc((100vw - min(calc(100vh * 16/9), 1920px)) / 2);
+        right: max(0px, calc((100vw - min(calc(100vh * 16/9), 1920px)) / 2));
+    }
+    
+    @media (min-aspect-ratio: 21/9) {
+        right: calc((100vw - min(calc(100vw * 0.8), 1920px)) / 2);
+        right: max(0px, calc((100vw - min(calc(100vw * 0.8), 1920px)) / 2));
+    }
 }
 
 .heart {

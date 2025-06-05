@@ -12,6 +12,17 @@
     flex-direction: column;
     transition: all 0.3s ease;
     z-index: 1000;
+    
+    /* Ultra-wide monitor support */
+    @media (min-width: 2560px) {
+        right: calc((100vw - min(calc(100vh * 16/9), 1920px)) / 2 + 10px);
+        right: max(10px, calc((100vw - min(calc(100vh * 16/9), 1920px)) / 2 + 10px));
+    }
+    
+    @media (min-aspect-ratio: 21/9) {
+        right: calc((100vw - min(calc(100vw * 0.8), 1920px)) / 2 + 10px);
+        right: max(10px, calc((100vw - min(calc(100vw * 0.8), 1920px)) / 2 + 10px));
+    }
 }
 
 /* Header styling */
@@ -109,4 +120,15 @@
     text-align: center;
     line-height: 40px;
     z-index: 1001;
+    
+    /* Ultra-wide monitor support */
+    @media (min-width: 2560px) {
+        right: calc((100vw - min(calc(100vh * 16/9), 1920px)) / 2 + 10px);
+        right: max(10px, calc((100vw - min(calc(100vh * 16/9), 1920px)) / 2 + 10px));
+    }
+    
+    @media (min-aspect-ratio: 21/9) {
+        right: calc((100vw - min(calc(100vw * 0.8), 1920px)) / 2 + 10px);
+        right: max(10px, calc((100vw - min(calc(100vw * 0.8), 1920px)) / 2 + 10px));
+    }
 } 
