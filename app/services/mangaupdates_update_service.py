@@ -65,6 +65,42 @@ Here are the status changes to analyze:
 
 """
 
+NOTIFICATION_FILTER_PROMPT = """You are a notification filter. Your job is to filter out notifications that do NOT represent truly significant or NEW information.
+
+FILTER OUT notifications that:
+- Say "no significant changes detected"
+- Mention "series is still ongoing" without new developments
+- State "remains on hiatus" without new information
+- Say "no new chapters or updates" 
+- Indicate "chapter count remains the same" or similar
+- Are redundant or repetitive about the same status
+
+KEEP notifications that:
+- Announce new seasons starting
+- Announce series completion or ending
+- Announce new hiatus (first time)
+- Announce return from hiatus
+- Announce significant chapter milestones
+- Announce licensing changes
+- Announce side stories starting
+
+Return ONLY a JSON object without any additional text:
+{
+  "filtered_notifications": [
+    {
+      "title": "manga_title",
+      "id": manga_id,
+      "type": "notification_type",
+      "message": "human readable message about the change",
+      "importance": 1-3
+    }
+  ]
+}
+
+Here are the notifications to filter:
+
+"""
+
 class MangaUpdatesUpdateService:
     def __init__(self):
         self.delay_between_requests = random.uniform(4.0, 7.0)  # random delay between 4.0-7.0 seconds with decimal precision
@@ -205,17 +241,69 @@ class MangaUpdatesUpdateService:
                 except Exception as close_error:
                     logger.error(f"Error closing session for {manga_update.title}: {close_error}")
 
+    async def filter_notifications(self, notifications_to_filter):
+        """Filter out non-significant notifications using AI"""
+        if not notifications_to_filter:
+            logger.info("No notifications to filter")
+            return []
+
+        logger.info(f"Filtering {len(notifications_to_filter)} notifications")
+        
+        # Format the notifications for filtering
+        prompt = NOTIFICATION_FILTER_PROMPT
+        for notification in notifications_to_filter:
+            prompt += f"Title: {notification['title']} (ID: {notification.get('id', 'N/A')})\n"
+            prompt += f"Type: {notification['type']}\n"
+            prompt += f"Message: {notification['message']}\n"
+            prompt += f"Importance: {notification['importance']}\n\n"
+
+        logger.info("Complete filter prompt being sent to Groq:")
+        logger.info("=" * 50)
+        logger.info(prompt)
+        logger.info("=" * 50)
+
+        try:
+            # Call Groq API for filtering
+            response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
+            
+            logger.info(f"Received filter response from Groq: {response}")
+            
+            # Clean the response - take only the JSON part
+            json_match = re.search(r'\{[\s\S]*\}', response)
+            if json_match:
+                json_str = json_match.group(0)
+                logger.info(f"Extracted filter JSON: {json_str}")
+            else:
+                logger.error("No JSON found in filter response")
+                return []
+            
+            # Parse the response as JSON
+            import json
+            filter_result = json.loads(json_str)
+            
+            filtered_notifications = filter_result.get('filtered_notifications', [])
+            logger.info(f"Filter result: {len(notifications_to_filter)} -> {len(filtered_notifications)} notifications")
+            
+            return filtered_notifications
+            
+        except Exception as e:
+            logger.error(f"Error filtering notifications: {e}")
+            logger.error(f"Full filter response was: {response}")
+            # Return original notifications if filtering fails
+            return notifications_to_filter
+
     async def analyze_status_changes(self):
-        """Analyze status changes using LLM in batches of 3"""
+        """Analyze status changes using LLM in batches of 3 with additional filtering"""
         if len(self.status_updates) < 1:
             logger.info("No updates for analysis")
             return
 
-        logger.info("Starting status change analysis")
+        logger.info("Starting status change analysis with two-step filtering")
         
         # Process updates in batches of 3
         batch_size = 3
         total_updates = len(self.status_updates)
+        all_potential_notifications = []
         
         for i in range(0, total_updates, batch_size):
             batch = self.status_updates[i:i + batch_size]
@@ -235,7 +323,7 @@ class MangaUpdatesUpdateService:
 
             logger.info("Sending request to Groq API")
             try:
-                # Call Groq API
+                # Call Groq API for initial analysis
                 response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
                 
                 logger.info(f"Received response from Groq: {response}")
@@ -253,9 +341,10 @@ class MangaUpdatesUpdateService:
                 import json
                 analysis = json.loads(json_str)
                 
-                # Process each notification with fallback to ID matching
+                # Collect potential notifications from this batch
+                batch_notifications = []
                 for notification in analysis.get('notifications', []):
-                    logger.info(f"Processing notification: {notification}")
+                    logger.info(f"Processing potential notification: {notification}")
                     manga_update = None
                     
                     # Try to find by ID first (most reliable)
@@ -279,10 +368,14 @@ class MangaUpdatesUpdateService:
                                 break
 
                     if manga_update:
-                        self.save_notification(notification, manga_update)
+                        # Add the manga_update object to the notification for later use
+                        notification['manga_update'] = manga_update
+                        batch_notifications.append(notification)
                     else:
                         logger.error(f"Could not find matching manga update for {notification['title']} (ID: {notification.get('id', 'Not provided')})")
                         logger.error(f"Available in batch: {[(update.title, update.anilist_id) for update in batch]}")
+
+                all_potential_notifications.extend(batch_notifications)
 
                 # Add a small delay between batches to avoid rate limiting
                 if i + batch_size < total_updates:
@@ -293,6 +386,35 @@ class MangaUpdatesUpdateService:
             except Exception as e:
                 logger.error(f"Error analyzing status changes batch: {e}")
                 logger.error(f"Full response was: {response}")
+
+        # Now filter all potential notifications
+        logger.info(f"\nStep 2: Filtering {len(all_potential_notifications)} potential notifications")
+        
+        # Prepare notifications for filtering (remove manga_update object for API call)
+        notifications_for_filtering = []
+        for notification in all_potential_notifications:
+            filtered_notification = {k: v for k, v in notification.items() if k != 'manga_update'}
+            notifications_for_filtering.append(filtered_notification)
+        
+        # Filter the notifications
+        filtered_notifications = await self.filter_notifications(notifications_for_filtering)
+        
+        logger.info(f"Final result: {len(filtered_notifications)} notifications passed the filter")
+        
+        # Save only the filtered notifications
+        for filtered_notification in filtered_notifications:
+            # Find the original notification with manga_update object
+            original_notification = next(
+                (n for n in all_potential_notifications 
+                 if n.get('id') == filtered_notification.get('id') or 
+                    n.get('title') == filtered_notification.get('title')),
+                None
+            )
+            
+            if original_notification and 'manga_update' in original_notification:
+                self.save_notification(filtered_notification, original_notification['manga_update'])
+            else:
+                logger.error(f"Could not find original notification data for {filtered_notification.get('title', 'Unknown')}")
 
         # Clear processed updates
         self.status_updates = []
