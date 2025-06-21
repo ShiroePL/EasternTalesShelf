@@ -51,7 +51,7 @@ def receive_reading_time():
         chapter_id = data.get('chapterId')
         chapter_title = data.get('chapterTitle')
         is_total_update = data.get('totalTimeUpdate', False)
-        
+        print(f"Received data: {data}")
         if not all([title, url, reading_time]):
             return jsonify({'success': False, 'message': 'Missing required fields'}), 400
         
