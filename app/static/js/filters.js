@@ -4,14 +4,22 @@ document.addEventListener('DOMContentLoaded', function() {
     window.currentFilterType = 'ALL'; // Default to 'ALL' on page load
     window.currentStatusFilter = ''; // Initialize a variable to keep track of the current status filter
     window.currentReleasingStatusFilter = ''; // Initialize a variable to keep track of the current releasing status filter
+    window.currentSortType = 'default'; // Global variable to track active sort state
 
     // Export the filterEntries function to make it globally accessible
     window.filterEntries = filterEntries;
     // Export filterByType to make it globally accessible
     window.filterByType = filterByType;
+    // Export sorting functions to make them globally accessible
+    window.applySorting = applySorting;
+    window.updateSortDropdownText = updateSortDropdownText;
+    window.updateSortDropdownActiveState = updateSortDropdownActiveState;
 
     // Initial filter application
     filterByType(currentFilterType);
+
+    // Initialize sorting functionality
+    initializeSorting();
 
     // Listen for mangaGridLoaded event to reapply filters after grid is loaded
     document.addEventListener('mangaGridLoaded', () => {
@@ -88,6 +96,9 @@ function filterEntries() {
             }
         });
 
+    // Note: No need to reapply sorting since we now use GraphQL-based sorting
+    // that loads data pre-sorted from the database
+
     // Refresh AOS animations after filtering
     if (typeof AOS !== 'undefined') {
         AOS.refresh();
@@ -116,5 +127,124 @@ function updateNavigationStyles(selectedFilter) {
     const selectedNavLink = document.querySelector(`.navbar-nav .nav-link[onclick*="${selectedFilter}"]`);
     if (selectedNavLink) {
         selectedNavLink.classList.add('active');
+    }
+}
+
+/**
+ * Initialize sorting functionality - set up event listeners and initial state
+ */
+function initializeSorting() {
+    // Set up event listeners for sort dropdown items
+    const sortDropdownItems = document.querySelectorAll('[data-sort]');
+    sortDropdownItems.forEach(item => {
+        item.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const sortType = this.getAttribute('data-sort');
+            await applySorting(sortType);
+        });
+    });
+
+    // Initialize with default sort state
+    window.currentSortType = 'default';
+    
+    // Set initial visual state for dropdown
+    updateSortDropdownText('default');
+}
+
+/**
+ * Apply sorting to the manga grid based on the specified sort type
+ * @param {string} sortType - The type of sorting to apply ('default', 'score', etc.)
+ */
+async function applySorting(sortType) {
+    // Performance monitoring
+    const startTime = performance.now();
+    
+    // Update the current sort type
+    window.currentSortType = sortType;
+    
+    // Map sort types to GraphQL sort parameters
+    let graphQLSortBy;
+    switch (sortType) {
+        case 'score':
+            graphQLSortBy = '-score'; // Descending score
+            break;
+        case 'default':
+        default:
+            graphQLSortBy = '-last_updated_on_site'; // Default sort
+            break;
+    }
+
+    // Import loadMangaGrid function dynamically to avoid circular imports
+    const { loadMangaGrid } = await import('./MangaGridLoader.js');
+    
+    // Reload the grid with the new sort order
+    await loadMangaGrid(graphQLSortBy);
+    
+    // Reapply any active filters after reloading
+    filterEntries();
+
+    // Update dropdown text to reflect current sort
+    updateSortDropdownText(sortType);
+    
+    // Log performance metrics for debugging
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+    console.log(`GraphQL sorting by ${sortType} (${graphQLSortBy}) completed in ${duration.toFixed(2)}ms`);
+}
+
+// Note: sortByScore function removed - now using GraphQL-based sorting for better performance
+
+/**
+ * Update the sort dropdown button text to reflect the current sort type
+ * @param {string} sortType - The current sort type
+ */
+function updateSortDropdownText(sortType) {
+    const dropdownButton = document.getElementById('sortDropdown');
+    if (!dropdownButton) {
+        console.warn('Sort dropdown button not found');
+        return;
+    }
+
+    let buttonText;
+    switch (sortType) {
+        case 'score':
+            buttonText = '<i class="fas fa-star"></i> Sort by Score';
+            break;
+        case 'default':
+        default:
+            buttonText = '<i class="fas fa-clock"></i> Default Order';
+            break;
+    }
+
+    dropdownButton.innerHTML = buttonText;
+    
+    // Update visual feedback in dropdown items
+    updateSortDropdownActiveState(sortType);
+}
+
+/**
+ * Update visual feedback to show active sort option in dropdown
+ * @param {string} sortType - The current active sort type
+ */
+function updateSortDropdownActiveState(sortType) {
+    // Remove active class from all dropdown items
+    const dropdownItems = document.querySelectorAll('[data-sort]');
+    dropdownItems.forEach(item => {
+        item.classList.remove('active');
+        // Remove any existing checkmark icons
+        const existingIcon = item.querySelector('.fas.fa-check');
+        if (existingIcon) {
+            existingIcon.remove();
+        }
+    });
+
+    // Add active class and checkmark to the current sort option
+    const activeItem = document.querySelector(`[data-sort="${sortType}"]`);
+    if (activeItem) {
+        activeItem.classList.add('active');
+        // Add checkmark icon to show it's selected
+        const checkIcon = document.createElement('i');
+        checkIcon.className = 'fas fa-check ms-auto';
+        activeItem.appendChild(checkIcon);
     }
 }

@@ -6,9 +6,14 @@ const BATCH_SIZE = 12; // Number of manga entries to render at once
 const BATCH_DELAY = 100; // Milliseconds between batches
 const PAGE_SIZE = 50; // Number of manga entries to fetch per GraphQL request
 
+// Global counter for tracking original order
+let globalItemIndex = 0;
+
 // Main function to load manga grid data
-export async function loadMangaGrid() {
+export async function loadMangaGrid(sortBy = "-last_updated_on_site") {
     const container = document.getElementById('manga-grid-container');
+    // Reset global index when loading starts
+    globalItemIndex = 0;
     try {
         // Display initial loading state
         container.innerHTML = `
@@ -47,7 +52,7 @@ export async function loadMangaGrid() {
         const totalPages = counts.totalPages;
 
         for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
-            const pageData = await fetchMangaGridFromGraphQL(currentPage, PAGE_SIZE);
+            const pageData = await fetchMangaGridFromGraphQL(currentPage, PAGE_SIZE, sortBy);
             
             if (!pageData || !pageData.mangaList || pageData.mangaList.length === 0) {
                 break;
@@ -170,6 +175,23 @@ function createGridItem(entry, isDevelopment, isAdmin) {
     
     // Add is-favourite as data attribute for filtering
     gridItem.setAttribute('data-is-favourite', entry.is_favourite ? 1 : 0);
+    
+    // Add score as data attribute for sorting
+    gridItem.setAttribute('data-score', entry.score || 0);
+    
+    // Pre-calculate CSS order values for instant sorting
+    const score = parseFloat(entry.score) || 0;
+    const hasScore = entry.score && score > 0;
+    
+    // Score-based order: scored items first (by score desc), then unscored (by title asc)
+    const scoreOrder = hasScore ? (10000 - Math.floor(score * 100)) : (20000 + globalItemIndex);
+    gridItem.setAttribute('data-score-order', scoreOrder);
+    
+    // Default order (original loading order)
+    gridItem.setAttribute('data-default-order', globalItemIndex);
+    
+    // Increment global index for next item
+    globalItemIndex++;
     
     // Set AOS attributes
     gridItem.setAttribute('data-aos', 'fade-up');
@@ -337,10 +359,10 @@ async function fetchCollectionCounts() {
 }
 
 // Fetch manga data from GraphQL endpoint for a specific page
-async function fetchMangaGridFromGraphQL(page, limit) {
+async function fetchMangaGridFromGraphQL(page, limit, sortBy = "-last_updated_on_site") {
     const query = `
-    query GetMangaPage($page: Int, $limit: Int) {
-        manga_list(sort: ["-last_updated_on_site"], page: $page, limit: $limit) {
+    query GetMangaPage($page: Int, $limit: Int, $sortBy: String) {
+        manga_list(sort: [$sortBy], page: $page, limit: $limit) {
             id_anilist
             id_mal
             title_english
@@ -369,7 +391,7 @@ async function fetchMangaGridFromGraphQL(page, limit) {
         }
     }`;
 
-    const variables = { page, limit };
+    const variables = { page, limit, sortBy };
 
     try {
         // Use the common GraphQL request handler to handle authentication
@@ -545,4 +567,4 @@ function scoreToColor(score) {
 }
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', loadMangaGrid); 
+document.addEventListener('DOMContentLoaded', () => loadMangaGrid());
