@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import time
+import json
 from datetime import datetime
 import schedule
 from app.functions.sqlalchemy_fns import save_manga_details
@@ -107,6 +108,42 @@ class MangaUpdatesUpdateService:
         self.status_updates: List[MangaStatusUpdate] = []
         self.batch_size = 2
         self.engine = create_engine(DATABASE_URI, pool_recycle=3600, pool_pre_ping=True)
+        self.setup_service_logging()
+    
+    def setup_service_logging(self):
+        """Setup dedicated logging for the manga updates service"""
+        # Create logs directory if it doesn't exist
+        log_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'logs')
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Setup file handler for service-specific logs
+        log_file = os.path.join(log_dir, f"mangaupdates_service_{datetime.now().strftime('%Y-%m-%d')}.log")
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+        
+        # Create formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        
+        # Add handler to logger
+        logger.addHandler(file_handler)
+        
+        logger.info("MangaUpdatesUpdateService initialized with enhanced logging")
+    
+    def log_service_operation(self, operation, data, status="success"):
+        """Log service operations in structured format"""
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "operation": operation,
+            "status": status,
+            "data": data
+        }
+        
+        log_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'logs')
+        log_file = os.path.join(log_dir, f"mangaupdates_operations_{datetime.now().strftime('%Y-%m-%d')}.log")
+        
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(log_entry, ensure_ascii=False, indent=2) + '\n' + '-'*50 + '\n')
 
     @wait_for(timeout=30.0)
     def run_spider(self, url, anilist_id):
@@ -216,6 +253,18 @@ class MangaUpdatesUpdateService:
             logger.info(f"Committing notification for {manga_update.title}")
             session.commit()
             logger.info(f"Successfully saved notification for manga {manga_update.title}")
+            
+            # Log the notification save
+            self.log_service_operation(
+                "notification_saved",
+                {
+                    "anilist_id": manga_update.anilist_id,
+                    "title": manga_update.title,
+                    "notification_type": notification_data['type'],
+                    "message": notification_data['message'],
+                    "importance": notification_data['importance']
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error saving notification for {manga_update.title}: {e}")
@@ -263,8 +312,12 @@ class MangaUpdatesUpdateService:
         logger.info("=" * 50)
 
         try:
-            # Call Groq API for filtering
-            response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
+            # Call Groq API for filtering with reasoning
+            response, _, _, _ = send_to_groq(
+                [{"role": "user", "content": prompt}],
+                use_reasoning=True,
+                reasoning_effort="medium"
+            )
             
             logger.info(f"Received filter response from Groq: {response}")
             
@@ -300,6 +353,16 @@ class MangaUpdatesUpdateService:
 
         logger.info("Starting status change analysis with two-step filtering")
         
+        # Log the start of analysis
+        self.log_service_operation(
+            "analysis_started",
+            {
+                "total_updates": len(self.status_updates),
+                "model": "openai/gpt-oss-120b",
+                "reasoning_effort": "medium"
+            }
+        )
+        
         # Process updates in batches of 3
         batch_size = 3
         total_updates = len(self.status_updates)
@@ -323,8 +386,12 @@ class MangaUpdatesUpdateService:
 
             logger.info("Sending request to Groq API")
             try:
-                # Call Groq API for initial analysis
-                response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
+                # Call Groq API for initial analysis with reasoning
+                response, _, _, _ = send_to_groq(
+                    [{"role": "user", "content": prompt}],
+                    use_reasoning=True,
+                    reasoning_effort="medium"
+                )
                 
                 logger.info(f"Received response from Groq: {response}")
                 
@@ -402,6 +469,7 @@ class MangaUpdatesUpdateService:
         logger.info(f"Final result: {len(filtered_notifications)} notifications passed the filter")
         
         # Save only the filtered notifications
+        saved_notifications = 0
         for filtered_notification in filtered_notifications:
             # Find the original notification with manga_update object
             original_notification = next(
@@ -413,8 +481,20 @@ class MangaUpdatesUpdateService:
             
             if original_notification and 'manga_update' in original_notification:
                 self.save_notification(filtered_notification, original_notification['manga_update'])
+                saved_notifications += 1
             else:
                 logger.error(f"Could not find original notification data for {filtered_notification.get('title', 'Unknown')}")
+
+        # Log analysis completion
+        self.log_service_operation(
+            "analysis_completed",
+            {
+                "total_processed": len(self.status_updates),
+                "potential_notifications": len(all_potential_notifications),
+                "filtered_notifications": len(filtered_notifications),
+                "saved_notifications": saved_notifications
+            }
+        )
 
         # Clear processed updates
         self.status_updates = []
@@ -423,9 +503,21 @@ class MangaUpdatesUpdateService:
         """Main function to update manga details"""
         logger.info("Starting MangaUpdates information update cycle")
         
+        # Log the start of the update cycle
+        self.log_service_operation(
+            "update_cycle_start",
+            {"timestamp": datetime.now().isoformat()}
+        )
+        
         manga_list = self.get_manga_with_updates_links()
         total_updated = 0
         total_skipped = 0
+        
+        # Log manga list retrieval
+        self.log_service_operation(
+            "manga_list_retrieved",
+            {"total_manga": len(manga_list)}
+        )
 
         for anilist_id, external_links, licensed, completed, old_status, title in manga_list:
             try:
@@ -457,6 +549,18 @@ class MangaUpdatesUpdateService:
                         url=mangaupdates_url
                     )
                     self.status_updates.append(update)
+                    
+                    # Log the status update
+                    self.log_service_operation(
+                        "status_update_recorded",
+                        {
+                            "anilist_id": anilist_id,
+                            "title": title,
+                            "old_status": old_status,
+                            "new_status": new_status,
+                            "url": mangaupdates_url
+                        }
+                    )
 
                     # If we have enough updates, analyze them
                     if len(self.status_updates) >= self.batch_size:
@@ -477,6 +581,16 @@ class MangaUpdatesUpdateService:
                 logger.error(f"Error processing manga {anilist_id}: {str(e)}")
 
         logger.info(f"Update cycle completed. Updated: {total_updated}, Skipped: {total_skipped}")
+        
+        # Log the completion of the update cycle
+        self.log_service_operation(
+            "update_cycle_completed",
+            {
+                "total_updated": total_updated,
+                "total_skipped": total_skipped,
+                "remaining_updates": len(self.status_updates)
+            }
+        )
 
 async def start_update_service():
     """Initialize and start the update service"""
@@ -581,4 +695,4 @@ if __name__ == "__main__":
     if args.test:
         asyncio.run(test_update_service(args.limit))
     else:
-        asyncio.run(start_update_service()) 
+        asyncio.run(start_update_service())

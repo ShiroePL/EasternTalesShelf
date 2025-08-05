@@ -1,5 +1,8 @@
 import time
 import logging
+import json
+import os
+from datetime import datetime
 from groq import Groq
 from app.config import Config
 
@@ -26,8 +29,32 @@ def rotate_api_key():
     else:
         logger.debug("Only one API key available, skipping rotation")
 
-def send_to_groq(messages):
-    """Send a list of messages to the Groq API and return the response, prompt tokens, completion tokens, and total tokens."""
+def log_groq_interaction(messages, response, prompt_tokens, completion_tokens, total_tokens, model_name, reasoning_effort=None):
+    """Log the complete interaction with Groq API to a structured log file"""
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "model": model_name,
+        "reasoning_effort": reasoning_effort,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "messages": messages,
+        "response": response
+    }
+    
+    # Ensure logs directory exists
+    log_dir = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Create log file path with date
+    log_file = os.path.join(log_dir, f"groq_interactions_{datetime.now().strftime('%Y-%m-%d')}.log")
+    
+    # Append to log file
+    with open(log_file, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(log_entry, ensure_ascii=False, indent=2) + '\n' + '='*80 + '\n')
+
+def send_to_groq(messages, use_reasoning=True, reasoning_effort="medium"):
+    """Send a list of messages to the Groq API using GPT-OSS-120B with reasoning and return the response, prompt tokens, completion tokens, and total tokens."""
     global token_count, start_time
 
     # If this is the first request, set the start time
@@ -46,18 +73,42 @@ def send_to_groq(messages):
         reset_token_count()
         start_time = time.time()
 
-    completion = client.chat.completions.create(
-        #model="llama3-70b-8192", 
-        model="meta-llama/llama-4-maverick-17b-128e-instruct", 
-        messages=messages
-    )
+    # Prepare completion parameters
+    completion_params = {
+        "model": "openai/gpt-oss-120b",
+        "messages": messages,
+        "temperature": 1,
+        "max_completion_tokens": 8192,
+        "top_p": 1,
+        "stream": False,
+        "stop": None
+    }
+    
+    # Add reasoning effort if requested
+    if use_reasoning:
+        completion_params["reasoning_effort"] = reasoning_effort
+    
+    completion = client.chat.completions.create(**completion_params)
+    
     answer = completion.choices[0].message.content
     prompt_tokens = completion.usage.prompt_tokens
     completion_tokens = completion.usage.completion_tokens
     total_tokens = completion.usage.total_tokens
     
     token_count += total_tokens
-    logger.info(f"Total tokens in rotation: {token_count}")   
+    logger.info(f"Total tokens in rotation: {token_count}")
+    
+    # Log the interaction
+    log_groq_interaction(
+        messages=messages,
+        response=answer,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        model_name="openai/gpt-oss-120b",
+        reasoning_effort=reasoning_effort if use_reasoning else None
+    )
+    
     return answer, prompt_tokens, completion_tokens, total_tokens
 
 
