@@ -73,15 +73,11 @@ def send_to_groq(messages, use_reasoning=True, reasoning_effort="medium"):
         reset_token_count()
         start_time = time.time()
 
-    # Prepare completion parameters
+    # Prepare completion parameters - simplified to match working example
     completion_params = {
         "model": "openai/gpt-oss-120b",
         "messages": messages,
-        "temperature": 1,
-        "max_completion_tokens": 8192,
-        "top_p": 1,
-        "stream": False,
-        "stop": None
+        "temperature": 1
     }
     
     # Add reasoning effort if requested
