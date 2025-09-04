@@ -313,11 +313,7 @@ class MangaUpdatesUpdateService:
 
         try:
             # Call Groq API for filtering with reasoning
-            response, _, _, _ = send_to_groq(
-                [{"role": "user", "content": prompt}],
-                use_reasoning=True,
-                reasoning_effort="medium"
-            )
+            response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
             
             logger.info(f"Received filter response from Groq: {response}")
             
@@ -358,8 +354,7 @@ class MangaUpdatesUpdateService:
             "analysis_started",
             {
                 "total_updates": len(self.status_updates),
-                "model": "openai/gpt-oss-120b",
-                "reasoning_effort": "medium"
+                "model": "meta-llama/llama-4-maverick-17b-128e-instruct"
             }
         )
         
@@ -387,11 +382,7 @@ class MangaUpdatesUpdateService:
             logger.info("Sending request to Groq API")
             try:
                 # Call Groq API for initial analysis with reasoning
-                response, _, _, _ = send_to_groq(
-                    [{"role": "user", "content": prompt}],
-                    use_reasoning=True,
-                    reasoning_effort="medium"
-                )
+                response, _, _, _ = send_to_groq([{"role": "user", "content": prompt}])
                 
                 logger.info(f"Received response from Groq: {response}")
                 
