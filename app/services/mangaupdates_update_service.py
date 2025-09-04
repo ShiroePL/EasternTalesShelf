@@ -111,24 +111,32 @@ class MangaUpdatesUpdateService:
         self.setup_service_logging()
     
     def setup_service_logging(self):
-        """Setup dedicated logging for the manga updates service"""
-        # Create logs directory if it doesn't exist
-        log_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'logs')
+        """
+        Setup dedicated logging for the manga updates service.
+        Creates folder 'logs' next to mangaupdates_update_service.py
+        """
+        # katalog, w którym znajduje się bieżący plik
+        current_dir = os.path.dirname(__file__)
+
+        # ścieżka do folderu logs: .../app/services/logs
+        log_dir = os.path.join(current_dir, "logs")
         os.makedirs(log_dir, exist_ok=True)
-        
-        # Setup file handler for service-specific logs
-        log_file = os.path.join(log_dir, f"mangaupdates_service_{datetime.now().strftime('%Y-%m-%d')}.log")
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+
+        log_file = os.path.join(
+            log_dir, f"mangaupdates_service_{datetime.now():%Y-%m-%d}.log"
+        )
+
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(logging.INFO)
-        
-        # Create formatter
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         file_handler.setFormatter(formatter)
-        
-        # Add handler to logger
+
         logger.addHandler(file_handler)
-        
         logger.info("MangaUpdatesUpdateService initialized with enhanced logging")
+
     
     def log_service_operation(self, operation, data, status="success"):
         """Log service operations in structured format"""
@@ -139,7 +147,7 @@ class MangaUpdatesUpdateService:
             "data": data
         }
         
-        log_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'logs')
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logs')
         log_file = os.path.join(log_dir, f"mangaupdates_operations_{datetime.now().strftime('%Y-%m-%d')}.log")
         
         with open(log_file, 'a', encoding='utf-8') as f:
@@ -566,10 +574,15 @@ class MangaUpdatesUpdateService:
                 # Random delay between requests
                 delay = self.delay_between_requests
                 logger.info(f"Waiting {delay:.2f} seconds before next request...")
-                time.sleep(delay)
+                await asyncio.sleep(delay)
 
             except Exception as e:
                 logger.error(f"Error processing manga {anilist_id}: {str(e)}")
+
+        # Process any remaining status updates that didn't reach batch size
+        if len(self.status_updates) > 0:
+            logger.info(f"Processing remaining {len(self.status_updates)} status updates...")
+            await self.analyze_status_changes()
 
         logger.info(f"Update cycle completed. Updated: {total_updated}, Skipped: {total_skipped}")
         
