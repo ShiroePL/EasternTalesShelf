@@ -520,14 +520,19 @@ class MangaUpdatesUpdateService:
 
         for anilist_id, external_links, licensed, completed, old_status, title in manga_list:
             try:
+                logger.info(f"Processing manga {anilist_id}: {title} (Licensed: {licensed}, Completed: {completed})")
+                
                 # Skip if both licensed and completed
                 if not self.should_update_manga(licensed, completed):
-                    logger.info(f"Skipping manga {anilist_id} - already licensed and completed")
+                    logger.info(f"Skipping manga {anilist_id} ({title}) - already licensed and completed")
                     total_skipped += 1
                     continue
 
                 mangaupdates_url = self.extract_mangaupdates_url(external_links)
                 if not mangaupdates_url:
+                    logger.warning(f"No valid MangaUpdates URL extracted for manga {anilist_id} ({title})")
+                    logger.debug(f"External links for {anilist_id}: {external_links}")
+                    total_skipped += 1
                     continue
 
                 logger.info(f"Fetching details from: {mangaupdates_url}")
@@ -577,19 +582,24 @@ class MangaUpdatesUpdateService:
                 await asyncio.sleep(delay)
 
             except Exception as e:
-                logger.error(f"Error processing manga {anilist_id}: {str(e)}")
+                logger.error(f"Error processing manga {anilist_id} ({title}): {str(e)}")
+                logger.exception("Full exception details:")
+                total_skipped += 1
 
         # Process any remaining status updates that didn't reach batch size
         if len(self.status_updates) > 0:
             logger.info(f"Processing remaining {len(self.status_updates)} status updates...")
             await self.analyze_status_changes()
 
-        logger.info(f"Update cycle completed. Updated: {total_updated}, Skipped: {total_skipped}")
+        total_processed = total_updated + total_skipped
+        logger.info(f"Update cycle completed. Total found: {len(manga_list)}, Processed: {total_processed}, Updated: {total_updated}, Skipped: {total_skipped}")
         
         # Log the completion of the update cycle
         self.log_service_operation(
             "update_cycle_completed",
             {
+                "total_found": len(manga_list),
+                "total_processed": total_processed,
                 "total_updated": total_updated,
                 "total_skipped": total_skipped,
                 "remaining_updates": len(self.status_updates)
@@ -641,7 +651,9 @@ async def test_update_service(limit=5):
 
             mangaupdates_url = service.extract_mangaupdates_url(external_links)
             if not mangaupdates_url:
-                logger.warning(f"No MangaUpdates URL found in external links for manga {anilist_id}")
+                logger.warning(f"No MangaUpdates URL found in external links for manga {anilist_id} ({title})")
+                logger.debug(f"External links for {anilist_id}: {external_links}")
+                total_skipped += 1
                 continue
 
             logger.info(f"Fetching details from: {mangaupdates_url}")
