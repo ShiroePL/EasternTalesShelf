@@ -186,6 +186,22 @@ class MangaUpdatesUpdateService:
     def get_manga_with_updates_links(self):
         """Fetch all manga entries that have MangaUpdates links"""
         try:
+            # First, get total counts for diagnostics
+            diagnostic_query = text("""
+                SELECT 
+                    COUNT(*) as total_manga,
+                    SUM(CASE WHEN ml.external_links IS NOT NULL AND ml.external_links != '' THEN 1 ELSE 0 END) as has_links,
+                    SUM(CASE WHEN ml.external_links LIKE '%mangaupdates.com%' THEN 1 ELSE 0 END) as has_mu_links
+                FROM manga_list ml
+            """)
+            diag_result = db_session.execute(diagnostic_query).first()
+            logger.info(f"=== MANGA DATABASE DIAGNOSTICS ===")
+            logger.info(f"Total manga in database: {diag_result.total_manga}")
+            logger.info(f"Manga with external_links: {diag_result.has_links}")
+            logger.info(f"Manga with MangaUpdates links: {diag_result.has_mu_links}")
+            logger.info(f"===================================")
+            
+            # Main query to get manga with MangaUpdates links
             query = text("""
                 SELECT ml.id_anilist, ml.external_links, mu.licensed, mu.completed,
                        mu.status as old_status,
@@ -193,14 +209,23 @@ class MangaUpdatesUpdateService:
                 FROM manga_list ml  -- Always use production table
                 LEFT JOIN mangaupdates_details mu ON ml.id_anilist = mu.anilist_id
                 WHERE ml.external_links LIKE '%mangaupdates.com%'
+                ORDER BY ml.id_anilist
             """)
             
             result = db_session.execute(query)
-            return [(row.id_anilist, row.external_links, row.licensed, row.completed,
+            manga_list = [(row.id_anilist, row.external_links, row.licensed, row.completed,
                      row.old_status, row.title_english) 
                     for row in result]
+            
+            # Log the IDs being processed for verification
+            logger.info(f"Found {len(manga_list)} manga with MangaUpdates links")
+            logger.info(f"First 10 manga IDs: {[m[0] for m in manga_list[:10]]}")
+            logger.info(f"Last 10 manga IDs: {[m[0] for m in manga_list[-10:]]}")
+            
+            return manga_list
         except Exception as e:
             logger.error(f"Error fetching manga with updates links: {e}")
+            logger.exception("Full exception:")
             return []
 
     def extract_mangaupdates_url(self, external_links):
@@ -507,6 +532,28 @@ class MangaUpdatesUpdateService:
             "update_cycle_start",
             {"timestamp": datetime.now().isoformat()}
         )
+        
+        # Check Baby Tyrant specifically for debugging
+        try:
+            baby_tyrant_check = text("""
+                SELECT ml.id_anilist, ml.title_english, ml.external_links,
+                       mu.licensed, mu.completed, mu.status
+                FROM manga_list ml
+                LEFT JOIN mangaupdates_details mu ON ml.id_anilist = mu.anilist_id
+                WHERE ml.id_anilist = 162919
+            """)
+            bt_result = db_session.execute(baby_tyrant_check).first()
+            if bt_result:
+                logger.info(f"=== BABY TYRANT (162919) DIAGNOSTIC ===")
+                logger.info(f"Title: {bt_result.title_english}")
+                logger.info(f"External links: {bt_result.external_links}")
+                logger.info(f"Licensed: {bt_result.licensed}, Completed: {bt_result.completed}")
+                logger.info(f"Status: {bt_result.status}")
+                logger.info(f"========================================")
+            else:
+                logger.warning(f"Baby Tyrant (162919) NOT FOUND in manga_list table!")
+        except Exception as e:
+            logger.error(f"Error checking Baby Tyrant: {e}")
         
         manga_list = self.get_manga_with_updates_links()
         total_updated = 0
