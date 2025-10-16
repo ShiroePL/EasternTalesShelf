@@ -202,6 +202,29 @@ class MangaUpdatesUpdateService:
             logger.info(f"Manga in mangaupdates_details table: {diag_result.has_mu_details}")
             logger.info(f"Manga with mangaupdates_url in details table: {diag_result.has_mu_url}")
             logger.info(f"Manga with MangaUpdates in external_links: {diag_result.has_mu_in_links}")
+            
+            # Get manga that are in mangaupdates_details but missing URLs
+            missing_urls_query = text("""
+                SELECT ml.id_anilist, ml.title_english, mu.status
+                FROM manga_list ml
+                INNER JOIN mangaupdates_details mu ON ml.id_anilist = mu.anilist_id
+                WHERE mu.mangaupdates_url IS NULL
+                ORDER BY ml.title_english
+            """)
+            missing_urls = db_session.execute(missing_urls_query).fetchall()
+            
+            if missing_urls:
+                logger.warning(f"Found {len(missing_urls)} manga in mangaupdates_details WITHOUT URLs:")
+                logger.warning(f"{'='*80}")
+                for manga in missing_urls:
+                    logger.warning(f"  - [{manga.id_anilist}] {manga.title_english}")
+                    if manga.status:
+                        logger.warning(f"    Status: {manga.status[:100]}...")  # Truncate long status
+                logger.warning(f"{'='*80}")
+                logger.warning(f"These manga need MangaUpdates URLs added via /add_bato route")
+            else:
+                logger.info(f"All manga in mangaupdates_details have URLs! ✓")
+            
             logger.info(f"===================================")
             
             # Main query: Get manga that exist in mangaupdates_details table

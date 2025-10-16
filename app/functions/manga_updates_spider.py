@@ -22,7 +22,15 @@ class MangaUpdatesSpider(scrapy.Spider):
         # Extract the other fields (licensed, completely scanlated, last updated)
         licensed = response.xpath("//div[b[contains(., 'Licensed (in English)')]]/following-sibling::div/text()").get()
         completely_scanlated = response.xpath("//div[b[contains(., 'Completely Scanlated?')]]/following-sibling::div/text()").get()
-        last_updated = response.xpath("//div[b[contains(., 'Last Updated')]]/following-sibling::div/text()").get()
+        
+        # Extract last updated - try to get the full date from the title attribute first, fallback to visible text
+        last_updated_full = response.xpath("//div[b[contains(., 'Last Updated')]]/following-sibling::div//span[@title]/@title").get()
+        if not last_updated_full:
+            # Fallback: try to get any text from the last updated div
+            last_updated_texts = response.xpath("//div[b[contains(., 'Last Updated')]]/following-sibling::div//text()").getall()
+            last_updated = ' '.join([text.strip() for text in last_updated_texts if text.strip()])
+        else:
+            last_updated = last_updated_full
 
         # Clean and structure the data
         details = {
