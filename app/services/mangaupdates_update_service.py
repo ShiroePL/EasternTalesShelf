@@ -184,43 +184,52 @@ class MangaUpdatesUpdateService:
             return None
 
     def get_manga_with_updates_links(self):
-        """Fetch all manga entries that have MangaUpdates links"""
+        """Fetch all manga entries that have MangaUpdates data"""
         try:
             # First, get total counts for diagnostics
             diagnostic_query = text("""
                 SELECT 
-                    COUNT(*) as total_manga,
-                    SUM(CASE WHEN ml.external_links IS NOT NULL AND ml.external_links != '' THEN 1 ELSE 0 END) as has_links,
-                    SUM(CASE WHEN ml.external_links LIKE '%mangaupdates.com%' THEN 1 ELSE 0 END) as has_mu_links
+                    COUNT(DISTINCT ml.id_anilist) as total_manga,
+                    COUNT(DISTINCT CASE WHEN mu.anilist_id IS NOT NULL THEN ml.id_anilist END) as has_mu_details,
+                    COUNT(DISTINCT CASE WHEN mu.mangaupdates_url IS NOT NULL THEN ml.id_anilist END) as has_mu_url,
+                    COUNT(DISTINCT CASE WHEN ml.external_links LIKE '%mangaupdates.com%' THEN ml.id_anilist END) as has_mu_in_links
                 FROM manga_list ml
+                LEFT JOIN mangaupdates_details mu ON ml.id_anilist = mu.anilist_id
             """)
             diag_result = db_session.execute(diagnostic_query).first()
             logger.info(f"=== MANGA DATABASE DIAGNOSTICS ===")
             logger.info(f"Total manga in database: {diag_result.total_manga}")
-            logger.info(f"Manga with external_links: {diag_result.has_links}")
-            logger.info(f"Manga with MangaUpdates links: {diag_result.has_mu_links}")
+            logger.info(f"Manga in mangaupdates_details table: {diag_result.has_mu_details}")
+            logger.info(f"Manga with mangaupdates_url in details table: {diag_result.has_mu_url}")
+            logger.info(f"Manga with MangaUpdates in external_links: {diag_result.has_mu_in_links}")
             logger.info(f"===================================")
             
-            # Main query to get manga with MangaUpdates links
+            # Main query: Get manga that exist in mangaupdates_details table
+            # Priority: Use mangaupdates_url from details table, fallback to external_links
             query = text("""
                 SELECT ml.id_anilist, ml.external_links, mu.licensed, mu.completed,
                        mu.status as old_status,
-                       ml.title_english
-                FROM manga_list ml  -- Always use production table
-                LEFT JOIN mangaupdates_details mu ON ml.id_anilist = mu.anilist_id
-                WHERE ml.external_links LIKE '%mangaupdates.com%'
+                       ml.title_english,
+                       mu.mangaupdates_url
+                FROM manga_list ml
+                INNER JOIN mangaupdates_details mu ON ml.id_anilist = mu.anilist_id
                 ORDER BY ml.id_anilist
             """)
             
             result = db_session.execute(query)
             manga_list = [(row.id_anilist, row.external_links, row.licensed, row.completed,
-                     row.old_status, row.title_english) 
+                     row.old_status, row.title_english, row.mangaupdates_url) 
                     for row in result]
             
             # Log the IDs being processed for verification
-            logger.info(f"Found {len(manga_list)} manga with MangaUpdates links")
-            logger.info(f"First 10 manga IDs: {[m[0] for m in manga_list[:10]]}")
-            logger.info(f"Last 10 manga IDs: {[m[0] for m in manga_list[-10:]]}")
+            logger.info(f"Found {len(manga_list)} manga with MangaUpdates data")
+            if len(manga_list) > 0:
+                logger.info(f"First 10 manga IDs: {[m[0] for m in manga_list[:10]]}")
+                logger.info(f"Last 10 manga IDs: {[m[0] for m in manga_list[-10:]]}")
+                
+                # Check if Baby Tyrant is in the list
+                baby_tyrant_in_list = any(m[0] == 162919 for m in manga_list)
+                logger.info(f"Baby Tyrant (162919) in processing list: {baby_tyrant_in_list}")
             
             return manga_list
         except Exception as e:
@@ -228,16 +237,36 @@ class MangaUpdatesUpdateService:
             logger.exception("Full exception:")
             return []
 
-    def extract_mangaupdates_url(self, external_links):
-        """Extract MangaUpdates URL from external links JSON string"""
+    def extract_mangaupdates_url(self, external_links, anilist_id, mangaupdates_url_from_db):
+        """
+        Extract MangaUpdates URL with priority system:
+        1. Use mangaupdates_url from mangaupdates_details table (most reliable)
+        2. Fallback to external_links JSON
+        3. Return None if not found anywhere
+        """
         try:
+            # Priority 1: Use URL from mangaupdates_details table
+            if mangaupdates_url_from_db:
+                logger.debug(f"Using MangaUpdates URL from details table for {anilist_id}: {mangaupdates_url_from_db}")
+                return mangaupdates_url_from_db
+            
+            # Priority 2: Try to get from external_links as fallback
             import json
-            links = json.loads(external_links)
-            for link in links:
-                if 'mangaupdates.com' in link:
-                    return link
+            if external_links:
+                links = json.loads(external_links)
+                for link in links:
+                    if 'mangaupdates.com' in link:
+                        logger.info(f"Found MangaUpdates URL in external_links for {anilist_id}: {link}")
+                        logger.warning(f"Consider running migration to populate mangaupdates_url column")
+                        return link
+            
+            # If we reach here, no URL was found
+            logger.warning(f"No MangaUpdates URL found for manga {anilist_id}")
+            logger.warning(f"Manga is in mangaupdates_details but has no URL stored")
+            return None
+            
         except Exception as e:
-            logger.error(f"Error extracting MangaUpdates URL: {e}")
+            logger.error(f"Error extracting MangaUpdates URL for {anilist_id}: {e}")
         return None
 
     def should_update_manga(self, licensed, completed):
@@ -565,7 +594,7 @@ class MangaUpdatesUpdateService:
             {"total_manga": len(manga_list)}
         )
 
-        for anilist_id, external_links, licensed, completed, old_status, title in manga_list:
+        for anilist_id, external_links, licensed, completed, old_status, title, mangaupdates_url in manga_list:
             try:
                 logger.info(f"Processing manga {anilist_id}: {title} (Licensed: {licensed}, Completed: {completed})")
                 
@@ -575,19 +604,20 @@ class MangaUpdatesUpdateService:
                     total_skipped += 1
                     continue
 
-                mangaupdates_url = self.extract_mangaupdates_url(external_links)
-                if not mangaupdates_url:
+                mangaupdates_url_final = self.extract_mangaupdates_url(external_links, anilist_id, mangaupdates_url)
+                if not mangaupdates_url_final:
                     logger.warning(f"No valid MangaUpdates URL extracted for manga {anilist_id} ({title})")
-                    logger.debug(f"External links for {anilist_id}: {external_links}")
+                    logger.warning(f"External links for {anilist_id}: {external_links}")
+                    logger.warning(f"SKIPPING - Cannot update without MangaUpdates URL")
                     total_skipped += 1
                     continue
 
-                logger.info(f"Fetching details from: {mangaupdates_url}")
+                logger.info(f"Fetching details from: {mangaupdates_url_final}")
 
                 # Use spider instead of API
                 try:
                     # Wait for spider to complete and get status
-                    new_status = self.run_spider(mangaupdates_url, anilist_id)
+                    new_status = self.run_spider(mangaupdates_url_final, anilist_id)
                     logger.info(f"New status fetched: {new_status}")
 
                     # Record the status update
@@ -597,7 +627,7 @@ class MangaUpdatesUpdateService:
                         old_status=old_status,
                         new_status=new_status,
                         timestamp=datetime.now(),
-                        url=mangaupdates_url
+                        url=mangaupdates_url_final
                     )
                     self.status_updates.append(update)
                     
@@ -609,7 +639,7 @@ class MangaUpdatesUpdateService:
                             "title": title,
                             "old_status": old_status,
                             "new_status": new_status,
-                            "url": mangaupdates_url
+                            "url": mangaupdates_url_final
                         }
                     )
 
@@ -684,7 +714,7 @@ async def test_update_service(limit=5):
     total_skipped = 0
     all_updates = []
 
-    for anilist_id, external_links, licensed, completed, old_status, title in manga_list[:limit]:
+    for anilist_id, external_links, licensed, completed, old_status, title, mangaupdates_url in manga_list[:limit]:
         try:
             logger.info(f"\n{'='*50}")
             logger.info(f"Processing manga ID: {anilist_id}")
@@ -696,17 +726,17 @@ async def test_update_service(limit=5):
                 total_skipped += 1
                 continue
 
-            mangaupdates_url = service.extract_mangaupdates_url(external_links)
-            if not mangaupdates_url:
+            mangaupdates_url_final = service.extract_mangaupdates_url(external_links, anilist_id, mangaupdates_url)
+            if not mangaupdates_url_final:
                 logger.warning(f"No MangaUpdates URL found in external links for manga {anilist_id} ({title})")
-                logger.debug(f"External links for {anilist_id}: {external_links}")
+                logger.warning(f"External links for {anilist_id}: {external_links}")
                 total_skipped += 1
                 continue
 
-            logger.info(f"Fetching details from: {mangaupdates_url}")
+            logger.info(f"Fetching details from: {mangaupdates_url_final}")
 
             try:
-                new_status = service.run_spider(mangaupdates_url, anilist_id)
+                new_status = service.run_spider(mangaupdates_url_final, anilist_id)
                 logger.info(f"New status fetched: {new_status}")
 
                 # Record the status update
@@ -716,7 +746,7 @@ async def test_update_service(limit=5):
                     old_status=old_status,
                     new_status=new_status,
                     timestamp=datetime.now(),
-                    url=mangaupdates_url
+                    url=mangaupdates_url_final
                 )
                 all_updates.append(update)
 

@@ -193,6 +193,122 @@ def save_manga_details(details, anilist_id):
         # Close the session
         db_session.remove()
 
+
+def save_mangaupdates_url(anilist_id, mangaupdates_url):
+    """Save or update MangaUpdates URL in the mangaupdates_details table"""
+    try:
+        # Query by anilist_id
+        manga_detail = db_session.query(MangaUpdatesDetails).filter_by(anilist_id=anilist_id).first()
+
+        # If no entry exists, create a new one with just the URL
+        if not manga_detail:
+            manga_detail = MangaUpdatesDetails(
+                anilist_id=anilist_id,
+                mangaupdates_url=mangaupdates_url
+            )
+            db_session.add(manga_detail)
+            logging.info(f"Created new MangaUpdatesDetails entry for {anilist_id} with URL: {mangaupdates_url}")
+        else:
+            # Update the existing record with the URL
+            manga_detail.mangaupdates_url = mangaupdates_url
+            logging.info(f"Updated MangaUpdatesDetails entry for {anilist_id} with URL: {mangaupdates_url}")
+
+        # Commit the transaction to save changes
+        db_session.commit()
+        
+    except Exception as e:
+        # Rollback in case of an error
+        db_session.rollback()
+        logging.error(f"Error saving MangaUpdates URL for {anilist_id}: {e}")
+    finally:
+        # Close the session
+        db_session.remove()
+
+
+def migrate_mangaupdates_urls_from_external_links():
+    """
+    One-time migration function to populate mangaupdates_url column 
+    from external_links in manga_list table
+    """
+    try:
+        logging.info("Starting migration: extracting MangaUpdates URLs from external_links")
+        
+        # Get all manga that have MangaUpdates links in external_links
+        manga_list = db_session.query(MangaList).filter(
+            MangaList.external_links.like('%mangaupdates.com%')
+        ).all()
+        
+        total_found = 0
+        total_updated = 0
+        total_created = 0
+        
+        for manga in manga_list:
+            try:
+                # Parse external_links JSON
+                import json
+                links = json.loads(manga.external_links) if manga.external_links else []
+                
+                # Find MangaUpdates link
+                mangaupdates_url = None
+                for link in links:
+                    if 'mangaupdates.com' in link.lower():
+                        mangaupdates_url = link
+                        break
+                
+                if mangaupdates_url:
+                    total_found += 1
+                    logging.info(f"Found MangaUpdates URL for {manga.id_anilist}: {mangaupdates_url}")
+                    
+                    # Check if entry exists in mangaupdates_details
+                    manga_detail = db_session.query(MangaUpdatesDetails).filter_by(
+                        anilist_id=manga.id_anilist
+                    ).first()
+                    
+                    if manga_detail:
+                        # Update existing entry
+                        if not manga_detail.mangaupdates_url:  # Only update if empty
+                            manga_detail.mangaupdates_url = mangaupdates_url
+                            total_updated += 1
+                            logging.info(f"Updated URL for existing entry: {manga.id_anilist}")
+                    else:
+                        # Create new entry
+                        manga_detail = MangaUpdatesDetails(
+                            anilist_id=manga.id_anilist,
+                            mangaupdates_url=mangaupdates_url
+                        )
+                        db_session.add(manga_detail)
+                        total_created += 1
+                        logging.info(f"Created new entry with URL: {manga.id_anilist}")
+                        
+            except Exception as e:
+                logging.error(f"Error processing manga {manga.id_anilist}: {e}")
+                continue
+        
+        # Commit all changes
+        db_session.commit()
+        
+        logging.info(f"Migration completed!")
+        logging.info(f"Total MangaUpdates URLs found: {total_found}")
+        logging.info(f"Existing entries updated: {total_updated}")
+        logging.info(f"New entries created: {total_created}")
+        
+        return {
+            "status": "success",
+            "total_found": total_found,
+            "total_updated": total_updated,
+            "total_created": total_created
+        }
+        
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Migration failed: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+    finally:
+        db_session.remove()
+
 # Add these new functions for queue management
 def pause_queue_task(title):
     """Update task status to stopped."""

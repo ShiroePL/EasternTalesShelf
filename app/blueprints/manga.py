@@ -34,6 +34,9 @@ def add_bato_link_route():
                 # Store the MangaUpdates link in external_links
                 sqlalchemy_fns.update_manga_links(anilist_id, None, [input_link])
                 
+                # Also store the URL in mangaupdates_details table
+                sqlalchemy_fns.save_mangaupdates_url(anilist_id, input_link)
+                
                 # Run the spider directly
                 result = run_crawl(input_link, anilist_id)
                 if result:
@@ -114,8 +117,16 @@ def add_bato_link_route():
                 logging.info(f"Found MangaUpdates link: {link}")
                 break
 
-        # If MangaUpdates link is found, run the spider
+        # If MangaUpdates link is found, add it to external_links and run the spider
         if mangaupdates_link:
+            # IMPORTANT: Add the MangaUpdates link to external_links
+            # This was missing and causing the bug where mangaupdates link wasn't added on first attempt
+            logging.info(f"Adding MangaUpdates link to external_links: {mangaupdates_link}")
+            sqlalchemy_fns.update_manga_links(anilist_id, None, [mangaupdates_link])
+            
+            # Also store the URL in mangaupdates_details table
+            sqlalchemy_fns.save_mangaupdates_url(anilist_id, mangaupdates_link)
+            
             logging.info(f"Running crawler for MangaUpdates link: {mangaupdates_link}")
             result = run_crawl(mangaupdates_link, anilist_id)
             if not result:

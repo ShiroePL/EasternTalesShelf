@@ -156,6 +156,7 @@ class MangaUpdatesDetails(Base):
     licensed = Column(Boolean, nullable=True)
     completed = Column(Boolean, nullable=True)
     last_updated_timestamp = Column(Text, nullable=True)
+    mangaupdates_url = Column(String(255), nullable=True)
 
     @classmethod
     def create_table_if_not_exists(cls, engine):
