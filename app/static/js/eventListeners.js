@@ -1,5 +1,10 @@
 // Loader listening for enter press on chatInput
 document.addEventListener('DOMContentLoaded', function() {
+    // Add debugging to check global variables on load
+    console.log('DEBUG: Page loaded, debugging globals:');
+    console.log('DEBUG: window.currentAnilistId =', window.currentAnilistId);
+    console.log('DEBUG: window.currentSeriesName =', window.currentSeriesName);
+    
     // Code for chatInput
     let chatInput = document.getElementById('chatInput');
     if (chatInput) {
@@ -45,7 +50,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.getElementById('addBatoLinkButton').addEventListener('click', window.requireAdmin(function() {
-        if (currentAnilistId) {
+        console.log('DEBUG: Add Bato Link button clicked');
+        console.log('DEBUG: Global variables at click time:', {
+            windowCurrentAnilistId: window.currentAnilistId,
+            windowCurrentSeriesName: window.currentSeriesName
+        });
+        
+        if (window.currentAnilistId) {
+            console.log('DEBUG: Using window.currentAnilistId:', window.currentAnilistId);
             let link = prompt("Please enter a Bato.to or MangaUpdates link for this entry:", "http://");
             if (link !== null && link !== "") {
                 fetch('/add_bato', {
@@ -54,9 +66,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        anilistId: currentAnilistId,
+                        anilistId: window.currentAnilistId,
                         batoLink: link,
-                        seriesname: currentSeriesName
+                        seriesname: window.currentSeriesName
                     })
                 })
                 .then(response => {
@@ -69,7 +81,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log('Success:', data);
                     alert(data.message || 'Bato link added successfully!');
                     
-                    // Update the Bato link in the UI immediately
+                    // Update the specific grid item with the new bato link
+                    updateGridItemBatoLink(window.currentAnilistId, link);
+                    
+                    // Update the Bato link in the right sidebar if it's currently shown
                     if (link.includes('bato.to')) {
                         $('#link-bato').attr('href', link).show();
                         adjustButtonSpacing();
@@ -83,102 +98,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('No link entered. Please enter a valid Bato link.');
             }
         } else {
+            console.log('DEBUG: No entry is focused currently - window.currentAnilistId is falsy');
+            console.log('DEBUG: window object properties related to currentAnilistId:', 
+                Object.keys(window).filter(key => key.toLowerCase().includes('current') || key.toLowerCase().includes('anilist')));
             alert('No entry is focused currently.');
         }
     }));
     
-
-
-    const mangaEntries = document.querySelectorAll('.grid-item');
-    const statusCounts = {
-        'COMPLETED': 0,
-        'PLANNING': 0,
-        'CURRENT': 0,
-        'PAUSED': 0,
-        'ALL-STATUS': mangaEntries.length // This is a special case for the 'All' filter
-    };
-    const releaseStatusCounts = {
-        'RELEASING': 0,
-        'FINISHED': 0
-    };
-
-    mangaEntries.forEach(entry => {
-        const status = entry.getAttribute('data-user-status');
-        if (status in statusCounts) {
-            statusCounts[status]++;
-        }
-        const release_status = entry.getAttribute('data-release-status');
-        if (release_status in releaseStatusCounts) {
-            releaseStatusCounts[release_status]++;
-        }
-    });
-
-    // Update the counts in the HTML
-    document.getElementById('count-completed').textContent = statusCounts['COMPLETED'];
-    document.getElementById('count-planning').textContent = statusCounts['PLANNING'];
-    document.getElementById('count-current').textContent = statusCounts['CURRENT'];
-    document.getElementById('count-paused').textContent = statusCounts['PAUSED'];
-    document.getElementById('count-all-user-stats').textContent = statusCounts['ALL-STATUS'];
-    document.getElementById('count-all-release-stats').textContent = statusCounts['ALL-STATUS'];
-    document.getElementById('count-releasing').textContent = releaseStatusCounts['RELEASING'];
-    document.getElementById('count-finished').textContent = releaseStatusCounts['FINISHED'];
-
-
-
-    // Event listener for status filter options
-    document.querySelectorAll('.status-option').forEach(function(option) {
-        option.addEventListener('click', function() {
-            // Remove 'selected' class from all options
-            document.querySelectorAll('.status-option').forEach(function(opt) {
-                opt.classList.remove('selected');
-            });
-
-            // Add 'selected' class to the clicked option
-            this.classList.add('selected');
-
-            // Update the currentStatusFilter variable with the new value
-            currentStatusFilter = this.getAttribute('data-value');
-
-            // Call filterEntries to apply the filters
-            filterEntries();
-        });
-    });
-
-    // Initialize a variable to keep track of the current status filter
-    currentReleasingStatusFilter = '';
-
-    // Event listener for status filter options
-    document.querySelectorAll('.statusReleasing-option').forEach(function(option) {
-        option.addEventListener('click', function() {
-            // Remove 'selected' class from all options
-            document.querySelectorAll('.statusReleasing-option').forEach(function(opt) {
-                opt.classList.remove('selected');
-            });
-
-            // Add 'selected' class to the clicked option
-            this.classList.add('selected');
-
-            // Update the currentStatusFilter variable with the new value
-            currentReleasingStatusFilter = this.getAttribute('data-value');
-
-            // Call filterEntries to apply the filters
-            filterEntries();
-        });
-    });
-
-
-    // Call filterEntries after all other event listeners are set up
-    if (typeof filterEntries === 'function') {
-        filterEntries();
-    } else {
-        console.error('filterEntries function not found');
-    }
-
-
-    let popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-    let popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
-      return new bootstrap.Popover(popoverTriggerEl);
-    });
+    // Note: Status counts are now handled by LeftSidebarStats.js using GraphQL
+    // This enhances performance and keeps counts in sync with the data
     
     // Add WebSocket listener for MangaUpdates data updates
     if (window.socket) {
@@ -223,5 +151,67 @@ function updateMangaUpdatesInfo(data) {
             <p>Completed: ${data.completed ? 'Yes' : 'No'}</p>
             <p>Last Updated: ${data.last_updated ? new Date(data.last_updated).toLocaleDateString() : 'N/A'}</p>
         `;
+    }
+}
+
+// Function to update a specific grid item's bato link without refreshing the whole grid
+function updateGridItemBatoLink(anilistId, newBatoLink) {
+    console.log('DEBUG: Updating grid item bato link for ID:', anilistId, 'with link:', newBatoLink);
+    
+    // Find the specific grid item
+    const gridItem = document.querySelector(`.grid-item[data-anilist-id="${anilistId}"]`);
+    
+    if (!gridItem) {
+        console.log('DEBUG: Grid item not found for anilist ID:', anilistId);
+        return;
+    }
+    
+    // Update the data attribute on the grid item itself
+    gridItem.setAttribute('data-bato-link', newBatoLink);
+    
+    // Find the bato icon within this grid item
+    const batoIcon = gridItem.querySelector('.bato-icon');
+    
+    if (batoIcon) {
+        // Show the bato icon since we now have a link
+        if (newBatoLink && newBatoLink !== 'None' && newBatoLink !== '') {
+            batoIcon.style.display = ''; // Show the icon
+            console.log('DEBUG: Bato icon shown for anilist ID:', anilistId);
+            
+            // Update the click handler for the bato icon
+            batoIcon.onclick = function(e) {
+                e.stopPropagation();
+                window.open(newBatoLink, '_blank');
+            };
+        } else {
+            batoIcon.style.display = 'none'; // Hide the icon
+            console.log('DEBUG: Bato icon hidden for anilist ID:', anilistId);
+        }
+    } else {
+        console.log('DEBUG: Bato icon not found in grid item for anilist ID:', anilistId);
+    }
+    
+    // Also update the download button's data-bato-link attribute
+    const downloadBtn = gridItem.querySelector('.download-status-btn');
+    if (downloadBtn) {
+        downloadBtn.setAttribute('data-bato-link', newBatoLink);
+        console.log('DEBUG: Download button data-bato-link updated for anilist ID:', anilistId);
+        
+        // Manually show/hide the download button based on bato link availability
+        if (newBatoLink && newBatoLink !== 'None' && newBatoLink !== '') {
+            downloadBtn.style.display = 'flex'; // Show the button
+            console.log('DEBUG: Download button shown for anilist ID:', anilistId);
+        } else {
+            downloadBtn.style.display = 'none'; // Hide the button
+            console.log('DEBUG: Download button hidden for anilist ID:', anilistId);
+        }
+    } else {
+        console.log('DEBUG: Download button not found in grid item for anilist ID:', anilistId);
+    }
+    
+    // Also trigger the global hide/show method if available
+    if (window.mangaDownloader && typeof window.mangaDownloader.hideButtonsWithoutBatoUrls === 'function') {
+        window.mangaDownloader.hideButtonsWithoutBatoUrls();
+        console.log('DEBUG: Called mangaDownloader.hideButtonsWithoutBatoUrls()');
     }
 }

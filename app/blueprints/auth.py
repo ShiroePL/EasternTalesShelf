@@ -1,4 +1,4 @@
-from flask import Blueprint, flash, render_template, jsonify, request, session, url_for, redirect
+from flask import Blueprint, flash, render_template, jsonify, request, session, url_for, redirect, make_response
 from flask_login import login_user, login_required, logout_user, current_user
 from app.functions.class_mangalist import Users, db_session
 from app.oauth_handler import AniListOAuth
@@ -17,7 +17,22 @@ def login():
             if user and user.check_password(password):
                 login_user(user, remember=True)
                 db_session.commit()
-                return jsonify({'success': True}), 200
+                
+                # Create response with cookie to help client-side auth detection
+                response = make_response(jsonify({'success': True}))
+                
+                # Set a cookie for client-side detection - secure in production
+                secure = request.environ.get('HTTPS', '').lower() == 'on' or request.environ.get('HTTP_X_FORWARDED_PROTO', '').lower() == 'https'
+                response.set_cookie(
+                    'logged_in', 
+                    'true', 
+                    max_age=86400*180,  # 180 days
+                    httponly=False,    # Readable by JavaScript
+                    secure=secure,     # Secure in production
+                    samesite='Lax'     # Reasonable protection against CSRF
+                )
+                
+                return response, 200
             else:
                 return jsonify({'success': False, 'message': 'Invalid username or password'}), 401
     except Exception as e:
@@ -27,7 +42,12 @@ def login():
 @auth_bp.route('/logout')
 def logout():
     logout_user()  # Flask-Login's logout function
-    return redirect(url_for('main.home'))
+    
+    # Create response that also clears the logged_in cookie
+    response = make_response(redirect(url_for('main.home')))
+    response.delete_cookie('logged_in')
+    
+    return response
 
 @auth_bp.route('/auth/anilist')
 def anilist_login():
@@ -67,11 +87,27 @@ def anilist_callback():
         if user:
             # Log in the user
             login_user(user, remember=True)
+            
+            # Create response with redirecting and setting the cookie
+            response = make_response(redirect(url_for('main.home')))
+            
+            # Set logged_in cookie
+            secure = request.environ.get('HTTPS', '').lower() == 'on' or request.environ.get('HTTP_X_FORWARDED_PROTO', '').lower() == 'https'
+            response.set_cookie(
+                'logged_in', 
+                'true', 
+                max_age=86400*180,  # 180 days
+                httponly=False,    # Readable by JavaScript
+                secure=secure,     # Secure in production
+                samesite='Lax'     # Reasonable protection against CSRF
+            )
+            
             if store_token:
                 flash(f'Welcome, {user.display_name or user.username}! Enhanced features are enabled.', 'success')
             else:
                 flash(f'Welcome, {user.display_name or user.username}! (Privacy mode enabled)', 'success')
-            return redirect(url_for('main.home'))
+            
+            return response
         else:
             flash('Authentication failed: User could not be created', 'error')
             return redirect(url_for('main.home'))

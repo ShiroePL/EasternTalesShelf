@@ -114,6 +114,27 @@ export function startHeartsFlowingEffect() {
     let containerHeight = $('#side-menu-right').height();
     // Calculate the bottom position of the title container relative to the side-menu-right container
     let titleBottomPosition = $('#sidebar-title-container').position().top + $('#sidebar-title-container').outerHeight();
+    
+    // Create or find the bottom marker element
+    let bottomMarker = $('#hearts-bottom-marker');
+    if (bottomMarker.length === 0) {
+        // Create a marker element at the bottom of the rightside menu
+        bottomMarker = $('<div id="hearts-bottom-marker"></div>').css({
+            position: 'absolute',
+            bottom: '10px', // 10px from the bottom of the rightside menu
+            width: '1px',
+            height: '1px',
+            visibility: 'hidden',
+            pointerEvents: 'none', // Don't interfere with interactions
+            zIndex: -1 // Behind everything
+        });
+        $('#side-menu-right').append(bottomMarker);
+    }
+    
+    // Calculate the fall distance using the marker
+    let markerPosition = bottomMarker.position().top;
+    let maxFallDistance = markerPosition - titleBottomPosition - 250; // Distance to the marker
+    
     let heartsCount = 20; // Number of hearts for the effect
 
     for (let i = 0; i < heartsCount; i++) {
@@ -124,18 +145,23 @@ export function startHeartsFlowingEffect() {
             left: Math.random() * containerWidth + 'px', // Random horizontal start position
             opacity: 0, // Start fully transparent
             fontSize: '25px', // Adjust size as needed
-            color: 'red' // Heart color
+            color: 'red', // Heart color
+            zIndex: 1000, // Ensure they're on top
+            pointerEvents: 'none', // Don't interfere with interactions
+            width: '25px', // Fixed width
+            height: '25px', // Fixed height
+            overflow: 'hidden' // Prevent any overflow
         });
 
         // Append the heart to the side menu
         $('#side-menu-right').append(heart);
 
-        // Animate the heart towards the bottom
+        // Animate the heart towards the bottom marker
         gsap.fromTo(heart, {
             y: 0,
             opacity: 1
         }, {
-            y: containerHeight - titleBottomPosition, // Adjust the end position based on title position
+            y: Math.max(maxFallDistance, 200), // Ensure hearts fall a reasonable distance
             opacity: 0,
             duration: 2 + Math.random() * 2, // Randomize duration for variation
             ease: 'power1.inOut',

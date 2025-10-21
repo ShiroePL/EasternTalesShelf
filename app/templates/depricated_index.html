@@ -12,8 +12,8 @@
     <!-- Open Graph meta tags -->
     <meta property="og:title" content="Eastern Tales Shelf" />
     <meta property="og:description" content="A personal platform for organizing and tracking Eastern novels and manga. Easily link to reading sources, check release statuses, and manage your collection with seamless integration and backups from AniList. Open-source and customizable for your own use." />
-    <meta property="og:image" content="https://demo-eastern-tales-shelf.shirosplayground.space/static/thumbnail_website.png" />
-    <meta property="og:url" content="https://demo-eastern-tales-shelf.shirosplayground.space" />
+    <meta property="og:image" content="https://easterntalesshelf.site/static/thumbnail_website.png" />
+    <meta property="og:url" content="https://easterntalesshelf.site" />
     <meta property="og:type" content="website" />
 
     <!-- Bootstrap CSS (choose either version 4 or 5, not both) -->
@@ -41,8 +41,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <!-- Link to gasp, to animate hearts -->
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.0.0/dist/gsap.min.js"></script>
-    <link rel="icon" href="{{ url_for('static', filename='fav_icon_wip.png') }}" type="image/x-icon">
-    <link rel="shortcut icon" href="{{ url_for('static', filename='fav_icon_wip.png') }}" type="image/x-icon">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/x-icon">
 
     <title>Eastern Tales Shelf</title>
 
@@ -57,7 +57,7 @@
                 rejectUnauthorized: false,
                 transports: ['websocket', 'polling'],
                 path: '/socket.io',
-                url: isDevelopment ? undefined : 'https://manhwa-reader.shirosplayground.space'
+                url: isDevelopment ? undefined : 'https://manhwa-reader.shirosplayground.site'
             });
         }
     </script>

@@ -19,12 +19,102 @@ class MangaDownloader {
             }
             
             // Only initialize for admin users
-            this.initializeDownloadStatuses();
-            this.setupWebSocketListeners();
             this.setupEventListeners();
-            this.hideButtonsWithoutBatoUrls();
+            this.setupWebSocketListeners();
+            
+            // Listen for the manga grid loaded event
+            document.addEventListener('mangaGridLoaded', (event) => {
+                console.log('Manga grid loaded event received, initializing download statuses');
+                
+                // First verify download buttons exist in the DOM
+                const downloadButtons = document.querySelectorAll('.download-status-btn');
+                console.log(`Found ${downloadButtons.length} download buttons on grid loaded event`);
+                
+                // If no buttons found, try to add them now
+                if (downloadButtons.length === 0) {
+                    this.ensureDownloadButtonsExist();
+                } else {
+                    // Wait a small amount of time to ensure all DOM elements are fully rendered
+                    setTimeout(() => {
+                        this.initializeDownloadStatuses();
+                        this.hideButtonsWithoutBatoUrls();
+                    }, 200);
+                }
+            });
+            
+            // Also initialize on page load as a fallback
+            if (document.readyState === 'complete') {
+                setTimeout(() => {
+                    this.ensureDownloadButtonsExist();
+                    this.initializeDownloadStatuses();
+                    this.hideButtonsWithoutBatoUrls();
+                }, 1000);
+            } else {
+                window.addEventListener('load', () => {
+                    setTimeout(() => {
+                        this.ensureDownloadButtonsExist();
+                        this.initializeDownloadStatuses();
+                        this.hideButtonsWithoutBatoUrls();
+                    }, 1000);
+                });
+            }
         } catch (error) {
             console.error('Error checking admin status:', error);
+        }
+    }
+    
+    // New method to ensure download buttons exist
+    ensureDownloadButtonsExist() {
+        // Check if buttons already exist
+        const existingButtons = document.querySelectorAll('.download-status-btn');
+        if (existingButtons.length > 0) {
+            console.log(`${existingButtons.length} download buttons already exist, no need to add them`);
+            return;
+        }
+        
+        // Find grid items without download buttons
+        const gridItems = document.querySelectorAll('.grid-item');
+        console.log(`Found ${gridItems.length} grid items, checking for missing buttons`);
+        
+        let buttonsAdded = 0;
+        
+        gridItems.forEach(gridItem => {
+            const anilistId = gridItem.getAttribute('data-anilist-id');
+            const title = gridItem.getAttribute('data-title');
+            const batoLink = gridItem.getAttribute('data-bato-link');
+            
+            // Check if this grid item already has a download button
+            if (!gridItem.querySelector('.manga-controls')) {
+                // Create controls div
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'manga-controls';
+                
+                // Create download button
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'download-status-btn';
+                downloadBtn.setAttribute('data-status', 'not_downloaded');
+                downloadBtn.setAttribute('data-anilist-id', anilistId);
+                downloadBtn.setAttribute('data-title', title);
+                downloadBtn.setAttribute('data-bato-link', batoLink || '');
+                
+                // Add icon
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-arrow-circle-down';
+                downloadBtn.appendChild(icon);
+                
+                // Add to controls div and then to grid item
+                controlsDiv.appendChild(downloadBtn);
+                gridItem.appendChild(controlsDiv);
+                
+                buttonsAdded++;
+            }
+        });
+        
+        console.log(`Added ${buttonsAdded} missing download buttons`);
+        
+        // If we've added buttons, initialize their statuses
+        if (buttonsAdded > 0) {
+            setTimeout(() => this.initializeDownloadStatuses(), 100);
         }
     }
 
@@ -138,7 +228,42 @@ class MangaDownloader {
     }
 
     updateDownloadButton(anilistId, status, progress = null) {
-        const button = document.querySelector(`.download-status-btn[data-anilist-id="${anilistId}"]`);
+        // First try to find the button
+        let button = document.querySelector(`.download-status-btn[data-anilist-id="${anilistId}"]`);
+        
+        // If button doesn't exist but grid item does, try to add it
+        if (!button) {
+            const gridItem = document.querySelector(`.grid-item[data-anilist-id="${anilistId}"]`);
+            
+            if (gridItem && !gridItem.querySelector('.manga-controls')) {
+                console.log(`Adding missing download button for ${anilistId}`);
+                
+                // Create the button on the fly
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'manga-controls';
+                
+                const title = gridItem.getAttribute('data-title') || 'Unknown';
+                const batoLink = gridItem.getAttribute('data-bato-link') || '';
+                
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'download-status-btn';
+                downloadBtn.setAttribute('data-status', 'not_downloaded');
+                downloadBtn.setAttribute('data-anilist-id', anilistId);
+                downloadBtn.setAttribute('data-title', title);
+                downloadBtn.setAttribute('data-bato-link', batoLink);
+                
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-arrow-circle-down';
+                downloadBtn.appendChild(icon);
+                
+                controlsDiv.appendChild(downloadBtn);
+                gridItem.appendChild(controlsDiv);
+                
+                // Now the button should exist
+                button = downloadBtn;
+            }
+        }
+        
         if (button) {
             const currentStatus = (status || 'not_downloaded').toLowerCase();
             button.setAttribute('data-status', currentStatus);
@@ -209,16 +334,34 @@ class MangaDownloader {
                     icon.className = 'fas fa-arrow-circle-down';
             }
         } else {
-            console.log(`Button not found for anilist_id: ${anilistId}`);  // Debug log
+            // Enhanced debug logging
+            //console.warn(`Download button not found for anilist_id: ${anilistId} and couldn't be created`);
+            
+            // Log how many buttons exist in the DOM
+            //const allButtons = document.querySelectorAll('.download-status-btn');
+            //console.log(`Total download buttons in DOM: ${allButtons.length}`);
+            
+            // Check if the grid item exists but not the button
+            const gridItem = document.querySelector(`.grid-item[data-anilist-id="${anilistId}"]`);
+            if (gridItem) {
+                //console.log(`Grid item exists for ${anilistId} but button could not be created`);
+                // This error means something is preventing us from adding the button
+                // Possibly missing data attributes or a JS error
+            } else {
+                //console.log(`No grid item found for ${anilistId} - item might not be visible yet`);
+                // Queue this item for retry later
+                setTimeout(() => this.updateDownloadButton(anilistId, status, progress), 1000);
+            }
         }
     }
 
     async toggleDownload(button) {
         const anilistId = button.dataset.anilistId;
         const title = button.dataset.title;
-        const batoUrl = button.dataset.batoUrl;
-
+        const batoUrl = button.dataset.batoUrl || button.dataset.batoLink || button.getAttribute('data-bato-url') || button.getAttribute('data-bato-link');
+        
         if (!batoUrl) {
+            console.error(`No Bato.to link available for manga: ${title} (${anilistId})`);
             this.showError('No Bato.to link available for this manhwa');
             return;
         }
@@ -275,8 +418,11 @@ class MangaDownloader {
     hideButtonsWithoutBatoUrls() {
         const downloadButtons = document.querySelectorAll('.download-status-btn');
         downloadButtons.forEach(button => {
-            const batoUrl = button.dataset.batoUrl;
+            const batoUrl = button.dataset.batoUrl || button.dataset.batoLink || 
+                            button.getAttribute('data-bato-url') || button.getAttribute('data-bato-link');
+            
             if (!batoUrl) {
+               // console.log(`Hiding download button for anilist_id: ${button.dataset.anilistId} - no Bato URL`);
                 button.style.display = 'none';
             } else {
                 button.style.display = 'flex'; // or 'block' or whatever the default is
@@ -295,17 +441,19 @@ class MangaDownloader {
 // Initialize downloader only if user is logged in
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof isLoggedIn !== 'undefined' && isLoggedIn) {
-        // Check admin status before initializing
-        if (window.isUserAdmin) {
+        // Create a global instance immediately, but only for admin users
+        if (typeof window.isUserAdmin === 'function') {
             window.isUserAdmin().then(isAdmin => {
                 if (isAdmin) {
+                    console.log('Creating MangaDownloader instance (admin user confirmed)');
                     window.mangaDownloader = new MangaDownloader();
                 } else {
+                    console.log('User is not an admin, not creating MangaDownloader');
                     // Create stub with empty methods for non-admin users
                     window.mangaDownloader = {
                         initializeDownloadStatuses: () => {},
                         updateDownloadButton: () => {},
-                        toggleDownload: () => window.showAdminRequiredPopup(),
+                        toggleDownload: () => window.showAdminRequiredPopup ? window.showAdminRequiredPopup() : alert('Admin access required'),
                         hideButtonsWithoutBatoUrls: () => {}
                     };
                 }
@@ -313,16 +461,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Error checking admin status:', error);
             });
         } else {
+            console.log('window.isUserAdmin function not available yet, will retry');
             // Try again after a delay to allow admin-access-handler.js to load
             setTimeout(() => {
-                if (window.isUserAdmin) {
+                if (typeof window.isUserAdmin === 'function') {
                     window.isUserAdmin().then(isAdmin => {
                         if (isAdmin) {
+                            console.log('Creating MangaDownloader instance after delay (admin user confirmed)');
                             window.mangaDownloader = new MangaDownloader();
+                        } else {
+                            console.log('User is not an admin after delay check');
                         }
                     });
+                } else {
+                    console.log('window.isUserAdmin still not available after delay');
+                    // As a last resort, check DOM attribute
+                    const container = document.getElementById('manga-grid-container');
+                    if (container && container.dataset.isAdmin === 'true') {
+                        console.log('Creating MangaDownloader based on container data attribute');
+                        window.mangaDownloader = new MangaDownloader();
+                    }
                 }
             }, 1000);
         }
+    } else {
+        console.log('User not logged in, not initializing MangaDownloader');
     }
 }); 

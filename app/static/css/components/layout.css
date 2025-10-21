@@ -1,3 +1,76 @@
+/* Ultra-wide monitor support - 16:9 container wrapper */
+.ultra-wide-wrapper {
+    /* Full width background for colors to extend */
+    width: 100%;
+    min-height: 100vh;
+    background-color: var(--background-color);
+}
+
+.main-content-container {
+    /* Center the 16:9 content container */
+    max-width: 1920px; /* Standard 16:9 reference width */
+    margin: 0 auto;
+    position: relative;
+    background-color: var(--background-color);
+    
+    /* For ultra-wide screens, limit the content width to maintain 16:9 readability */
+    @media (min-width: 2560px) {
+        max-width: min(calc(100vh * 16/9), 1920px);
+        /* Ensure minimum reasonable width */
+        min-width: 1600px;
+    }
+    
+    /* For very tall screens, use viewport width with max limit */
+    @media (min-aspect-ratio: 21/9) {
+        max-width: min(calc(100vw * 0.8), 1920px);
+    }
+}
+
+/* Navbar should extend full width but content inside should be constrained */
+.navbar {
+    width: 100% !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    background-color: var(--secondary-color);
+}
+
+.navbar .container-fluid {
+    max-width: 1920px;
+    margin: 0 auto;
+    
+    @media (min-width: 2560px) {
+        max-width: min(calc(100vh * 16/9), 1920px);
+        min-width: 1600px;
+    }
+    
+    @media (min-aspect-ratio: 21/9) {
+        max-width: min(calc(100vw * 0.8), 1920px);
+    }
+}
+
+/* Footer should extend full width but content inside should be constrained */
+.footer {
+    width: 100% !important;
+    background-color: var(--secondary-color);
+}
+
+.footer .container {
+    max-width: 1920px;
+    margin: 0 auto;
+    
+    @media (min-width: 2560px) {
+        max-width: min(calc(100vh * 16/9), 1920px);
+        min-width: 1600px;
+    }
+    
+    @media (min-aspect-ratio: 21/9) {
+        max-width: min(calc(100vw * 0.8), 1920px);
+    }
+}
+
 #main {
     padding-top: 70px;
     padding-left: 16px;
@@ -9,10 +82,22 @@
     background-color: var(--background-color);
 }
 
-.content-area {
+/* Apply grid layout directly to the container */
+#manga-grid-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
     grid-gap: 1rem;
+    
+    /* Keep the natural auto-fill behavior, just adjust item sizes for ultra-wide */
+    @media (min-width: 2560px) {
+        /* Slightly larger minimum size to prevent too many tiny items */
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+    
+    /* For very wide screens, increase minimum item size further */
+    @media (min-width: 3440px) {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
 }
 
 .custom-popover {

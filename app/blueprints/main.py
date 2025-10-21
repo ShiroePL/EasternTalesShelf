@@ -45,55 +45,41 @@ def save_user_color_settings(user_id, color_settings):
 
 @main_bp.route('/')
 def home():  
-    manga_entries = sqlalchemy_fns.get_manga_list_alchemy()
-    mangaupdates_details = sqlalchemy_fns.get_manga_details_alchemy()
-    download_statuses = {status['anilist_id']: status['status'] 
-                        for status in sqlalchemy_fns.get_download_statuses()}
+    # Load user-specific color settings
+    color_settings = load_color_settings()
     
-    # Add download status to each manga entry
-    for entry in manga_entries:
-        entry['download_status'] = download_statuses.get(entry['id_anilist'], 'not_downloaded')
+    # Determine if we're in development mode
+    is_development = os.getenv('FLASK_ENV') == 'development'
     
-    # Identify entries with missing covers and download them in a background thread
-    ids_to_download = [entry['id_anilist'] for entry in manga_entries if not entry['is_cover_downloaded']]
+    # Restore cover downloading functionality using lightweight query
+    # Only fetch cover-related data (id_anilist, is_cover_downloaded, cover_image) for entries that need covers
+    manga_entries_with_missing_covers = sqlalchemy_fns.get_cover_data_only()
     
-    if ids_to_download:
+    if manga_entries_with_missing_covers:
+        # Extract IDs that need downloading (all entries returned already need covers)
+        ids_to_download = [entry['id_anilist'] for entry in manga_entries_with_missing_covers]
+        
         # Start a background thread to download covers instead of blocking the page load
         def download_covers_background():
             try:
-                successful_ids = download_covers.download_covers_concurrently(ids_to_download, manga_entries)
+                successful_ids = download_covers.download_covers_concurrently(ids_to_download, manga_entries_with_missing_covers)
                 # Bulk update the database to mark the covers as downloaded only for successful ones
                 if successful_ids:
                     sqlalchemy_fns.update_cover_download_status_bulk(successful_ids, True)
+                    print(f"Successfully downloaded and marked {len(successful_ids)} covers as downloaded")
             except Exception as e:
                 print(f"Error during download or database update: {e}")
         
         # Start the download thread
         download_thread = Thread(target=download_covers_background, daemon=True)
         download_thread.start()
-
-    for entry in manga_entries:
-        links = entry.get('external_links', '[]')  # Default to an empty JSON array as a string
-        genres = entry.get('genres', '[]')
-        # Check if links is a valid JSON array
-        title_english = entry.get('title_english')
-        title_romaji = entry.get('title_romaji')
-       
-        try:
-            json.loads(links)
-            json.loads(genres)
-        except json.JSONDecodeError:
-            entry['external_links'] = []  # Replace with an empty list or another suitable default
-            entry['genres'] = []
-        if title_english == "None":
-            title_english = title_romaji
-            entry['title_english'] = title_romaji  # Don't forget to update the entry dict as well
-
-    # Load user-specific color settings
-    color_settings = load_color_settings()
+        print(f"Started background download for {len(ids_to_download)} missing covers")
     
-    # Pass the entries and color settings to the template.
-    return render_template('pages/index.html', manga_entries=manga_entries, mangaupdates_details=mangaupdates_details, color_settings=color_settings)
+    # Pass only color settings to the template.
+    # The manga data will be loaded dynamically via GraphQL
+    return render_template('pages/index.html', 
+                           color_settings=color_settings, 
+                           isDevelopment=is_development)
 
 
 @main_bp.route('/animelist')
@@ -236,3 +222,59 @@ def dev_covers(filename):
         except Exception as e:
             logging.error(f"Error serving file {filename}: {str(e)}")
             return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/update_cover_status', methods=['POST'])
+@login_required
+def update_cover_status():
+    """Update the cover download status for a manga entry"""
+    try:
+        data = request.get_json()
+        anilist_id = data.get('anilist_id')
+        is_downloaded = data.get('is_downloaded', False)
+        
+        if not anilist_id:
+            return jsonify({'success': False, 'message': 'AniList ID is required'}), 400
+        
+        # Update the status in the database
+        from app.functions.class_mangalist import db_session, MangaList
+        
+        manga = db_session.query(MangaList).filter_by(id_anilist=anilist_id).first()
+        if manga:
+            manga.is_cover_downloaded = is_downloaded
+            db_session.commit()
+            return jsonify({'success': True, 'message': 'Cover status updated'})
+        else:
+            return jsonify({'success': False, 'message': 'Manga not found'}), 404
+    
+    except Exception as e:
+        db_session.rollback()
+        logging.exception("Error updating cover status:")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@main_bp.route('/api/download-statuses')
+@login_required
+def get_download_statuses():
+    """Get all download statuses for manga entries"""
+    try:
+        # Get download statuses using the existing function
+        download_statuses = sqlalchemy_fns.get_download_statuses()
+        
+        # Format the response
+        formatted_statuses = [
+            {
+                'anilist_id': status['anilist_id'], 
+                'status': status['status'].lower()
+            } 
+            for status in download_statuses
+        ]
+        
+        return jsonify({
+            'success': True,
+            'statuses': formatted_statuses
+        })
+    except Exception as e:
+        logging.exception("Error fetching download statuses:")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500

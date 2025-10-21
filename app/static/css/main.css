@@ -9,6 +9,7 @@
 @import './components/navbar.css';
 @import './components/chatbot.css';
 @import './components/layout.css';
+@import './components/loading.css';
 
 /* Import existing component styles */
 @import './login_modal.css';

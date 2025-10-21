@@ -156,6 +156,7 @@ class MangaUpdatesDetails(Base):
     licensed = Column(Boolean, nullable=True)
     completed = Column(Boolean, nullable=True)
     last_updated_timestamp = Column(Text, nullable=True)
+    mangaupdates_url = Column(String(255), nullable=True)
 
     @classmethod
     def create_table_if_not_exists(cls, engine):
@@ -184,8 +185,8 @@ class MangaStatusNotification(Base):
             cls.__table__.create(engine)
 
 class AnilistNotification(Base):
+    """Table to store notifications from AniList"""
     __tablename__ = 'anilist_notifications'
-
     id = Column(Integer, primary_key=True)
     notification_id = Column(Integer, unique=True)  # AniList's notification ID
     type = Column(String(50))  # The notification type (e.g., AIRING, RELATED_MEDIA_ADDITION, etc.)
@@ -217,6 +218,26 @@ class AnilistNotification(Base):
         if not engine.dialect.has_table(engine, cls.__tablename__):
             cls.__table__.create(engine)
 
+class ReadingHistory(Base):
+    """Table to store reading time data from the Chrome extension"""
+    __tablename__ = 'reading_history'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    title = Column(String(255), nullable=False)
+    url = Column(String(255), nullable=False)
+    seconds = Column(Integer, nullable=False)
+    timestamp = Column(DateTime, default=datetime.now)
+    username = Column(String(255), nullable=True)
+    anilist_id = Column(Integer, nullable=True)
+    chapter = Column(String(255), nullable=True)
+    synced = Column(Boolean, default=True)
+    
+    @classmethod
+    def create_table_if_not_exists(cls, engine):
+        """Create the table if it doesn't exist"""
+        if not engine.dialect.has_table(engine, cls.__tablename__):
+            cls.__table__.create(engine)
+
 def init_db():
     """Initialize the database"""
     Base.metadata.create_all(bind=engine)
@@ -227,3 +248,4 @@ def init_db():
     Users.create_table_if_not_exists(engine)
     MangaStatusNotification.create_table_if_not_exists(engine)
     AnilistNotification.create_table_if_not_exists(engine)
+    ReadingHistory.create_table_if_not_exists(engine)
