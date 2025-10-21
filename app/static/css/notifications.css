@@ -407,3 +407,50 @@
 .refresh-btn i {
     margin-right: 4px;
 }
+
+/* Bato notification specific styles */
+.notification-chapter-info {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background-color: rgba(76, 175, 80, 0.1);
+    border-left: 3px solid #4CAF50;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.notification-chapter-info i {
+    margin-right: 6px;
+    color: #4CAF50;
+}
+
+.notification-badge {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background-color: rgba(255, 152, 0, 0.1);
+    border-left: 3px solid #FF9800;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.9);
+    display: inline-block;
+}
+
+.notification-badge i {
+    margin-right: 6px;
+    color: #FF9800;
+}
+
+.notification-status-change {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background-color: rgba(33, 150, 243, 0.1);
+    border-left: 3px solid #2196F3;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.notification-status-change i {
+    margin-right: 6px;
+    color: #2196F3;
+}

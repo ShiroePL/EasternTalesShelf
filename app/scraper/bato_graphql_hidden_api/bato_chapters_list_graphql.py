@@ -14,8 +14,11 @@ Date: 2025-10-20
 
 import requests
 import json
+import logging
 from typing import Dict, List, Optional
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class BatoChaptersListGraphQL:
@@ -50,7 +53,18 @@ class BatoChaptersListGraphQL:
             print(f"[DEBUG] {message}")
     
     def _execute_query(self, query: str, variables: Dict) -> Dict:
-        """Execute a GraphQL query."""
+        """
+        Execute a GraphQL query with comprehensive error handling.
+        
+        Handles:
+        - Network errors (timeout, connection)
+        - HTTP errors (including 429 rate limiting)
+        - GraphQL errors
+        - JSON parsing errors
+        
+        Raises:
+            Exception: On any error with detailed message
+        """
         payload = {
             "query": query,
             "variables": variables
@@ -64,22 +78,65 @@ class BatoChaptersListGraphQL:
                 json=payload,
                 timeout=15
             )
+            
+            # Check for rate limiting (429)
+            if response.status_code == 429:
+                retry_after = response.headers.get('Retry-After', '300')
+                logger.error(
+                    f"Rate limited (429) by Bato API. "
+                    f"Retry after: {retry_after}s"
+                )
+                raise Exception(
+                    f"Rate limited: retry after {retry_after}s"
+                )
+            
+            # Raise for other HTTP errors
             response.raise_for_status()
             
-            data = response.json()
+            # Parse JSON response
+            try:
+                data = response.json()
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                logger.debug(f"Response content: {response.text[:500]}")
+                raise Exception(f"Invalid JSON response: {e}")
             
+            # Check for GraphQL errors
             if 'errors' in data:
-                error_msg = data['errors'][0].get('message', 'Unknown error')
+                errors = data['errors']
+                error_msg = errors[0].get('message', 'Unknown error') if errors else 'Unknown error'
+                
+                logger.error(
+                    f"GraphQL error: {error_msg}",
+                    extra={
+                        'query_variables': variables,
+                        'all_errors': errors
+                    }
+                )
                 raise Exception(f"GraphQL error: {error_msg}")
             
             return data
             
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Request timeout after 15s: {e}")
+            raise Exception(f"Request timeout: {e}")
+            
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error: {e}")
+            raise Exception(f"Connection error: {e}")
+            
+        except requests.exceptions.HTTPError as e:
+            status_code = e.response.status_code if e.response else 'unknown'
+            logger.error(f"HTTP error {status_code}: {e}")
+            raise Exception(f"HTTP error {status_code}: {e}")
+            
         except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
             raise Exception(f"Request failed: {e}")
     
     def scrape_chapters(self, manga_id: str, get_manga_title: bool = True) -> Dict:
         """
-        Scrape complete chapter list using GraphQL API.
+        Scrape complete chapter list using GraphQL API with error handling.
         
         Args:
             manga_id: Manga ID (numeric string like "102497")
@@ -87,85 +144,125 @@ class BatoChaptersListGraphQL:
             
         Returns:
             Dictionary with complete chapter list
+            
+        Raises:
+            Exception: On scraping errors (network, GraphQL, parsing)
         """
-        print(f"🔍 Fetching chapters for manga ID: {manga_id}...")
+        logger.info(f"Fetching chapters for manga ID: {manga_id}")
         
-        # GraphQL query for chapters
-        query = """
-        query getChapters($comicId: ID!) {
-          get_content_chapterList(comicId: $comicId) {
-            id
-            data {
-              id
-              dname
-              title
-              urlPath
-              stat_count_views_guest
-              stat_count_views_login
-              stat_count_post_reply
-              dateCreate
-              datePublic
+        try:
+            # GraphQL query for chapters
+            query = """
+            query getChapters($comicId: ID!) {
+              get_content_chapterList(comicId: $comicId) {
+                id
+                data {
+                  id
+                  dname
+                  title
+                  urlPath
+                  stat_count_views_guest
+                  stat_count_views_login
+                  stat_count_post_reply
+                  dateCreate
+                  datePublic
+                }
+              }
             }
-          }
-        }
-        """
-        
-        variables = {"comicId": manga_id}
-        
-        # Execute query
-        response = self._execute_query(query, variables)
-        
-        # Parse response
-        chapters_list = response.get('data', {}).get('get_content_chapterList', [])
-        
-        if not chapters_list:
-            print("⚠️ No chapters found!")
-            return {
-                'manga_id': manga_id,
-                'manga_title': 'Unknown',
-                'total_chapters': 0,
-                'chapters': [],
-                'latest_chapter': None
+            """
+            
+            variables = {"comicId": manga_id}
+            
+            # Execute query with error handling
+            response = self._execute_query(query, variables)
+            
+            # Parse response
+            chapters_list = response.get('data', {}).get('get_content_chapterList', [])
+            
+            if not chapters_list:
+                logger.warning(f"No chapters found for manga ID: {manga_id}")
+                return {
+                    'bato_id': manga_id,
+                    'name': 'Unknown',
+                    'total_chapters': 0,
+                    'chapters': [],
+                    'latest_chapter': None
+                }
+            
+            # Get manga title if requested
+            manga_title = 'Unknown'
+            if get_manga_title:
+                try:
+                    manga_title = self._get_manga_title(manga_id)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch manga title for {manga_id}: {e}. "
+                        "Using 'Unknown'"
+                    )
+            
+            # Transform chapters with error handling
+            chapters = []
+            for idx, chapter_node in enumerate(chapters_list):
+                try:
+                    chapter_data = chapter_node.get('data', {})
+                    transformed = self._transform_chapter_data(chapter_data, idx)
+                    chapters.append(transformed)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to transform chapter {idx} for manga {manga_id}: {e}. "
+                        "Skipping chapter."
+                    )
+                    continue
+            
+            if not chapters:
+                logger.error(f"All chapters failed to transform for manga {manga_id}")
+                raise Exception("Failed to transform any chapters")
+            
+            # Latest chapter is the last one in the list
+            latest_chapter = chapters[-1] if chapters else None
+            
+            result = {
+                'bato_id': manga_id,
+                'name': manga_title,
+                'total_chapters': len(chapters),
+                'latest_chapter': {
+                    'chapter_number': latest_chapter.get('chapter_number'),
+                    'dname': latest_chapter.get('dname'),
+                    'full_url': latest_chapter.get('full_url'),
+                    'date_public': latest_chapter.get('date_public')
+                } if latest_chapter else None,
+                'chapters': chapters
             }
-        
-        # Get manga title if requested
-        manga_title = 'Unknown'
-        if get_manga_title:
-            manga_title = self._get_manga_title(manga_id)
-        
-        # Transform chapters
-        chapters = []
-        for idx, chapter_node in enumerate(chapters_list):
-            chapter_data = chapter_node.get('data', {})
-            transformed = self._transform_chapter_data(chapter_data, idx)
-            chapters.append(transformed)
-        
-        # Latest chapter is the last one in the list
-        latest_chapter = chapters[-1] if chapters else None
-        
-        result = {
-            'bato_id': manga_id,
-            'name': manga_title,
-            'total_chapters': len(chapters),
-            'latest_chapter': {
-                'chapter_number': latest_chapter.get('chapter_number'),
-                'dname': latest_chapter.get('dname'),
-                'full_url': latest_chapter.get('full_url'),
-                'date_public': latest_chapter.get('date_public')
-            } if latest_chapter else None,
-            'chapters': chapters
-        }
-        
-        print(f"✅ Extracted {len(chapters)} chapters!")
-        if latest_chapter:
-            chapter_display = latest_chapter.get('title') or latest_chapter.get('dname')
-            print(f"   Latest: {chapter_display} (#{latest_chapter.get('chapter_number')})")
-            print(f"   Published: {latest_chapter.get('date_public')}")
-        
-        return result
+            
+            logger.info(
+                f"Successfully scraped {len(chapters)} chapters for manga {manga_id}"
+            )
+            
+            if self.verbose and latest_chapter:
+                chapter_display = latest_chapter.get('title') or latest_chapter.get('dname')
+                print(f"✅ Extracted {len(chapters)} chapters!")
+                print(f"   Latest: {chapter_display} (#{latest_chapter.get('chapter_number')})")
+                print(f"   Published: {latest_chapter.get('date_public')}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(
+                f"Failed to scrape chapters for manga {manga_id}: {e}",
+                exc_info=True
+            )
+            raise
     
     def _get_manga_title(self, manga_id: str) -> str:
-        """Get manga title using a separate query."""
+        """
+        Get manga title using a separate query.
+        
+        Args:
+            manga_id: Manga ID
+            
+        Returns:
+            Manga title or 'Unknown' on error
+        """
         try:
             query = """
             query getMangaTitle($id: ID!) {
@@ -179,65 +276,106 @@ class BatoChaptersListGraphQL:
             
             response = self._execute_query(query, {"id": manga_id})
             comic_node = response.get('data', {}).get('get_content_comicNode', {})
-            return comic_node.get('data', {}).get('name', 'Unknown')
-        except:
+            title = comic_node.get('data', {}).get('name', 'Unknown')
+            
+            logger.debug(f"Fetched manga title for {manga_id}: {title}")
+            return title
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch manga title for {manga_id}: {e}")
             return 'Unknown'
     
     def _transform_chapter_data(self, data: Dict, index: int) -> Dict:
-        """Transform raw chapter data to structured format."""
+        """
+        Transform raw chapter data to structured format with error handling.
         
-        # Chapter ID from API
-        bato_chapter_id = data.get('id', '')
-        
-        # Chapter number (1-indexed, computed from position)
-        chapter_number = index + 1
-        
-        # Display name and title from API
-        dname = data.get('dname', '')
-        title = data.get('title')  # Can be null
-        
-        # URL path from API
-        url_path = data.get('urlPath', '')
-        full_url = f"https://batotwo.com{url_path}" if url_path else ''
-        
-        # Dates (parse ISO string and convert to MySQL format)
-        date_create = None
-        date_public = None
-        
-        if data.get('dateCreate'):
-            try:
-                dt = datetime.fromisoformat(data['dateCreate'].replace('Z', '+00:00'))
-                date_create = dt.strftime('%Y-%m-%d %H:%M:%S')
-            except:
-                date_create = str(data['dateCreate'])
-        
-        if data.get('datePublic'):
-            try:
-                dt = datetime.fromisoformat(data['datePublic'].replace('Z', '+00:00'))
-                date_public = dt.strftime('%Y-%m-%d %H:%M:%S')
-            except:
-                date_public = str(data['datePublic'])
-        
-        # Statistics from API (keep original field names)
-        stat_count_views_guest = data.get('stat_count_views_guest', 0)
-        stat_count_views_login = data.get('stat_count_views_login', 0)
-        stat_count_views_total = stat_count_views_guest + stat_count_views_login
-        stat_count_post_reply = data.get('stat_count_post_reply', 0)
-        
-        return {
-            'bato_chapter_id': bato_chapter_id,
-            'chapter_number': chapter_number,
-            'dname': dname,
-            'title': title,
-            'url_path': url_path,
-            'full_url': full_url,
-            'date_create': date_create,
-            'date_public': date_public,
-            'stat_count_views_guest': stat_count_views_guest,
-            'stat_count_views_login': stat_count_views_login,
-            'stat_count_views_total': stat_count_views_total,
-            'stat_count_post_reply': stat_count_post_reply
-        }
+        Args:
+            data: Raw chapter data from API
+            index: Chapter index (0-based)
+            
+        Returns:
+            Transformed chapter dictionary
+            
+        Raises:
+            Exception: On transformation errors
+        """
+        try:
+            # Chapter ID from API (required)
+            bato_chapter_id = data.get('id', '')
+            if not bato_chapter_id:
+                raise ValueError("Missing chapter ID")
+            
+            # Chapter number (1-indexed, computed from position)
+            chapter_number = index + 1
+            
+            # Display name and title from API
+            dname = data.get('dname', '')
+            title = data.get('title')  # Can be null
+            
+            # URL path from API
+            url_path = data.get('urlPath', '')
+            full_url = f"https://batotwo.com{url_path}" if url_path else ''
+            
+            # Dates (handle both Unix timestamps and ISO strings)
+            date_create = None
+            date_public = None
+            
+            if data.get('dateCreate'):
+                try:
+                    date_val = data['dateCreate']
+                    if isinstance(date_val, int):
+                        # Unix timestamp (validate range: 1970-2100)
+                        if 0 <= date_val <= 4102444800:  # Jan 1, 2100
+                            dt = datetime.fromtimestamp(date_val)
+                            date_create = dt.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        # ISO string
+                        dt = datetime.fromisoformat(date_val.replace('Z', '+00:00'))
+                        date_create = dt.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception as e:
+                    logger.debug(f"Skipping invalid dateCreate: {e}")
+                    date_create = None
+            
+            if data.get('datePublic'):
+                try:
+                    date_val = data['datePublic']
+                    if isinstance(date_val, int):
+                        # Unix timestamp (validate range: 1970-2100)
+                        if 0 <= date_val <= 4102444800:  # Jan 1, 2100
+                            dt = datetime.fromtimestamp(date_val)
+                            date_public = dt.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        # ISO string
+                        dt = datetime.fromisoformat(date_val.replace('Z', '+00:00'))
+                        date_public = dt.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception as e:
+                    logger.debug(f"Skipping invalid datePublic: {e}")
+                    date_public = None
+            
+            # Statistics from API (keep original field names)
+            stat_count_views_guest = data.get('stat_count_views_guest', 0)
+            stat_count_views_login = data.get('stat_count_views_login', 0)
+            stat_count_views_total = stat_count_views_guest + stat_count_views_login
+            stat_count_post_reply = data.get('stat_count_post_reply', 0)
+            
+            return {
+                'bato_chapter_id': bato_chapter_id,
+                'chapter_number': chapter_number,
+                'dname': dname,
+                'title': title,
+                'url_path': url_path,
+                'full_url': full_url,
+                'date_create': date_create,
+                'date_public': date_public,
+                'stat_count_views_guest': stat_count_views_guest,
+                'stat_count_views_login': stat_count_views_login,
+                'stat_count_views_total': stat_count_views_total,
+                'stat_count_post_reply': stat_count_post_reply
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to transform chapter data at index {index}: {e}")
+            raise
     
     def _format_number(self, num: int) -> str:
         """Format number to K/M format."""

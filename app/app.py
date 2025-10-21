@@ -52,7 +52,12 @@ from app.blueprints.notifications import notifications_bp
 from app.blueprints.manga import manga_bp
 from app.blueprints.graphql import graphql_bp
 from app.blueprints.extension import extension_bp
+from app.blueprints.bato_notifications import bato_notifications_bp
+from app.blueprints.bato_admin import bato_admin_bp
 
+# Import Bato services
+from app.services.bato.bato_scraping_service import BatoScrapingService
+from app.models.bato_models import init_bato_db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -110,11 +115,32 @@ def create_app():
     app.register_blueprint(manga_bp)
     app.register_blueprint(graphql_bp)
     app.register_blueprint(extension_bp)
+    app.register_blueprint(bato_notifications_bp)
+    app.register_blueprint(bato_admin_bp)
 
     with app.app_context():
+        # Initialize database tables for Bato
+        # This must happen before starting the scraping service
+        try:
+            from app.functions.class_mangalist import engine
+            init_bato_db(engine)
+            logging.info("Bato database tables initialized successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize Bato database tables: {e}")
+        
         # Initialize notification manager and background tasks
         app.notification_manager = AnilistNotificationManager()
         app.background_manager = BackgroundTaskManager()
+        
+        # Initialize and start BatoScrapingService
+        # Requirement 5.1: Initialize background scraping service on app startup
+        try:
+            app.bato_scraping_service = BatoScrapingService()
+            app.bato_scraping_service.start()
+            logging.info("BatoScrapingService started successfully")
+        except Exception as e:
+            logging.error(f"Failed to start BatoScrapingService: {e}")
+            app.bato_scraping_service = None
         
         # Create a thread to run the background tasks
         def run_background_tasks():
@@ -192,7 +218,7 @@ def set_security_headers(response):
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https://*.anilist.co; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
-        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.easterntalesshelf.site wss://*.easterntalesshelf.site chrome-extension://* http://localhost:* https://localhost:*;"
+        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.easterntalesshelf.site wss://*.easterntalesshelf.site chrome-extension://* http://localhost:* https://localhost:* https://cdn.jsdelivr.net;"
     )
 
     # Add CORS headers for API requests
@@ -218,6 +244,24 @@ def cleanup(resp_or_exc):
     except Exception as e:
         print(f"Error during database cleanup: {e}")
 
+def shutdown_services():
+    """Gracefully shutdown all background services"""
+    logging.info("Shutting down background services...")
+    
+    # Stop BatoScrapingService
+    try:
+        if hasattr(app, 'bato_scraping_service') and app.bato_scraping_service:
+            app.bato_scraping_service.stop()
+            logging.info("BatoScrapingService stopped")
+    except Exception as e:
+        logging.error(f"Error stopping BatoScrapingService: {e}")
+    
+    logging.info("All background services shut down")
+
+# Register shutdown handler
+import atexit
+atexit.register(shutdown_services)
+
 def start_background_services():
     """Start background services in separate threads"""
     update_service_thread = Thread(target=start_update_service, daemon=True)
@@ -231,6 +275,9 @@ socketio = SocketIO(
     logger=True,
     engineio_logger=True
 )
+
+# Attach socketio to app for access via current_app.socketio
+app.socketio = socketio
 
 if __name__ == '__main__':
     # For local development

@@ -3,11 +3,11 @@ Bato.to Database Models
 SQLAlchemy models for storing Bato manga data scraped from batotwo.com
 """
 from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, ForeignKey, JSON, UniqueConstraint
-from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import text
 from datetime import datetime
 
-Base = declarative_base()
+# Import the shared Base from the main app to ensure all models share the same metadata
+from app.functions.class_mangalist import Base
 
 
 class BatoMangaDetails(Base):
@@ -195,6 +195,47 @@ class BatoScraperLog(Base):
             cls.__table__.create(engine)
 
 
+class BatoScrapingSchedule(Base):
+    """
+    Tracks scraping schedules and release patterns for each manga
+    Enables intelligent scheduling based on release history
+    """
+    __tablename__ = 'bato_scraping_schedule'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    anilist_id = Column(Integer, ForeignKey('manga_list.id_anilist'), unique=True, nullable=False)
+    bato_link = Column(String(500), ForeignKey('bato_manga_details.bato_link'), nullable=False)
+    
+    # Scheduling
+    scraping_interval_hours = Column(Integer, default=24)  # How often to check for updates
+    last_scraped_at = Column(TIMESTAMP, nullable=True)  # When we last scraped this manga
+    next_scrape_at = Column(TIMESTAMP, nullable=False)  # When to check next (indexed for queries)
+    
+    # Pattern Analysis
+    average_release_interval_days = Column(Float, nullable=True)  # Calculated from chapter history
+    preferred_release_day = Column(Integer, nullable=True)  # 0=Monday, 6=Sunday (null if no pattern)
+    release_pattern_confidence = Column(Float, default=0.0)  # 0.0-1.0 confidence in pattern
+    
+    # Statistics
+    total_chapters_tracked = Column(Integer, default=0)  # Total chapters we've seen
+    last_chapter_date = Column(TIMESTAMP, nullable=True)  # When last chapter was published
+    consecutive_no_update_count = Column(Integer, default=0)  # Increase interval if no updates
+    
+    # Status
+    is_active = Column(Boolean, default=True)  # Can be paused by user or system
+    priority = Column(Integer, default=1)  # 1=normal, 2=high (user favorite), 3=urgent
+    
+    # Metadata
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+    updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'))
+    
+    @classmethod
+    def create_table_if_not_exists(cls, engine):
+        """Create the table if it doesn't exist"""
+        if not engine.dialect.has_table(engine, cls.__tablename__):
+            cls.__table__.create(engine)
+
+
 def init_bato_db(engine):
     """
     Initialize all Bato tables in the database
@@ -207,15 +248,6 @@ def init_bato_db(engine):
     BatoChapters.create_table_if_not_exists(engine)
     BatoNotifications.create_table_if_not_exists(engine)
     BatoScraperLog.create_table_if_not_exists(engine)
+    BatoScrapingSchedule.create_table_if_not_exists(engine)
     
     print("✅ Bato database tables initialized")
-
-
-# Example usage in your main app:
-"""
-from app.scraper.bato_scraper.bato_models import init_bato_db
-from app.functions.class_mangalist import engine
-
-# In your init_db() function:
-init_bato_db(engine)
-"""

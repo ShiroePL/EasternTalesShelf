@@ -14,8 +14,11 @@ Date: 2025-10-20
 
 import requests
 import json
+import logging
 from typing import Dict, Optional
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class BatoMangaDetailsGraphQL:
@@ -50,7 +53,18 @@ class BatoMangaDetailsGraphQL:
             print(f"[DEBUG] {message}")
     
     def _execute_query(self, query: str, variables: Dict) -> Dict:
-        """Execute a GraphQL query."""
+        """
+        Execute a GraphQL query with comprehensive error handling.
+        
+        Handles:
+        - Network errors (timeout, connection)
+        - HTTP errors (including 429 rate limiting)
+        - GraphQL errors
+        - JSON parsing errors
+        
+        Raises:
+            Exception: On any error with detailed message
+        """
         payload = {
             "query": query,
             "variables": variables
@@ -64,98 +78,161 @@ class BatoMangaDetailsGraphQL:
                 json=payload,
                 timeout=15
             )
+            
+            # Check for rate limiting (429)
+            if response.status_code == 429:
+                retry_after = response.headers.get('Retry-After', '300')
+                logger.error(
+                    f"Rate limited (429) by Bato API. "
+                    f"Retry after: {retry_after}s"
+                )
+                raise Exception(
+                    f"Rate limited: retry after {retry_after}s"
+                )
+            
+            # Raise for other HTTP errors
             response.raise_for_status()
             
-            data = response.json()
+            # Parse JSON response
+            try:
+                data = response.json()
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                logger.debug(f"Response content: {response.text[:500]}")
+                raise Exception(f"Invalid JSON response: {e}")
             
+            # Check for GraphQL errors
             if 'errors' in data:
-                error_msg = data['errors'][0].get('message', 'Unknown error')
+                errors = data['errors']
+                error_msg = errors[0].get('message', 'Unknown error') if errors else 'Unknown error'
+                
+                logger.error(
+                    f"GraphQL error: {error_msg}",
+                    extra={
+                        'query_variables': variables,
+                        'all_errors': errors
+                    }
+                )
                 raise Exception(f"GraphQL error: {error_msg}")
             
             return data
             
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Request timeout after 15s: {e}")
+            raise Exception(f"Request timeout: {e}")
+            
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error: {e}")
+            raise Exception(f"Connection error: {e}")
+            
+        except requests.exceptions.HTTPError as e:
+            status_code = e.response.status_code if e.response else 'unknown'
+            logger.error(f"HTTP error {status_code}: {e}")
+            raise Exception(f"HTTP error {status_code}: {e}")
+            
         except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
             raise Exception(f"Request failed: {e}")
     
     def scrape_manga_details(self, manga_id: str) -> Dict:
         """
-        Scrape complete manga details using GraphQL API.
+        Scrape complete manga details using GraphQL API with error handling.
         
         Args:
             manga_id: Manga ID (numeric string like "102497")
             
         Returns:
             Dictionary with complete manga details
+            
+        Raises:
+            Exception: On scraping errors (network, GraphQL, parsing)
         """
-        print(f"🔍 Fetching manga details for ID: {manga_id}...")
+        logger.info(f"Fetching manga details for ID: {manga_id}")
         
-        # GraphQL query for complete manga details
-        query = """
-        query getCompleteComic($id: ID!) {
-          get_content_comicNode(id: $id) {
-            id
-            data {
-              id
-              name
-              altNames
-              authors
-              artists
-              genres
-              origLang
-              originalStatus
-              originalPubFrom
-              originalPubTill
-              uploadStatus
-              readDirection
-              summary {
-                text
-              }
-              stat_score_val
-              stat_count_votes
-              stat_count_scores {
-                field
-                count
-              }
-              stat_count_follows
-              stat_count_reviews
-              stat_count_post_reply
-              stat_count_views {
-                field
-                count
-              }
-              stat_count_emotions {
-                field
-                count
+        try:
+            # GraphQL query for complete manga details
+            query = """
+            query getCompleteComic($id: ID!) {
+              get_content_comicNode(id: $id) {
+                id
+                data {
+                  id
+                  name
+                  altNames
+                  authors
+                  artists
+                  genres
+                  origLang
+                  originalStatus
+                  originalPubFrom
+                  originalPubTill
+                  uploadStatus
+                  readDirection
+                  summary {
+                    text
+                  }
+                  stat_score_val
+                  stat_count_votes
+                  stat_count_scores {
+                    field
+                    count
+                  }
+                  stat_count_follows
+                  stat_count_reviews
+                  stat_count_post_reply
+                  stat_count_views {
+                    field
+                    count
+                  }
+                  stat_count_emotions {
+                    field
+                    count
+                  }
+                }
               }
             }
-          }
-        }
-        """
-        
-        variables = {"id": manga_id}
-        
-        # Execute query
-        response = self._execute_query(query, variables)
-        
-        # Parse response
-        comic_node = response.get('data', {}).get('get_content_comicNode', {})
-        if not comic_node:
-            raise Exception("No manga data returned")
-        
-        comic_data = comic_node.get('data', {})
-        
-        # Transform to structured format
-        result = self._transform_manga_data(manga_id, comic_data)
-        
-        print(f"✅ Scraped: {result['name']}")
-        rating = result['stat_score_val']
-        votes = result['stat_count_votes']
-        print(f"   Rating: {rating}/10 ({votes} votes)")
-        print(f"   Genres: {', '.join(result['genres'][:3])}...")
-        pub_years = f"{result['original_pub_from']}-{result['original_pub_till'] or '?'}"
-        print(f"   Status: {result['original_status'].upper()} ({pub_years})")
-        
-        return result
+            """
+            
+            variables = {"id": manga_id}
+            
+            # Execute query with error handling
+            response = self._execute_query(query, variables)
+            
+            # Parse response
+            comic_node = response.get('data', {}).get('get_content_comicNode', {})
+            if not comic_node:
+                logger.error(f"No manga data returned for ID: {manga_id}")
+                raise Exception("No manga data returned")
+            
+            comic_data = comic_node.get('data', {})
+            if not comic_data:
+                logger.error(f"Empty manga data for ID: {manga_id}")
+                raise Exception("Empty manga data")
+            
+            # Transform to structured format with error handling
+            result = self._transform_manga_data(manga_id, comic_data)
+            
+            logger.info(
+                f"Successfully scraped manga details for {manga_id}: {result['name']}"
+            )
+            
+            if self.verbose:
+                rating = result['stat_score_val']
+                votes = result['stat_count_votes']
+                print(f"✅ Scraped: {result['name']}")
+                print(f"   Rating: {rating}/10 ({votes} votes)")
+                print(f"   Genres: {', '.join(result['genres'][:3])}...")
+                pub_years = f"{result['original_pub_from']}-{result['original_pub_till'] or '?'}"
+                print(f"   Status: {result['original_status'].upper()} ({pub_years})")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(
+                f"Failed to scrape manga details for {manga_id}: {e}",
+                exc_info=True
+            )
+            raise
     
     def _transform_manga_data(self, manga_id: str, data: Dict) -> Dict:
         """Transform raw GraphQL response to structured format."""
