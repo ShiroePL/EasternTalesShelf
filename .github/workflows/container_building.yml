@@ -7,6 +7,7 @@ on:
     paths:
       - 'requirements.txt'
       - 'Dockerfile'
+      - 'app/**'  # Dodaj to żeby rebuildować gdy zmienia się kod!
 
 jobs:
   build-and-push:
@@ -29,19 +30,25 @@ jobs:
       - name: Lowercase repository name
         run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
         
-      - name: Build and Tag for Both Local and GitHub Registry
+      - name: Build and push with buildx
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/arm64  # Explicit dla twojego ARM VPS
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LC }}:latest
+            ghcr.io/${{ env.REPO_LC }}:${{ github.sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          
+      - name: Tag for local use
         run: |
-          echo "Checking out the branch that triggered the workflow..."
-          git checkout ${{ github.ref_name }}  # Switch to the correct branch
-
-          echo "Building image for both local use and GitHub Container Registry..."
-          # Build the image with local tag
-          docker build -t easterntalesshelf:local .
+          # Pull i retag dla local Docker daemon
+          docker pull ghcr.io/${{ env.REPO_LC }}:latest
+          docker tag ghcr.io/${{ env.REPO_LC }}:latest easterntalesshelf:local
           
-          # Tag the same image for GitHub Container Registry 
-          docker tag easterntalesshelf:local ghcr.io/${{ env.REPO_LC }}:latest
-          docker tag easterntalesshelf:local ghcr.io/${{ env.REPO_LC }}:${{ github.sha }}
-          
-          # Push to GitHub Container Registry
-          docker push ghcr.io/${{ env.REPO_LC }}:latest
-          docker push ghcr.io/${{ env.REPO_LC }}:${{ github.sha }}
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
