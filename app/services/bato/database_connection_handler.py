@@ -80,7 +80,7 @@ class DatabaseConnectionHandler:
         """
         try:
             logger.info("Initializing database connection...")
-            logger.info(f"Database URI: {self._mask_password(DATABASE_URI)}")
+           
             
             # Create engine with connection pooling (Requirement 3.4)
             self.engine = create_engine(

@@ -16,7 +16,7 @@ print("MANGAUPDATES REST API DEEP DIVE")
 print("="*80)
 
 # The series ID from URL: /series/m9j8pqm/...
-series_slug = "5ojazp5"
+series_slug = "izo08g8"
 
 # Convert slug to numeric ID by looking at page source
 print("\n[STEP 1] Testing different series ID formats...")

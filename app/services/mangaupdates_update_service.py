@@ -8,9 +8,7 @@ import schedule
 from app.functions.sqlalchemy_fns import save_manga_details
 from app.functions.class_mangalist import db_session, MangaStatusNotification
 from sqlalchemy import text, create_engine
-from scrapy.crawler import CrawlerRunner
-from crochet import setup, wait_for
-from app.functions.manga_updates_spider import MangaUpdatesSpider
+from app.scraper.mangaupdates_api.mangaupdates_api_client import MangaUpdatesAPIClient
 from dataclasses import dataclass
 from typing import List, Optional
 from app.functions.vector_db_stuff.ai_related.groq_api import send_to_groq
@@ -18,9 +16,6 @@ import asyncio
 import re
 from sqlalchemy.orm import sessionmaker
 from app.config import DATABASE_URI
-
-# Initialize crochet for Scrapy to work with async code
-setup()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -153,21 +148,45 @@ class MangaUpdatesUpdateService:
         with open(log_file, 'a', encoding='utf-8') as f:
             f.write(json.dumps(log_entry, ensure_ascii=False, indent=2) + '\n' + '-'*50 + '\n')
 
-    @wait_for(timeout=30.0)
-    def run_spider(self, url, anilist_id):
-        """Run the MangaUpdates spider for a given URL"""
-        runner = CrawlerRunner()
-        results = {}
-        deferred = runner.crawl(
-            MangaUpdatesSpider, 
-            start_url=url, 
-            anilist_id=anilist_id, 
-            results=results
-        )
-        # Wait for spider to complete and return results
-        deferred.addCallback(lambda _: results.get('status'))
-        deferred.addErrback(lambda failure: logger.error(f"Spider failed: {failure}"))
-        return deferred
+    def fetch_via_api(self, url, anilist_id):
+        """
+        Fetch MangaUpdates data using the REST API (replaces the spider).
+        Much faster and more reliable than web scraping!
+        
+        Args:
+            url: MangaUpdates URL
+            anilist_id: AniList ID for this manga
+            
+        Returns:
+            The status string if successful, None otherwise
+        """
+        try:
+            logger.info(f"Fetching data from MangaUpdates API for {anilist_id}: {url}")
+            
+            api_client = MangaUpdatesAPIClient()
+            result = api_client.get_series_full_data(url)
+            
+            if not result:
+                logger.error(f"Failed to fetch data from API for {anilist_id}")
+                return None
+            
+            # Save to database with full API data
+            save_manga_details(
+                result['spider_data'],
+                anilist_id,
+                api_data=result['api_data']
+            )
+            
+            # Return the status for comparison
+            status = result['spider_data'].get('status_in_country_of_origin')
+            logger.info(f"✅ Successfully fetched via API for {anilist_id}: {status[:50]}...")
+            
+            return status
+            
+        except Exception as e:
+            logger.error(f"Error fetching via API for {anilist_id}: {e}")
+            logger.exception("Full traceback:")
+            return None
 
     def get_current_status(self, anilist_id):
         """Get the current status from mangaupdates_details table"""
@@ -637,10 +656,16 @@ class MangaUpdatesUpdateService:
 
                 logger.info(f"Fetching details from: {mangaupdates_url_final}")
 
-                # Use spider instead of API
+                # Use API client (faster and more reliable than spider!)
                 try:
-                    # Wait for spider to complete and get status
-                    new_status = self.run_spider(mangaupdates_url_final, anilist_id)
+                    # Fetch via API and get the new status
+                    new_status = self.fetch_via_api(mangaupdates_url_final, anilist_id)
+                    
+                    if new_status is None:
+                        logger.error(f"Failed to fetch data via API for {anilist_id}")
+                        total_skipped += 1
+                        continue
+                    
                     logger.info(f"New status fetched: {new_status}")
 
                     # Record the status update
@@ -672,9 +697,10 @@ class MangaUpdatesUpdateService:
 
                     total_updated += 1
                     logger.info(f"Successfully updated manga {anilist_id}")
-                except Exception as spider_error:
-                    logger.error(f"Spider failed for manga {anilist_id}: {spider_error}")
+                except Exception as api_error:
+                    logger.error(f"API fetch failed for manga {anilist_id}: {api_error}")
                     logger.warning(f"No details retrieved for manga {anilist_id}")
+                    total_skipped += 1
 
                 # Random delay between requests
                 delay = self.delay_between_requests
@@ -759,7 +785,14 @@ async def test_update_service(limit=5):
             logger.info(f"Fetching details from: {mangaupdates_url_final}")
 
             try:
-                new_status = service.run_spider(mangaupdates_url_final, anilist_id)
+                # Use API client instead of spider (test mode)
+                new_status = service.fetch_via_api(mangaupdates_url_final, anilist_id)
+                
+                if new_status is None:
+                    logger.error(f"Failed to fetch data via API for {anilist_id}")
+                    total_skipped += 1
+                    continue
+                
                 logger.info(f"New status fetched: {new_status}")
 
                 # Record the status update
@@ -775,9 +808,10 @@ async def test_update_service(limit=5):
 
                 total_updated += 1
                 logger.info(f"Successfully updated manga {anilist_id}")
-            except Exception as spider_error:
-                logger.error(f"Spider failed for manga {anilist_id}: {spider_error}")
+            except Exception as api_error:
+                logger.error(f"API fetch failed for manga {anilist_id}: {api_error}")
                 logger.warning(f"No details retrieved for manga {anilist_id}")
+                total_skipped += 1
 
             # Random delay between requests
             delay = service.delay_between_requests
