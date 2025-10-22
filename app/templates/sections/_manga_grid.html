@@ -1,14 +1,18 @@
 <!-- Dynamic manga grid container -->
-<div id="manga-grid-container" 
-     data-is-admin="{{ current_user.is_admin }}" 
-     data-is-development="{{ isDevelopment }}">
-    <!-- Loading placeholder -->
-    <div class="loading-container">
-        <div class="loading-spinner"></div>
-        <p>Loading manga collection...</p>
-    </div>
+<div
+  id="manga-grid-container"
+  data-is-admin="{{ current_user.is_admin }}"
+  data-is-development="{{ isDevelopment }}"
+>
+  <!-- Loading placeholder -->
+  <div class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Loading manga collection...</p>
+  </div>
 </div>
 
 <!-- Include the MangaGridLoader script -->
-<script type="module" src="{{ url_for('static', filename='js/MangaGridLoader.js') }}"></script>
-
+<script
+  type="module"
+  src="{{ url_for('static', filename='js/MangaGridLoader.js') }}"
+></script>

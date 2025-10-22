@@ -225,6 +225,11 @@
     z-index: 99998;
 }
 
+/* Hide controls when grid item is not visible for performance */
+.grid-item:not(.is-visible) .manga-controls {
+    display: none;
+}
+
 .download-status-btn {
     background-color: #000000; /* Solid black background instead of transparent */
     border: 2px solid var(--border-color);
@@ -264,7 +269,7 @@
 
 .download-status-btn[data-status="pending"] {
     color: #ffc107;  /* Yellow */
-    animation: pulse 2s infinite;
+    /* animation: pulse 2s infinite; */ /* DISABLED FOR PERFORMANCE */
     opacity: 1;
 }
 
@@ -281,7 +286,7 @@
     opacity: 1;
     box-shadow: 0 0 12px rgba(255, 215, 0, 0.6); /* Golden glow */
     color:#4db8ff;
-    animation: pulse 2s ease-in-out infinite; /* Added ease-in-out for smoother transition */
+    /* animation: pulse 2s ease-in-out infinite; */ /* DISABLED FOR PERFORMANCE */
     position: relative;
     z-index: 100000; /* Higher z-index to ensure it's on top */
 }
@@ -297,7 +302,7 @@
     background-size: 300% 300%;
     border-radius: 50%;
     z-index: -1;
-    animation: gradient-shift 6s ease infinite;
+    /* animation: gradient-shift 6s ease infinite; */ /* DISABLED FOR PERFORMANCE */
 }
 
 /* Special styling for the star icon */
@@ -307,7 +312,7 @@
     background-size: 300% 300%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent; /* Keep only the webkit version */
-    animation: gradient-shift 6s ease infinite; /* Only color shift for the icon */
+    /* animation: gradient-shift 6s ease infinite; */ /* DISABLED FOR PERFORMANCE */
 }
 
 /* Gradient color shifting animation */
@@ -372,7 +377,7 @@
 
 .download-status-btn[data-status="queued"] {
     color: #6f42c1;  /* Purple */
-    animation: pulse 2s infinite;
+    /* animation: pulse 2s infinite; */ /* DISABLED FOR PERFORMANCE */
     opacity: 1;
 }
 
