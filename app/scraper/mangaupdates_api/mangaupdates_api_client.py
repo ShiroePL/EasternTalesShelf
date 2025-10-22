@@ -24,48 +24,64 @@ class MangaUpdatesAPIClient:
     
     def extract_slug_from_url(self, url: str) -> Optional[str]:
         """
-        Extract the series slug from a MangaUpdates URL.
+        Extract the series slug or ID from a MangaUpdates URL.
         
-        Examples:
-            https://www.mangaupdates.com/series/m9j8pqm/what-should-i-do -> m9j8pqm
-            https://www.mangaupdates.com/series/izo08g8 -> izo08g8
+        Supports both formats:
+            New: https://www.mangaupdates.com/series/m9j8pqm/what-should-i-do -> m9j8pqm
+            Old: https://www.mangaupdates.com/series.html?id=150952 -> 150952
         
         Args:
             url: The MangaUpdates URL
             
         Returns:
-            The series slug or None if not found
+            The series slug/ID or None if not found
         """
         try:
-            # Pattern: /series/{slug}/optional-title or /series/{slug}
+            # Pattern 1: New format /series/{slug}/optional-title or /series/{slug}
             match = re.search(r'/series/([a-z0-9]+)', url.lower())
             if match:
                 slug = match.group(1)
-                logger.info(f"Extracted slug '{slug}' from URL: {url}")
+                logger.info(f"Extracted slug '{slug}' from URL (new format): {url}")
                 return slug
-            else:
-                logger.warning(f"Could not extract slug from URL: {url}")
-                return None
+            
+            # Pattern 2: Old format series.html?id=12345
+            match = re.search(r'series\.html\?id=(\d+)', url.lower())
+            if match:
+                series_id = match.group(1)
+                logger.info(f"Extracted numeric ID '{series_id}' from URL (old format): {url}")
+                return series_id
+            
+            logger.warning(f"Could not extract slug or ID from URL: {url}")
+            return None
         except Exception as e:
             logger.error(f"Error extracting slug from URL {url}: {e}")
             return None
     
-    def slug_to_id(self, slug: str) -> Optional[str]:
+    def slug_to_id(self, slug_or_id: str) -> Optional[str]:
         """
         Convert a MangaUpdates slug to numeric series ID.
         
-        The API requires numeric IDs, but URLs use slugs.
-        We need to fetch the HTML page to find the numeric ID in the RSS link.
+        The API requires numeric IDs, but URLs can use either:
+        - Slugs (e.g., 'm9j8pqm') -> need to fetch the page to get numeric ID
+        - Old numeric IDs (e.g., '150952') -> can use directly
         
         Args:
-            slug: The series slug (e.g., 'm9j8pqm')
+            slug_or_id: The series slug (e.g., 'm9j8pqm') or old numeric ID (e.g., '150952')
             
         Returns:
             The numeric series ID or None if not found
         """
         try:
-            url = f"{self.web_base_url}/series/{slug}"
-            logger.info(f"Fetching page to convert slug '{slug}' to ID: {url}")
+            # Check if it's already a numeric ID (old format)
+            if slug_or_id.isdigit():
+                logger.info(f"'{slug_or_id}' is already a numeric ID (old format), using directly")
+                # Old IDs need to be converted to new IDs via the page
+                url = f"{self.web_base_url}/series.html?id={slug_or_id}"
+                logger.info(f"Fetching page to convert old ID '{slug_or_id}' to new ID: {url}")
+            else:
+                # It's a slug, need to fetch the page
+                url = f"{self.web_base_url}/series/{slug_or_id}"
+                logger.info(f"Fetching page to convert slug '{slug_or_id}' to ID: {url}")
             
             response = requests.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
@@ -76,17 +92,17 @@ class MangaUpdatesAPIClient:
             
             if match:
                 series_id = match.group(1)
-                logger.info(f"Successfully converted slug '{slug}' to ID: {series_id}")
+                logger.info(f"Successfully converted '{slug_or_id}' to ID: {series_id}")
                 return series_id
             else:
-                logger.warning(f"Could not find numeric ID for slug '{slug}' in page HTML")
+                logger.warning(f"Could not find numeric ID for '{slug_or_id}' in page HTML")
                 return None
                 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error converting slug '{slug}' to ID: {e}")
+            logger.error(f"Error converting '{slug_or_id}' to ID: {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error converting slug '{slug}' to ID: {e}")
+            logger.error(f"Unexpected error converting '{slug_or_id}' to ID: {e}")
             return None
     
     def get_series_by_id(self, series_id: str) -> Optional[Dict[str, Any]]:
@@ -121,25 +137,29 @@ class MangaUpdatesAPIClient:
         """
         Fetch series details using a MangaUpdates URL.
         
-        This is the main method that combines slug extraction, ID conversion, and data fetching.
+        This is the main method that combines slug/ID extraction, ID conversion, and data fetching.
+        
+        Supports both URL formats:
+        - New: https://www.mangaupdates.com/series/m9j8pqm/title
+        - Old: https://www.mangaupdates.com/series.html?id=150952
         
         Args:
-            url: The MangaUpdates URL (e.g., https://www.mangaupdates.com/series/m9j8pqm/...)
+            url: The MangaUpdates URL (any format)
             
         Returns:
             Dictionary containing series data or None if failed
         """
         try:
-            # Step 1: Extract slug from URL
-            slug = self.extract_slug_from_url(url)
-            if not slug:
-                logger.error(f"Failed to extract slug from URL: {url}")
+            # Step 1: Extract slug or ID from URL
+            slug_or_id = self.extract_slug_from_url(url)
+            if not slug_or_id:
+                logger.error(f"Failed to extract slug/ID from URL: {url}")
                 return None
             
-            # Step 2: Convert slug to numeric ID
-            series_id = self.slug_to_id(slug)
+            # Step 2: Convert slug/old-ID to new numeric ID
+            series_id = self.slug_to_id(slug_or_id)
             if not series_id:
-                logger.error(f"Failed to convert slug '{slug}' to numeric ID")
+                logger.error(f"Failed to convert '{slug_or_id}' to numeric ID")
                 return None
             
             # Step 3: Fetch series data using the ID
