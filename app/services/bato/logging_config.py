@@ -4,14 +4,77 @@ Logging Configuration for Bato Notification System
 Provides comprehensive logging setup for debugging and monitoring.
 
 Requirements:
+- 4.1: Bato service writes to logs/bato/ directory
+- 4.2: Configure log rotation (10MB max, 5 files)
+- 4.3: Add structured logging format (JSON)
+- 4.4: Add heartbeat logging every 5 minutes
+- 4.5: Log scraping job results
+- 9.1: Heartbeat message every 5 minutes
 - 10.1, 10.2, 10.5: Comprehensive logging for debugging and monitoring
 """
 
 import logging
 import logging.handlers
 import os
+import json
 from datetime import datetime
 from pathlib import Path
+
+
+class JsonFormatter(logging.Formatter):
+    """
+    JSON formatter for structured logging.
+    
+    Requirement 4.3: Add structured logging format (JSON)
+    
+    Outputs log records as JSON objects with:
+    - timestamp
+    - level
+    - logger name
+    - message
+    - function/line info
+    - extra fields
+    """
+    
+    def format(self, record):
+        """
+        Format log record as JSON.
+        
+        Args:
+            record: LogRecord to format
+            
+        Returns:
+            JSON string
+        """
+        log_data = {
+            'timestamp': datetime.fromtimestamp(record.created).isoformat(),
+            'level': record.levelname,
+            'logger': record.name,
+            'message': record.getMessage(),
+            'module': record.module,
+            'function': record.funcName,
+            'line': record.lineno
+        }
+        
+        # Add exception info if present
+        if record.exc_info:
+            log_data['exception'] = self.formatException(record.exc_info)
+        
+        # Add extra fields from record
+        extra_fields = {}
+        for key, value in record.__dict__.items():
+            if key not in [
+                'name', 'msg', 'args', 'created', 'filename', 'funcName',
+                'levelname', 'levelno', 'lineno', 'module', 'msecs',
+                'message', 'pathname', 'process', 'processName', 'relativeCreated',
+                'thread', 'threadName', 'exc_info', 'exc_text', 'stack_info'
+            ]:
+                extra_fields[key] = value
+        
+        if extra_fields:
+            log_data['extra'] = extra_fields
+        
+        return json.dumps(log_data)
 
 
 def setup_bato_logging(log_level: str = 'INFO', 
@@ -21,14 +84,19 @@ def setup_bato_logging(log_level: str = 'INFO',
     Setup comprehensive logging for Bato notification system.
     
     Creates separate log files for:
-    - General operations (bato.log)
-    - Errors only (bato_errors.log)
-    - Performance metrics (bato_performance.log)
+    - General operations (bato.log) - JSON format
+    - Errors only (bato_errors.log) - JSON format
+    - Performance metrics (bato_performance.log) - JSON format
+    
+    Requirements:
+    - 4.1: Writes to logs/bato/ directory
+    - 4.2: Log rotation (10MB max, 5 files)
+    - 4.3: Structured JSON logging format
     
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_to_file: Whether to log to files
-        log_dir: Directory for log files
+        log_dir: Directory for log files (default: logs/bato)
         
     Returns:
         Configured logger instance
@@ -42,6 +110,10 @@ def setup_bato_logging(log_level: str = 'INFO',
         return logger
     
     # Create formatters
+    # Requirement 4.3: JSON formatter for file logs
+    json_formatter = JsonFormatter()
+    
+    # Human-readable formatter for console
     detailed_formatter = logging.Formatter(
         '[%(asctime)s] %(levelname)-8s [%(name)s.%(funcName)s:%(lineno)d] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
@@ -52,7 +124,7 @@ def setup_bato_logging(log_level: str = 'INFO',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # Console handler (always enabled)
+    # Console handler (always enabled, human-readable)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(simple_formatter)
@@ -60,11 +132,11 @@ def setup_bato_logging(log_level: str = 'INFO',
     
     # File handlers (if enabled)
     if log_to_file:
-        # Create log directory
+        # Requirement 4.1: Create log directory at logs/bato/
         log_path = Path(log_dir)
         log_path.mkdir(parents=True, exist_ok=True)
         
-        # General log file (rotating)
+        # Requirement 4.2: General log file (rotating, 10MB max, 5 files)
         general_log = log_path / 'bato.log'
         general_handler = logging.handlers.RotatingFileHandler(
             general_log,
@@ -72,30 +144,30 @@ def setup_bato_logging(log_level: str = 'INFO',
             backupCount=5
         )
         general_handler.setLevel(logging.DEBUG)
-        general_handler.setFormatter(detailed_formatter)
+        general_handler.setFormatter(json_formatter)  # JSON format
         logger.addHandler(general_handler)
         
-        # Error log file (errors only)
+        # Requirement 4.2: Error log file (rotating, 10MB max, 5 files)
         error_log = log_path / 'bato_errors.log'
         error_handler = logging.handlers.RotatingFileHandler(
             error_log,
-            maxBytes=5 * 1024 * 1024,  # 5 MB
-            backupCount=3
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=5
         )
         error_handler.setLevel(logging.ERROR)
-        error_handler.setFormatter(detailed_formatter)
+        error_handler.setFormatter(json_formatter)  # JSON format
         logger.addHandler(error_handler)
         
-        # Performance log file (for slow operations)
+        # Requirement 4.2: Performance log file (rotating, 10MB max, 5 files)
         performance_log = log_path / 'bato_performance.log'
         performance_handler = logging.handlers.RotatingFileHandler(
             performance_log,
-            maxBytes=5 * 1024 * 1024,  # 5 MB
-            backupCount=3
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=5
         )
         performance_handler.setLevel(logging.WARNING)
         performance_handler.addFilter(PerformanceFilter())
-        performance_handler.setFormatter(detailed_formatter)
+        performance_handler.setFormatter(json_formatter)  # JSON format
         logger.addHandler(performance_handler)
     
     logger.info(f"Bato logging initialized (level: {log_level})")
@@ -258,6 +330,34 @@ def log_rate_limit_event(retry_after: int, count: int):
             'retry_after_seconds': retry_after,
             'rate_limit_count': count,
             'rate_limited': True
+        }
+    )
+
+
+def log_heartbeat(service_status: dict):
+    """
+    Log service heartbeat for monitoring.
+    
+    Requirements:
+    - 4.4: Add heartbeat logging every 5 minutes
+    - 9.1: Log heartbeat message every 5 minutes
+    
+    Args:
+        service_status: Dictionary with service status information
+    """
+    logger = get_bato_logger('heartbeat')
+    
+    logger.info(
+        f"HEARTBEAT | Service running | "
+        f"thread_alive={service_status.get('thread_alive', False)} | "
+        f"standalone_mode={service_status.get('standalone_mode', False)}",
+        extra={
+            'heartbeat': True,
+            'service_running': service_status.get('running', False),
+            'thread_alive': service_status.get('thread_alive', False),
+            'standalone_mode': service_status.get('standalone_mode', False),
+            'max_workers': service_status.get('max_workers', 0),
+            'check_interval_seconds': service_status.get('check_interval_seconds', 0)
         }
     )
 

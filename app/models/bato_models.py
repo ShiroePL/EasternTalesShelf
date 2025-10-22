@@ -148,6 +148,7 @@ class BatoNotifications(Base):
     
     # User Interaction
     is_read = Column(Boolean, default=False)
+    is_emitted = Column(Boolean, default=False)  # Track if notification has been emitted via SocketIO
     importance = Column(Integer, default=1)  # 1=normal, 2=important (batch), 3=critical (status change)
     
     # Metadata

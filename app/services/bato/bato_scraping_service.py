@@ -4,6 +4,10 @@ BatoScrapingService - Background Service for Bato.to Chapter Scraping
 Manages automated scraping of manga chapters from Bato.to based on intelligent schedules.
 Runs as a background thread with concurrent job execution and retry logic.
 
+Can operate in two modes:
+- Integrated mode: Runs within Flask app with SocketIO for real-time notifications
+- Standalone mode: Runs in separate container, writes notifications to database only
+
 Requirements:
 - 5.1: Initialize background scraping service on app startup
 - 5.2: Query manga with next_scrape_at <= current time
@@ -18,6 +22,7 @@ Requirements:
 import logging
 import threading
 import time
+import random
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
@@ -53,32 +58,48 @@ class BatoScrapingService:
     - Implements retry logic with exponential backoff
     - Updates schedules and creates notifications
     - Logs all operations for monitoring
+    - Supports standalone mode for containerized deployment (no Flask app context)
     """
     
     # Service configuration
-    CHECK_INTERVAL_SECONDS = 300  # Check every 5 minutes
-    MAX_CONCURRENT_JOBS = 5  # Requirement 5.6
+    CHECK_INTERVAL_SECONDS = 300  # Check every 5 minutes (Requirement 5.5)
+    MAX_CONCURRENT_JOBS = 1  # Changed to 1 to enforce sequential scraping with delays
     MAX_RETRY_ATTEMPTS = 3  # Requirement 5.5
     INITIAL_RETRY_DELAY = 1  # seconds
     MAX_RETRY_DELAY = 60  # seconds
     
-    def __init__(self):
-        """Initialize the BatoScrapingService with all dependencies."""
+    # Rate limiting to mimic human behavior and respect Bato.to API
+    MIN_DELAY_BETWEEN_SCRAPES = 4.0  # Minimum 4 seconds between manga scrapes
+    MAX_DELAY_BETWEEN_SCRAPES = 7.0  # Maximum 7 seconds between manga scrapes
+    
+    def __init__(self, standalone_mode: bool = False):
+        """
+        Initialize the BatoScrapingService with all dependencies.
+        
+        Args:
+            standalone_mode: If True, service runs without Flask app context
+                           and SocketIO. Notifications are written to database only.
+        """
         self.running = False
         self.thread = None
+        self.standalone_mode = standalone_mode
+        
+        # Resource management: ThreadPoolExecutor with max 5 workers (Requirement 5.2, 5.3)
+        # This prevents overwhelming the system and helps avoid rate limiting
         self.executor = ThreadPoolExecutor(max_workers=self.MAX_CONCURRENT_JOBS)
         
         # Initialize dependencies
         self.repository = BatoRepository()
         self.chapter_comparator = ChapterComparator()
-        self.notification_manager = NotificationManager()
+        self.notification_manager = NotificationManager(standalone_mode=standalone_mode)
         self.scheduling_engine = SchedulingEngine()
         
         # Initialize scrapers
         self.chapters_scraper = BatoChaptersListGraphQL(verbose=False)
         self.details_scraper = BatoMangaDetailsGraphQL(verbose=False)
         
-        logger.info("BatoScrapingService initialized")
+        mode_str = "standalone" if standalone_mode else "integrated"
+        logger.info(f"BatoScrapingService initialized in {mode_str} mode")
     
     def start(self):
         """
@@ -94,7 +115,8 @@ class BatoScrapingService:
         self.thread = threading.Thread(target=self.run_loop, daemon=True)
         self.thread.start()
         
-        logger.info("BatoScrapingService started successfully")
+        mode_str = "standalone" if self.standalone_mode else "integrated"
+        logger.info(f"BatoScrapingService started successfully in {mode_str} mode")
     
     def stop(self):
         """
@@ -146,7 +168,7 @@ class BatoScrapingService:
                     # Execute scraping jobs concurrently
                     self._execute_concurrent_jobs(manga_list)
                 
-                # Wait for next check interval
+                # Wait for next check interval (Requirement 5.5: Sleep between schedule checks)
                 logger.info(f"Scraping cycle complete. Sleeping for {self.CHECK_INTERVAL_SECONDS} seconds...")
                 
                 # Sleep in small increments to allow for graceful shutdown
@@ -193,41 +215,83 @@ class BatoScrapingService:
     
     def _execute_concurrent_jobs(self, manga_list: List[Dict]):
         """
-        Execute scraping jobs concurrently with max workers limit.
+        Execute scraping jobs SEQUENTIALLY with rate limiting delays.
         
-        Requirement 5.6: Limit concurrent jobs to 5
+        Changed from concurrent to sequential execution to:
+        - Respect Bato.to API by mimicking human browsing behavior
+        - Add randomized delays (4-7 seconds) between each manga scrape
+        - Prevent overwhelming the server with parallel requests
+        
+        Requirement 5.6: Limit concurrent jobs (now sequential with delays)
+        Requirement 5.3: Implement rate limiting detection and backoff
         
         Args:
             manga_list: List of manga to scrape
         """
-        futures = {}
+        # Check global rate limit status before starting jobs
+        if ErrorHandler.is_rate_limited():
+            rate_info = ErrorHandler.get_rate_limit_info()
+            logger.warning(
+                f"Currently rate limited. Skipping {len(manga_list)} manga. "
+                f"Rate limit expires in {rate_info['remaining_seconds']}s"
+            )
+            return
         
-        # Submit all jobs to executor
-        for manga_data in manga_list:
-            future = self.executor.submit(self.execute_scraping_job, manga_data)
-            futures[future] = manga_data
-        
-        # Process completed jobs
         completed = 0
         failed = 0
         
-        for future in as_completed(futures):
-            manga_data = futures[future]
+        logger.info(
+            f"Starting SEQUENTIAL scraping of {len(manga_list)} manga "
+            f"with {self.MIN_DELAY_BETWEEN_SCRAPES}-{self.MAX_DELAY_BETWEEN_SCRAPES}s "
+            "delays between each"
+        )
+        
+        # Process manga one at a time with delays
+        for i, manga_data in enumerate(manga_list, 1):
             try:
-                success = future.result()
+                logger.info(
+                    f"Processing manga {i}/{len(manga_list)}: "
+                    f"{manga_data['manga_name']}"
+                )
+                
+                success = self.execute_scraping_job(manga_data)
+                
                 if success:
                     completed += 1
                 else:
                     failed += 1
+                
+                # Add delay between scrapes (except after the last one)
+                if i < len(manga_list):
+                    # Randomize delay to mimic human behavior
+                    delay = random.uniform(
+                        self.MIN_DELAY_BETWEEN_SCRAPES,
+                        self.MAX_DELAY_BETWEEN_SCRAPES
+                    )
+                    logger.info(
+                        f"Waiting {delay:.2f}s before next manga "
+                        "(human-like rate limiting)..."
+                    )
+                    time.sleep(delay)
+                    
             except Exception as e:
                 logger.error(
                     f"Job failed for {manga_data['manga_name']} "
                     f"(ID: {manga_data['anilist_id']}): {e}"
                 )
                 failed += 1
+                
+                # Still add delay even after failure
+                if i < len(manga_list):
+                    delay = random.uniform(
+                        self.MIN_DELAY_BETWEEN_SCRAPES,
+                        self.MAX_DELAY_BETWEEN_SCRAPES
+                    )
+                    logger.info(f"Waiting {delay:.2f}s before next manga...")
+                    time.sleep(delay)
         
         logger.info(
-            f"Concurrent job execution complete: "
+            f"Sequential job execution complete: "
             f"{completed} successful, {failed} failed"
         )
     
@@ -672,6 +736,7 @@ class BatoScrapingService:
         
         return {
             'running': self.running,
+            'standalone_mode': self.standalone_mode,
             'thread_alive': self.thread.is_alive() if self.thread else False,
             'max_workers': self.MAX_CONCURRENT_JOBS,
             'check_interval_seconds': self.CHECK_INTERVAL_SECONDS,

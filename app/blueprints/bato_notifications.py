@@ -59,6 +59,7 @@ def get_notifications():
                 'chapters_count': notif.chapters_count,
                 'importance': notif.importance,
                 'is_read': notif.is_read,
+                'is_emitted': notif.is_emitted,
                 'created_at': notif.created_at.isoformat() if notif.created_at else None
             })
         

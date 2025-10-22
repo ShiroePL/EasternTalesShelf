@@ -6,7 +6,8 @@ Handles creation of different notification types:
 - Batch notifications (multiple chapters)
 - Status change notifications (upload_status changes)
 
-Integrates with SocketIO for real-time notifications.
+Integrates with SocketIO for real-time notifications in integrated mode.
+In standalone mode (containerized service), notifications are written to database only.
 """
 
 from typing import Dict, List, Optional
@@ -20,12 +21,22 @@ logger = logging.getLogger(__name__)
 class NotificationManager:
     """
     Creates and manages notifications for Bato manga updates.
-    Emits real-time notifications via SocketIO.
+    Emits real-time notifications via SocketIO when in integrated mode.
+    In standalone mode, only writes to database.
     """
     
-    def __init__(self):
-        """Initialize the NotificationManager"""
+    def __init__(self, standalone_mode: bool = False):
+        """
+        Initialize the NotificationManager.
+        
+        Args:
+            standalone_mode: If True, skip SocketIO emission (for containerized service)
+        """
         self.repository = BatoRepository()
+        self.standalone_mode = standalone_mode
+        
+        if standalone_mode:
+            logger.info("NotificationManager initialized in standalone mode (no SocketIO)")
     
     def create_new_chapter_notification(self, chapter_data: Dict) -> Optional[Dict]:
         """
@@ -273,12 +284,24 @@ class NotificationManager:
         """
         Send real-time notification via SocketIO.
         
+        In standalone mode, this method only logs the notification creation
+        since the web app will poll the database for new notifications.
+        
         Args:
             notification_data: Dictionary with notification info to emit
                 
         Returns:
             True if successful, False otherwise
         """
+        # In standalone mode, skip SocketIO emission
+        if self.standalone_mode:
+            logger.info(
+                f"Notification created (standalone mode): {notification_data.get('type')} "
+                f"for {notification_data.get('manga_name')} "
+                f"(ID: {notification_data.get('notification_id')})"
+            )
+            return True
+        
         try:
             # Import here to avoid circular imports and to access current_app context
             from flask import current_app

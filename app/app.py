@@ -55,9 +55,9 @@ from app.blueprints.extension import extension_bp
 from app.blueprints.bato_notifications import bato_notifications_bp
 from app.blueprints.bato_admin import bato_admin_bp
 
-# Import Bato services
-from app.services.bato.bato_scraping_service import BatoScrapingService
+# Import Bato database initialization and notification polling
 from app.models.bato_models import init_bato_db
+from app.services.bato_notification_polling import init_bato_notification_poller, stop_bato_notification_poller
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -120,7 +120,6 @@ def create_app():
 
     with app.app_context():
         # Initialize database tables for Bato
-        # This must happen before starting the scraping service
         try:
             from app.functions.class_mangalist import engine
             init_bato_db(engine)
@@ -132,15 +131,8 @@ def create_app():
         app.notification_manager = AnilistNotificationManager()
         app.background_manager = BackgroundTaskManager()
         
-        # Initialize and start BatoScrapingService
-        # Requirement 5.1: Initialize background scraping service on app startup
-        try:
-            app.bato_scraping_service = BatoScrapingService()
-            app.bato_scraping_service.start()
-            logging.info("BatoScrapingService started successfully")
-        except Exception as e:
-            logging.error(f"Failed to start BatoScrapingService: {e}")
-            app.bato_scraping_service = None
+        # Note: BatoScrapingService now runs in a separate container
+        # See docker-compose.yml for bato-scraping-service configuration
         
         # Create a thread to run the background tasks
         def run_background_tasks():
@@ -248,13 +240,15 @@ def shutdown_services():
     """Gracefully shutdown all background services"""
     logging.info("Shutting down background services...")
     
-    # Stop BatoScrapingService
+    # Stop Bato notification poller
     try:
-        if hasattr(app, 'bato_scraping_service') and app.bato_scraping_service:
-            app.bato_scraping_service.stop()
-            logging.info("BatoScrapingService stopped")
+        stop_bato_notification_poller()
+        logging.info("Bato notification poller stopped")
     except Exception as e:
-        logging.error(f"Error stopping BatoScrapingService: {e}")
+        logging.error(f"Error stopping Bato notification poller: {e}")
+    
+    # Note: BatoScrapingService runs in a separate container and is managed independently
+    # No need to stop it from the main web application
     
     logging.info("All background services shut down")
 
@@ -278,6 +272,14 @@ socketio = SocketIO(
 
 # Attach socketio to app for access via current_app.socketio
 app.socketio = socketio
+
+# Initialize Bato notification poller (polls every 60 seconds)
+# This bridges the standalone Bato scraping container with the web app's real-time notifications
+try:
+    init_bato_notification_poller(socketio, poll_interval=60)
+    logging.info("Bato notification poller initialized successfully")
+except Exception as e:
+    logging.error(f"Failed to initialize Bato notification poller: {e}")
 
 if __name__ == '__main__':
     # For local development

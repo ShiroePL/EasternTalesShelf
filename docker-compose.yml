@@ -47,6 +47,26 @@ services:
       - .:/app
       - logs_volume:/app/logs
 
+  bato-scraping-service:
+    image: easterntalesshelf:local
+    restart: always
+    container_name: EasternTalesShelf-bato-scraper-notifications
+    environment:
+      - FLASK_ENV=production
+      - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}
+    command: doppler run -- python -m app.services.bato.bato_service_runner
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - external-containers
+      - phpmyadmin_gpt_db
+    volumes:
+      - .:/app
+      - logs_volume:/app/logs
+
 networks:
   external-containers:
     external: true

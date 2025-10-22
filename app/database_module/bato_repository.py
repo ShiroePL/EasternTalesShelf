@@ -9,13 +9,24 @@ Provides centralized database operations for all Bato-related tables:
 - bato_scraper_log
 
 Uses scoped_session pattern consistent with existing codebase.
+
+Enhanced with:
+- Automatic retry logic for connection errors
+- "MySQL server has gone away" error handling
+- Connection pool management
 """
 
 from typing import List, Optional, Dict, Set
 from datetime import datetime
 import time
+from functools import wraps
 from sqlalchemy import desc, and_
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import (
+    IntegrityError, 
+    OperationalError, 
+    DisconnectionError,
+    InterfaceError
+)
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from app.functions.class_mangalist import db_session, engine
@@ -31,6 +42,102 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def handle_db_connection_errors(max_retries: int = 3, initial_delay: float = 0.5):
+    """
+    Decorator to handle database connection errors with retry logic.
+    
+    Handles:
+    - "MySQL server has gone away" errors
+    - Connection lost errors
+    - Deadlock errors
+    
+    Requirements:
+    - 3.5: Retry logic with exponential backoff
+    - 3.5: Handle "MySQL server has gone away" errors
+    
+    Args:
+        max_retries: Maximum number of retry attempts
+        initial_delay: Initial delay in seconds before first retry
+        
+    Returns:
+        Decorated function with retry logic
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retry_count = 0
+            delay = initial_delay
+            
+            while retry_count <= max_retries:
+                try:
+                    return func(*args, **kwargs)
+                    
+                except (OperationalError, DisconnectionError, InterfaceError) as e:
+                    error_msg = str(e).lower()
+                    
+                    # Check if it's a connection error that should be retried
+                    is_connection_error = any(phrase in error_msg for phrase in [
+                        'server has gone away',
+                        'lost connection',
+                        'connection was killed',
+                        'can\'t connect to',
+                        'connection refused',
+                        'deadlock'
+                    ])
+                    
+                    if is_connection_error and retry_count < max_retries:
+                        retry_count += 1
+                        
+                        logger.warning(
+                            f"Database connection error in {func.__name__} "
+                            f"(attempt {retry_count}/{max_retries}): {e}"
+                        )
+                        
+                        # Dispose connection pool on "server has gone away"
+                        if 'server has gone away' in error_msg or 'lost connection' in error_msg:
+                            try:
+                                engine.dispose()
+                                logger.info("Connection pool disposed due to connection loss")
+                            except Exception as dispose_error:
+                                logger.error(f"Error disposing connection pool: {dispose_error}")
+                        
+                        # Rollback current transaction
+                        try:
+                            db_session.rollback()
+                        except Exception:
+                            pass
+                        
+                        # Exponential backoff
+                        logger.info(f"Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                        delay = min(delay * 2, 30)  # Max 30 seconds
+                    else:
+                        # Not a connection error or max retries reached
+                        logger.error(
+                            f"Database error in {func.__name__} "
+                            f"(not retrying): {e}"
+                        )
+                        raise
+                        
+                except Exception as e:
+                    # Non-connection error, don't retry
+                    logger.error(
+                        f"Unexpected error in {func.__name__}: {e}",
+                        exc_info=True
+                    )
+                    raise
+            
+            # Should not reach here, but just in case
+            raise OperationalError(
+                f"Failed after {max_retries} retries",
+                None,
+                None
+            )
+        
+        return wrapper
+    return decorator
+
+
 class BatoRepository:
     """
     Centralized data access for Bato tables.
@@ -40,6 +147,7 @@ class BatoRepository:
     # ==================== Manga Details Methods ====================
     
     @staticmethod
+    @handle_db_connection_errors(max_retries=3)
     def get_manga_details(anilist_id: int) -> Optional[BatoMangaDetails]:
         """
         Get manga details by anilist_id.
@@ -63,6 +171,7 @@ class BatoRepository:
             db_session.remove()
     
     @staticmethod
+    @handle_db_connection_errors(max_retries=3)
     def upsert_manga_details(details_data: Dict) -> Optional[BatoMangaDetails]:
         """
         Insert or update manga details.
@@ -409,6 +518,65 @@ class BatoRepository:
         finally:
             db_session.remove()
     
+    @staticmethod
+    def get_unemitted_notifications(limit: int = 100) -> List[BatoNotifications]:
+        """
+        Get notifications that haven't been emitted via SocketIO yet.
+        Used by the notification polling service.
+        
+        Args:
+            limit: Maximum number of notifications to return
+            
+        Returns:
+            List of BatoNotifications objects
+        """
+        try:
+            query = db_session.query(BatoNotifications).filter(
+                BatoNotifications.is_emitted == False
+            ).order_by(
+                desc(BatoNotifications.importance),
+                desc(BatoNotifications.created_at)
+            ).limit(limit)
+            
+            notifications = query.all()
+            return notifications
+        except Exception as e:
+            logger.error(f"Error fetching unemitted notifications: {e}")
+            db_session.rollback()
+            return []
+        finally:
+            db_session.remove()
+    
+    @staticmethod
+    def mark_notifications_emitted(notification_ids: List[int]) -> bool:
+        """
+        Mark multiple notifications as emitted.
+        
+        Args:
+            notification_ids: List of notification IDs to mark as emitted
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not notification_ids:
+                return True
+            
+            db_session.query(BatoNotifications).filter(
+                BatoNotifications.id.in_(notification_ids)
+            ).update(
+                {BatoNotifications.is_emitted: True},
+                synchronize_session=False
+            )
+            db_session.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error marking notifications as emitted: {e}")
+            db_session.rollback()
+            return False
+        finally:
+            db_session.remove()
+    
     # ==================== Scheduling Methods ====================
     
     @staticmethod
@@ -475,6 +643,7 @@ class BatoRepository:
             db_session.remove()
     
     @staticmethod
+    @handle_db_connection_errors(max_retries=3)
     def get_manga_due_for_scraping(limit: Optional[int] = None) -> List[Dict]:
         """
         Get manga that need scraping now (next_scrape_at <= current time).
@@ -534,6 +703,7 @@ class BatoRepository:
             db_session.remove()
     
     @staticmethod
+    @handle_db_connection_errors(max_retries=3)
     def update_schedule_after_scrape(anilist_id: int, next_scrape_at: datetime, 
                                      new_chapters_found: int = 0) -> bool:
         """
@@ -576,6 +746,7 @@ class BatoRepository:
     # ==================== Logging Methods ====================
     
     @staticmethod
+    @handle_db_connection_errors(max_retries=3)
     def log_scraping_job(log_data: Dict) -> Optional[BatoScraperLog]:
         """
         Log scraping job results for monitoring.
