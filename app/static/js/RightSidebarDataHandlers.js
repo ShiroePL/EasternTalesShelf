@@ -1,4 +1,4 @@
-export function processExternalLinks(externalLinksData) {
+export function processExternalLinks(externalLinksData, mangaupdatesUrl = null) {
     const serviceMap = {
         'mangaupdates.com': { name: 'Manga Updates', class: 'mangaupdates' },
         'tapas.io': { name: 'Tapas', class: 'tapas' },
@@ -11,6 +11,11 @@ export function processExternalLinks(externalLinksData) {
 
     try {
         let externalLinks = JSON.parse(externalLinksData || "[]");
+        
+        // Filter out any mangaupdates.com links from externalLinks array
+        // as we'll use the one from mangaupdates_details table instead
+        externalLinks = externalLinks.filter(url => !url.includes('mangaupdates.com'));
+        
         let linksHtml = document.createElement('div');
         linksHtml.innerHTML = '<h5 class="mb-2">Links</h5>';
 
@@ -28,6 +33,16 @@ export function processExternalLinks(externalLinksData) {
                 }
             });
         });
+        
+        // Add MangaUpdates link from mangaupdates_details table if available
+        if (mangaupdatesUrl) {
+            let button = document.createElement('a');
+            button.href = mangaupdatesUrl;
+            button.textContent = 'Manga Updates';
+            button.className = 'btn mangaupdates btn-sm m-1';
+            button.target = '_blank';
+            linksHtml.appendChild(button);
+        }
 
         return linksHtml;
     } catch (e) {
