@@ -424,7 +424,7 @@
     color: #4CAF50;
 }
 
-.notification-badge {
+.batch-chapters-badge {
     margin-top: 8px;
     padding: 6px 10px;
     background-color: rgba(255, 152, 0, 0.1);
@@ -435,7 +435,7 @@
     display: inline-block;
 }
 
-.notification-badge i {
+.batch-chapters-badge i {
     margin-right: 6px;
     color: #FF9800;
 }

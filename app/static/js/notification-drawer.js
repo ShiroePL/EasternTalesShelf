@@ -64,13 +64,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         allNotifications = allNotifications.concat(batoNotifications);
                     }
                     
-                    // Sort by importance (descending) then created_at (descending)
+                    // Sort by created_at only (newer first) for chronological timeline
                     allNotifications.sort((a, b) => {
-                        // First sort by importance (higher first)
-                        if (b.importance !== a.importance) {
-                            return b.importance - a.importance;
-                        }
-                        // Then sort by created_at (newer first)
                         const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
                         const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
                         return dateB - dateA;
