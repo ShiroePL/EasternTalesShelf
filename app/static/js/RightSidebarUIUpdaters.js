@@ -167,7 +167,7 @@ export function updateSidebarNotes(data) {
 
 export function updateExternalLinks(data) {
     let linksContainer = document.getElementById('sidebar-external-links');
-    let processedLinks = processExternalLinks(data.externalLinksData);
+    let processedLinks = processExternalLinks(data.externalLinksData, data.mangaupdates_url);
     
     while (linksContainer.firstChild) {
         linksContainer.removeChild(linksContainer.firstChild);

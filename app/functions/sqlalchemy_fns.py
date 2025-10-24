@@ -142,7 +142,23 @@ def update_manga_links(id_anilist, bato_link, extracted_links):
         db_session.remove()  # Properly remove the session from the scoped_session registry
 
 
-def save_manga_details(details, anilist_id):
+def save_manga_details(details, anilist_id, api_data=None):
+    """
+    Save MangaUpdates details to database.
+    
+    This function maintains backward compatibility with the old spider format
+    while also supporting rich API data.
+    
+    Args:
+        details: Spider-compatible dict with keys:
+                - status_in_country_of_origin
+                - licensed_in_english
+                - completely_scanlated
+                - last_updated
+        anilist_id: The AniList ID
+        api_data: (Optional) Full API response dict from MangaUpdates API
+                  If provided, additional fields will be saved
+    """
     try:
         
 
@@ -163,32 +179,76 @@ def save_manga_details(details, anilist_id):
         # Extract and convert the last_updated timestamp
         last_updated_timestamp = details.get('last_updated', '')
 
+        # Basic fields that always get updated
+        update_dict = {
+            'status': status,
+            'licensed': licensed,
+            'completed': completed,
+            'last_updated_timestamp': last_updated_timestamp
+        }
+
+        # If API data is provided, extract and add additional fields
+        if api_data:
+            logging.info(f"Saving enhanced API data for anilist_id {anilist_id}")
+            
+            # Basic info
+            update_dict['title'] = api_data.get('title')
+            update_dict['description'] = api_data.get('description')
+            update_dict['type'] = api_data.get('type')
+            update_dict['year'] = str(api_data.get('year', '')) if api_data.get('year') else None
+            
+            # Ratings
+            update_dict['bayesian_rating'] = api_data.get('bayesian_rating')
+            update_dict['rating_votes'] = api_data.get('rating_votes')
+            
+            # Chapter info
+            update_dict['latest_chapter'] = api_data.get('latest_chapter')
+            
+            # Images
+            image_data = api_data.get('image', {})
+            if image_data and isinstance(image_data, dict):
+                url_data = image_data.get('url', {})
+                if isinstance(url_data, dict):
+                    update_dict['cover_image_url'] = url_data.get('original')
+                    update_dict['cover_thumbnail_url'] = url_data.get('thumb')
+            
+            # JSON fields - store as-is
+            update_dict['genres'] = json.dumps(api_data.get('genres', [])) if api_data.get('genres') else None
+            update_dict['categories'] = json.dumps(api_data.get('categories', [])) if api_data.get('categories') else None
+            update_dict['authors'] = json.dumps(api_data.get('authors', [])) if api_data.get('authors') else None
+            update_dict['publishers'] = json.dumps(api_data.get('publishers', [])) if api_data.get('publishers') else None
+            
+            # Series ID for future direct API access
+            update_dict['series_id'] = str(api_data.get('series_id', '')) if api_data.get('series_id') else None
+            
+            # Last sync timestamp
+            from datetime import datetime
+            update_dict['last_api_sync'] = datetime.now()
 
         # If no entry exists, create a new one
         if not manga_detail:
-            manga_detail = MangaUpdatesDetails(
-                anilist_id=anilist_id,
-                status=status,
-                licensed=licensed,
-                completed=completed,
-                last_updated_timestamp=last_updated_timestamp
-            )
+            manga_detail = MangaUpdatesDetails(anilist_id=anilist_id, **update_dict)
             db_session.add(manga_detail)
         else:
             # Update the existing record with new data
-            manga_detail.status = status
-            manga_detail.licensed = licensed
-            manga_detail.completed = completed
-            manga_detail.last_updated_timestamp = last_updated_timestamp
+            for key, value in update_dict.items():
+                setattr(manga_detail, key, value)
 
         # Commit the transaction to save changes
         db_session.commit()
         
-        logging.info(f"Manga details saved successfully. Details: status: {status}, licensed: {licensed}, completed: {completed}, last_updated: {last_updated_timestamp}")
+        if api_data:
+            logging.info(f"Enhanced manga details saved successfully for {update_dict.get('title', 'Unknown')}")
+            logging.info(f"  Rating: {update_dict.get('bayesian_rating')}/10, Chapters: {update_dict.get('latest_chapter')}")
+            logging.info(f"  Type: {update_dict.get('type')}, Year: {update_dict.get('year')}")
+        else:
+            logging.info(f"Basic manga details saved successfully. Details: status: {status}, licensed: {licensed}, completed: {completed}")
+            
     except Exception as e:
         # Rollback in case of an error
         db_session.rollback()
         logging.error(f"Error saving manga details: {e}")
+        logging.exception("Full traceback:")
     finally:
         # Close the session
         db_session.remove()

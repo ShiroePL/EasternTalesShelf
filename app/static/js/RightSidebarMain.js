@@ -119,6 +119,7 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
             licensed
             completed
             last_updated_timestamp
+            mangaupdates_url
         }
     }
 `;
@@ -177,6 +178,7 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
             mangaupdates_licensed: mangaUpdates?.licensed || null,
             mangaupdates_completed: mangaUpdates?.completed || null,
             mangaupdates_last_updated: mangaUpdates?.last_updated_timestamp || null,
+            mangaupdates_url: mangaUpdates?.mangaupdates_url || null,
             user_notes: manga.notes || 'None',
             // Parse JSON strings if needed
             externalLinksData: manga.external_links || '[]',

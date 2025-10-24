@@ -7,9 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 from app.functions.class_mangalist import db_session, MangaUpdatesDetails
-from app.functions.manga_updates_spider import MangaUpdatesSpider
-from crochet import run_in_reactor
-from scrapy.crawler import CrawlerRunner
+from app.scraper.mangaupdates_api.mangaupdates_api_client import MangaUpdatesAPIClient
 from app.blueprints.webhook import webhook_status
 
 manga_bp = Blueprint('manga', __name__)
@@ -29,7 +27,7 @@ def add_bato_link_route():
 
         # Check if it's a MangaUpdates link
         if 'mangaupdates' in input_link.lower():
-            logging.info("MangaUpdates link detected, processing directly")
+            logging.info("MangaUpdates link detected, processing with API client")
             try:
                 # Store the MangaUpdates link in external_links
                 sqlalchemy_fns.update_manga_links(anilist_id, None, [input_link])
@@ -37,9 +35,20 @@ def add_bato_link_route():
                 # Also store the URL in mangaupdates_details table
                 sqlalchemy_fns.save_mangaupdates_url(anilist_id, input_link)
                 
-                # Run the spider directly
-                result = run_crawl(input_link, anilist_id)
+                # Fetch data using the new API client (much faster than spider!)
+                api_client = MangaUpdatesAPIClient()
+                result = api_client.get_series_full_data(input_link)
+                
                 if result:
+                    # Save to database with both spider-compatible and full API data
+                    sqlalchemy_fns.save_manga_details(
+                        result['spider_data'], 
+                        anilist_id,
+                        api_data=result['api_data']
+                    )
+                    
+                    logging.info(f"✅ Successfully fetched and saved MangaUpdates data via API")
+                    
                     try:
                         # Emit WebSocket event with updated MangaUpdates data
                         manga_updates = db_session.query(MangaUpdatesDetails)\
@@ -52,18 +61,27 @@ def add_bato_link_route():
                                     'status': manga_updates.status,
                                     'licensed': manga_updates.licensed,
                                     'completed': manga_updates.completed,
-                                    'last_updated': manga_updates.last_updated_timestamp
+                                    'last_updated': manga_updates.last_updated_timestamp,
+                                    'rating': manga_updates.bayesian_rating,
+                                    'latest_chapter': manga_updates.latest_chapter
                                 }
                             })
                     except Exception as e:
                         logging.error(f"Error emitting WebSocket update: {e}")
                         # Continue execution even if WebSocket update fails
 
-                return jsonify({
-                    "status": "success",
-                    "message": "MangaUpdates link added and data retrieved successfully",
-                    "extractedLinks": [input_link]
-                }), 200
+                    return jsonify({
+                        "status": "success",
+                        "message": "MangaUpdates link added and data retrieved successfully via API",
+                        "extractedLinks": [input_link]
+                    }), 200
+                else:
+                    logging.error("Failed to fetch data from MangaUpdates API")
+                    return jsonify({
+                        "status": "error",
+                        "message": "Failed to fetch data from MangaUpdates API"
+                    }), 500
+                    
             except Exception as e:
                 logging.error(f"Error processing MangaUpdates link: {e}")
                 return jsonify({
@@ -117,20 +135,31 @@ def add_bato_link_route():
                 logging.info(f"Found MangaUpdates link: {link}")
                 break
 
-        # If MangaUpdates link is found, add it to external_links and run the spider
+        # If MangaUpdates link is found, add it to external_links and fetch data via API
         if mangaupdates_link:
-            # IMPORTANT: Add the MangaUpdates link to external_links
-            # This was missing and causing the bug where mangaupdates link wasn't added on first attempt
+            # Add the MangaUpdates link to external_links
             logging.info(f"Adding MangaUpdates link to external_links: {mangaupdates_link}")
             sqlalchemy_fns.update_manga_links(anilist_id, None, [mangaupdates_link])
             
             # Also store the URL in mangaupdates_details table
             sqlalchemy_fns.save_mangaupdates_url(anilist_id, mangaupdates_link)
             
-            logging.info(f"Running crawler for MangaUpdates link: {mangaupdates_link}")
-            result = run_crawl(mangaupdates_link, anilist_id)
-            if not result:
-                logging.warning("Failed to complete MangaUpdates crawl, but continuing...")
+            logging.info(f"Fetching data from MangaUpdates API for: {mangaupdates_link}")
+            
+            # Use the new API client instead of the spider
+            api_client = MangaUpdatesAPIClient()
+            result = api_client.get_series_full_data(mangaupdates_link)
+            
+            if result:
+                # Save to database with both spider-compatible and full API data
+                sqlalchemy_fns.save_manga_details(
+                    result['spider_data'], 
+                    anilist_id,
+                    api_data=result['api_data']
+                )
+                logging.info(f"✅ Successfully fetched and saved MangaUpdates data via API")
+            else:
+                logging.warning("Failed to fetch MangaUpdates data from API, but continuing...")
 
         # After successful processing and finding MangaUpdates link:
         if mangaupdates_link and result:
@@ -145,7 +174,9 @@ def add_bato_link_route():
                             'status': manga_updates.status,
                             'licensed': manga_updates.licensed,
                             'completed': manga_updates.completed,
-                            'last_updated': manga_updates.last_updated_timestamp
+                            'last_updated': manga_updates.last_updated_timestamp,
+                            'rating': manga_updates.bayesian_rating,
+                            'latest_chapter': manga_updates.latest_chapter
                         }
                     })
             except Exception as e:
@@ -213,24 +244,6 @@ def extract_links_from_bato(html_content):
         logging.debug(soup.prettify()[:1000])  # Log first 1000 chars of the HTML structure
 
     return extracted_links
-
-@run_in_reactor
-def run_crawl(start_url, anilist_id):
-    runner = CrawlerRunner()
-    deferred = runner.crawl(MangaUpdatesSpider, start_url=start_url, anilist_id=anilist_id)
-    
-    def on_success(result):
-        logging.info("Crawl completed successfully.")
-        return result
-
-    def on_failure(failure):
-        logging.error(f"Crawl failed: {failure.getErrorMessage()}")
-        return None
-
-    deferred.addCallback(on_success)
-    deferred.addErrback(on_failure)
-    
-    return deferred
 
 @manga_bp.route('/sync', methods=['POST'])
 @login_required
