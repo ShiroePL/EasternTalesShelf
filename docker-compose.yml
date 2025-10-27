@@ -32,7 +32,7 @@ services:
     restart: always
     container_name: EasternTalesShelf-mangaupdates-updater
     environment:
-      - FLASK_ENV
+      - FLASK_ENV=production
       - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}
     command: doppler run -- python -m app.services.mangaupdates_update_service
     logging:
