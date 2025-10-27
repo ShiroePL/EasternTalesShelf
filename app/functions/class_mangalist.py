@@ -157,6 +157,23 @@ class MangaUpdatesDetails(Base):
     completed = Column(Boolean, nullable=True)
     last_updated_timestamp = Column(Text, nullable=True)
     mangaupdates_url = Column(String(255), nullable=True)
+    
+    # Additional API fields
+    title = Column(String(500), nullable=True)
+    description = Column(Text, nullable=True)
+    type = Column(String(50), nullable=True)
+    year = Column(String(20), nullable=True)
+    bayesian_rating = Column(Float, nullable=True)
+    rating_votes = Column(Integer, nullable=True)
+    latest_chapter = Column(Integer, nullable=True)
+    cover_image_url = Column(String(500), nullable=True)
+    cover_thumbnail_url = Column(String(500), nullable=True)
+    genres = Column(JSON, nullable=True)
+    categories = Column(JSON, nullable=True)
+    authors = Column(JSON, nullable=True)
+    publishers = Column(JSON, nullable=True)
+    series_id = Column(String(50), nullable=True)
+    last_api_sync = Column(DateTime, nullable=True)
 
     @classmethod
     def create_table_if_not_exists(cls, engine):
