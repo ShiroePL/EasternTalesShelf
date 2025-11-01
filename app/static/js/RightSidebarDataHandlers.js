@@ -70,6 +70,31 @@ export function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 }
 
+export function formatBatoUploadStatus(status) {
+    if (!status) return null;
+    
+    const statusLower = status.toLowerCase();
+    const statusCapitalized = capitalizeFirstLetter(status);
+    
+    // Color coding based on status
+    let color;
+    switch (statusLower) {
+        case 'completed':
+            color = 'rgb(40, 167, 69)';  // Green
+            break;
+        case 'ongoing':
+            color = 'rgb(255, 193, 7)';  // Yellow
+            break;
+        case 'dropped':
+            color = 'rgb(108, 117, 125)';  // Gray
+            break;
+        default:
+            color = 'rgb(55, 160, 249)';  // Blue
+    }
+    
+    // Return just the color, we'll format the span in the UI updater
+    return { statusCapitalized, color };
+}
 
 
 

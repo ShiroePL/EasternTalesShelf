@@ -170,6 +170,58 @@ def get_manga_chapters(anilist_id):
         }), 500
 
 
+@bato_notifications_bp.route('/api/bato/manga-info/<int:anilist_id>', methods=['GET'])
+@login_required
+def get_bato_manga_info(anilist_id):
+    """
+    Get Bato.to manga information (latest chapter and upload status).
+    
+    Args:
+        anilist_id (int): AniList manga ID
+    
+    Returns:
+        JSON response with latest chapter info and upload status
+    """
+    try:
+        # Get manga details for upload_status
+        manga_details = BatoRepository.get_manga_details(anilist_id)
+        
+        # Get latest chapter by date_public (most recent published chapter)
+        latest_chapter = BatoRepository.get_latest_chapter(anilist_id)
+        
+        # Return data if we have at least one piece of info
+        if manga_details or latest_chapter:
+            response_data = {
+                'success': True,
+                'anilist_id': anilist_id,
+                'upload_status': manga_details.upload_status if manga_details else None
+            }
+            
+            # Add latest chapter info if available
+            if latest_chapter:
+                response_data['latest_chapter'] = {
+                    'dname': latest_chapter.dname,
+                    'date_public': latest_chapter.date_public.isoformat() if latest_chapter.date_public else None,
+                    'full_url': latest_chapter.full_url
+                }
+            else:
+                response_data['latest_chapter'] = None
+            
+            return jsonify(response_data), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No Bato data found for this manga'
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"Error fetching Bato info for anilist_id {anilist_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch Bato information'
+        }), 500
+
+
 @bato_notifications_bp.route('/api/bato/schedule/<int:anilist_id>', methods=['GET'])
 @login_required
 def get_scraping_schedule(anilist_id):

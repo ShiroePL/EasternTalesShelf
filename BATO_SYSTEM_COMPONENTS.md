@@ -525,25 +525,40 @@ python app/migrations/create_bato_tables_mariadb.py
 
 ---
 
-### `app/migrations/populate_bato_initial_data.py` ✨ NEW
+### `app/migrations/populate_bato_initial_data.py` ✨ NEW (DEPRECATED)
 **Purpose:** Populates initial data for all manga with bato_link
+
+**Note:** This migration is deprecated. Use `populate_bato_system_fresh.py` instead.
+
+---
+
+### `populate_bato_system_fresh.py` ✨ NEW
+**Purpose:** Fresh population of Bato system from scratch (RECOMMENDED)
 
 **Usage:**
 ```bash
-# Process all manga
-doppler run -- python app/migrations/populate_bato_initial_data.py
+# Process all manga with bato_link
+doppler run -- python populate_bato_system_fresh.py
 
-# Process limited number (for testing)
-doppler run -- python app/migrations/populate_bato_initial_data.py --limit 2
+# Test with limited number
+doppler run -- python populate_bato_system_fresh.py --limit 5
+
+# Test mode (verbose logging, shorter delays)
+doppler run -- python populate_bato_system_fresh.py --test --limit 2
 ```
 
 **Features:**
+- Fetches all manga with bato_link from manga_list table
 - Extracts bato_id from bato_link URLs
-- Scrapes manga details and chapters
+- Scrapes manga details and chapters using GraphQL API
 - Creates initial schedules (24h default)
-- Creates log entries
+- Creates scraper log entries
 - Does NOT create notifications (initial load)
-- Continues on errors
+- Skips manga that already exist in bato_manga_details
+- Human-like delays between manga (3-5 seconds)
+- Comprehensive error handling and logging
+- Detailed statistics and summary report
+- Safe to run multiple times (idempotent)
 
 ---
 

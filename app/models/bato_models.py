@@ -80,6 +80,7 @@ class BatoChapters(Base):
     anilist_id = Column(Integer, ForeignKey('manga_list.id_anilist'), nullable=False)
     bato_link = Column(String(500), ForeignKey('bato_manga_details.bato_link'), nullable=False)
     bato_chapter_id = Column(String(20), unique=True, nullable=False)  # API: id - Chapter ID (e.g., "2068065")
+    canonical_chapter_id = Column(String(50), nullable=True)  # Extracted from URL: ch_0, ch_1, ch_112 etc. (stable identifier)
     
     # Chapter Info (API fields)
     chapter_number = Column(Integer, nullable=False)  # Computed: 1, 2, 3... (position in list)
@@ -104,9 +105,9 @@ class BatoChapters(Base):
     # Metadata
     first_seen_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))  # When we first discovered this chapter
     
-    # Ensure no duplicate chapters per manga
+    # Ensure no duplicate chapters per manga using canonical_chapter_id (stable across re-uploads)
     __table_args__ = (
-        UniqueConstraint('bato_link', 'chapter_number', name='unique_chapter_per_manga'),
+        UniqueConstraint('bato_link', 'canonical_chapter_id', name='unique_canonical_chapter_per_manga'),
         UniqueConstraint('bato_chapter_id', name='unique_bato_chapter_id'),
     )
     

@@ -546,5 +546,86 @@
     opacity: 0;
 }
 
+/* Side Stories Icon */
+.grid-item .side-stories-icon {
+    position: absolute;
+    top: 10px;
+    left: 50px;
+    z-index: 10;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: none; /* Hidden by default */
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 3px solid rgba(26, 26, 26, 0.5);
+}
+
+/* Show icon only when side stories status is not 'none' */
+.grid-item .side-stories-icon[data-side-stories-status="released"],
+.grid-item .side-stories-icon[data-side-stories-status="releasing"],
+.grid-item .side-stories-icon[data-side-stories-status="planned"] {
+    display: flex;
+}
+
+/* Released - Green with book-medical icon */
+.grid-item .side-stories-icon[data-side-stories-status="released"] {
+    background-color: #28a745;
+    color: white;
+}
+
+.grid-item .side-stories-icon[data-side-stories-status="released"]::before {
+    content: '\f4da';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+}
+
+/* Releasing - Blue with book-open icon */
+.grid-item .side-stories-icon[data-side-stories-status="releasing"] {
+    background-color: #007bff;
+    color: white;
+}
+
+.grid-item .side-stories-icon[data-side-stories-status="releasing"]::before {
+    content: '\f518';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+}
+
+/* Planned - Yellow/Orange with clock icon */
+.grid-item .side-stories-icon[data-side-stories-status="planned"] {
+    background-color: #ffc107;
+    color: black;
+}
+
+.grid-item .side-stories-icon[data-side-stories-status="planned"]::before {
+    content: '\f017';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+}
+
+/* Hover effect */
+.grid-item .side-stories-icon:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Add a subtle animation for released status */
+.grid-item .side-stories-icon[data-side-stories-status="released"] {
+    animation: side-stories-pulse 2s ease-in-out infinite;
+}
+
+@keyframes side-stories-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+
+
+
 
 

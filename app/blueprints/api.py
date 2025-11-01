@@ -324,6 +324,41 @@ def get_manga_titles():
         
     return jsonify(titles)
 
+@api_bp.route('/manga/<int:anilist_id>/side-stories', methods=['PUT'])
+@login_required
+def update_side_stories_status(anilist_id):
+    """Update the side stories status for a manga"""
+    try:
+        data = request.get_json()
+        status = data.get('status')
+        
+        # Validate status value
+        valid_statuses = ['none', 'released', 'releasing', 'planned']
+        if status not in valid_statuses:
+            return jsonify({'error': f'Invalid status. Must be one of: {valid_statuses}'}), 400
+        
+        # Find the manga
+        manga = db_session.query(MangaList).filter(MangaList.id_anilist == anilist_id).first()
+        if not manga:
+            return jsonify({'error': 'Manga not found'}), 404
+        
+        # Update the status
+        manga.side_stories_status = status
+        db_session.commit()
+        
+        logging.info(f"Updated side stories status for manga {anilist_id} to {status}")
+        
+        return jsonify({
+            'success': True,
+            'anilist_id': anilist_id,
+            'side_stories_status': status
+        })
+        
+    except Exception as e:
+        logging.error(f"Error updating side stories status: {e}")
+        db_session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 @api_bp.route('/notifications/refresh', methods=['POST'])
 @login_required
 @admin_required

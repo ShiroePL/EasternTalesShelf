@@ -179,6 +179,9 @@ function createGridItem(entry, isDevelopment, isAdmin) {
     // Add score as data attribute for sorting
     gridItem.setAttribute('data-score', entry.score || 0);
     
+    // Add side stories status as data attribute for filtering
+    gridItem.setAttribute('data-side-stories-status', entry.side_stories_status || 'none');
+    
     // Pre-calculate CSS order values for instant sorting
     const score = parseFloat(entry.score) || 0;
     const hasScore = entry.score && score > 0;
@@ -239,6 +242,12 @@ function createGridItem(entry, isDevelopment, isAdmin) {
     rereadIcon.className = 'reread-cover-icon';
     rereadIcon.setAttribute('data-reread-times', entry.reread_times);
     gridItem.appendChild(rereadIcon);
+    
+    // Add side stories icon
+    const sideStoriesIcon = document.createElement('div');
+    sideStoriesIcon.className = 'side-stories-icon';
+    sideStoriesIcon.setAttribute('data-side-stories-status', entry.side_stories_status || 'none');
+    gridItem.appendChild(sideStoriesIcon);
     
     // Add bato icon
     const batoIcon = document.createElement('div');
@@ -381,6 +390,7 @@ async function fetchMangaGridFromGraphQL(page, limit, sortBy = "-last_updated_on
             last_updated_on_site
             country_of_origin
             media_format
+            side_stories_status
         }
         mangaupdates_details {
             anilist_id

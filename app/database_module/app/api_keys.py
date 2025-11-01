@@ -12,7 +12,11 @@ def refresh_credentials():
         # Correctly use os.getenv() with parentheses
         user_name = os.getenv('DB_USER_NAME')
         db_password = os.getenv('DB_PASSWORD')
-        host_name = os.getenv('DB_HOST_NAME_VPS_CONTENER')
+        # Use correct hostname based on environment
+        if os.getenv('FLASK_ENV') == 'production':
+            host_name = os.getenv('DB_HOST_NAME_VPS_CONTENER')
+        else:
+            host_name = os.getenv('DB_HOST_NAME')
         db_name = os.getenv('ANILIST_DB_NAME')
 
         print("VARIABLES SET FROM DOPPLER")

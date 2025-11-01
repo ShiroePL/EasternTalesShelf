@@ -112,6 +112,7 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
             media_end_date
             genres
             external_links
+            side_stories_status
         }
         # Get related manga updates
         mangaupdates_details(filter: { anilist_id: { _eq: $id } }, limit: 1) {
@@ -154,6 +155,23 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
                              manga.title_romaji : 
                              manga.title_english;
         
+        // Fetch Bato.to manga info (latest chapter and upload status)
+        let batoLatestChapter = null;
+        let batoUploadStatus = null;
+        
+        try {
+            const batoResponse = await fetch(`/api/bato/manga-info/${anilistId}`);
+            if (batoResponse.ok) {
+                const batoData = await batoResponse.json();
+                if (batoData.success) {
+                    batoLatestChapter = batoData.latest_chapter || null;
+                    batoUploadStatus = batoData.upload_status || null;
+                }
+            }
+        } catch (error) {
+            console.log('Bato info not available for this manga');
+        }
+        
         return {
             anilistId: manga.id_anilist,
             title: displayTitle,
@@ -174,12 +192,16 @@ async function fetchMangaDetailsFromGraphQL(anilistId) {
             media_start_date: manga.media_start_date || 'None',
             media_end_date: manga.media_end_date || 'None',
             reread_times: manga.reread_times || 0,
+            side_stories_status: manga.side_stories_status || 'none',
             mangaupdates_status: mangaUpdates?.status || null,
             mangaupdates_licensed: mangaUpdates?.licensed || null,
             mangaupdates_completed: mangaUpdates?.completed || null,
             mangaupdates_last_updated: mangaUpdates?.last_updated_timestamp || null,
             mangaupdates_url: mangaUpdates?.mangaupdates_url || null,
             user_notes: manga.notes || 'None',
+            // Bato.to specific data
+            batoLatestChapter: batoLatestChapter,
+            batoUploadStatus: batoUploadStatus,
             // Parse JSON strings if needed
             externalLinksData: manga.external_links || '[]',
             genresData: manga.genres || '[]'

@@ -4,11 +4,14 @@ ChapterComparator - New Chapter Detection Service
 Compares scraped chapter data against database records to identify new chapters.
 Implements logic for single chapter vs batch notification determination.
 
+Uses canonical_chapter_id (extracted from URL, e.g., 'ch_0', 'ch_112') as the stable
+identifier to detect truly new chapters, even when Bato re-uploads with new chapter IDs.
+
 Requirements:
-- 2.1: Compare bato_chapter_id values against existing records
+- 2.1: Compare canonical_chapter_id values against existing records
 - 2.3: Determine batch updates (3+ chapters)
-- 6.6: Enforce unique constraint on (bato_link, chapter_number)
-- 6.7: Enforce unique constraint on bato_chapter_id
+- 6.6: Enforce unique constraint on (bato_link, canonical_chapter_id)
+- 6.7: Handle chapter re-uploads with new bato_chapter_id
 """
 
 from typing import List, Dict, Set
@@ -32,15 +35,20 @@ class ChapterComparator:
     
     def find_new_chapters(self, anilist_id: int, scraped_chapters: List[Dict]) -> List[Dict]:
         """
-        Identify chapters not in database by comparing bato_chapter_id.
+        Identify chapters not in database by comparing canonical_chapter_id.
         
         This is the main method for new chapter detection. It efficiently queries
-        existing chapter IDs and filters the scraped data to find only new chapters.
+        existing canonical chapter IDs and filters the scraped data to find only new chapters.
+        
+        canonical_chapter_id is extracted from the URL (e.g., 'ch_0', 'ch_112') and is
+        stable across chapter re-uploads. This prevents duplicate notifications when
+        Bato re-uploads a chapter with a new bato_chapter_id.
         
         Args:
             anilist_id: AniList manga ID
             scraped_chapters: List of chapter dictionaries from scraper with fields:
-                - bato_chapter_id (required): Unique chapter identifier
+                - bato_chapter_id (required): Unique chapter identifier (may change on re-upload)
+                - canonical_chapter_id (required): Stable identifier from URL (ch_0, ch_1, etc.)
                 - chapter_number (required): Position in list
                 - dname (required): Display name
                 - title (optional): Chapter subtitle
@@ -59,8 +67,8 @@ class ChapterComparator:
         Example:
             >>> comparator = ChapterComparator()
             >>> scraped = [
-            ...     {'bato_chapter_id': '2068065', 'dname': 'Chapter 112', ...},
-            ...     {'bato_chapter_id': '2068066', 'dname': 'Chapter 113', ...}
+            ...     {'bato_chapter_id': '2068065', 'canonical_chapter_id': 'ch_112', 'dname': 'Chapter 112', ...},
+            ...     {'bato_chapter_id': '2068066', 'canonical_chapter_id': 'ch_113', 'dname': 'Chapter 113', ...}
             ... ]
             >>> new_chapters = comparator.find_new_chapters(123456, scraped)
             >>> len(new_chapters)
@@ -71,19 +79,34 @@ class ChapterComparator:
             return []
         
         try:
-            # Get existing chapter IDs from database
-            existing_ids = self.get_existing_chapter_ids(anilist_id)
+            # Get existing canonical chapter IDs from database
+            existing_canonical_ids = self.get_existing_canonical_chapter_ids(anilist_id)
             
             logger.info(
                 f"Comparing {len(scraped_chapters)} scraped chapters against "
-                f"{len(existing_ids)} existing chapters for anilist_id {anilist_id}"
+                f"{len(existing_canonical_ids)} existing chapters for anilist_id {anilist_id}"
             )
             
-            # Filter out chapters that already exist
+            # Filter out chapters that already exist (by canonical_chapter_id)
+            # Skip chapters without canonical_chapter_id (shouldn't happen with updated scraper)
             new_chapters = [
                 chapter for chapter in scraped_chapters
-                if chapter.get('bato_chapter_id') not in existing_ids
+                if chapter.get('canonical_chapter_id') 
+                and chapter.get('canonical_chapter_id') not in existing_canonical_ids
             ]
+            
+            # Warn about chapters without canonical_chapter_id
+            missing_canonical_id = [
+                ch for ch in scraped_chapters 
+                if not ch.get('canonical_chapter_id')
+            ]
+            if missing_canonical_id:
+                logger.warning(
+                    f"Found {len(missing_canonical_id)} chapters without canonical_chapter_id "
+                    f"for anilist_id {anilist_id}. These will be treated as new chapters."
+                )
+                # Treat them as new (fallback behavior)
+                new_chapters.extend(missing_canonical_id)
             
             if new_chapters:
                 logger.info(
@@ -99,24 +122,48 @@ class ChapterComparator:
             logger.error(f"Error finding new chapters for anilist_id {anilist_id}: {e}")
             return []
     
+    def get_existing_canonical_chapter_ids(self, anilist_id: int) -> Set[str]:
+        """
+        Get set of canonical_chapter_id already in database for efficient comparison.
+        
+        This method provides O(1) lookup time for checking if a chapter exists,
+        which is critical for performance when comparing large chapter lists.
+        
+        Uses canonical_chapter_id (e.g., 'ch_0', 'ch_112') instead of bato_chapter_id
+        to correctly identify existing chapters even when they've been re-uploaded.
+        
+        Args:
+            anilist_id: AniList manga ID
+            
+        Returns:
+            Set of canonical_chapter_id strings
+            
+        Example:
+            >>> comparator = ChapterComparator()
+            >>> existing = comparator.get_existing_canonical_chapter_ids(123456)
+            >>> 'ch_112' in existing
+            True
+        """
+        try:
+            canonical_ids = self.repository.get_existing_canonical_chapter_ids(anilist_id)
+            logger.debug(f"Retrieved {len(canonical_ids)} existing canonical chapter IDs for anilist_id {anilist_id}")
+            return canonical_ids
+        except Exception as e:
+            logger.error(f"Error getting existing canonical chapter IDs for anilist_id {anilist_id}: {e}")
+            return set()
+    
     def get_existing_chapter_ids(self, anilist_id: int) -> Set[str]:
         """
         Get set of bato_chapter_id already in database for efficient comparison.
         
-        This method provides O(1) lookup time for checking if a chapter exists,
-        which is critical for performance when comparing large chapter lists.
+        DEPRECATED: Use get_existing_canonical_chapter_ids() instead for deduplication.
+        This method is kept for backward compatibility only.
         
         Args:
             anilist_id: AniList manga ID
             
         Returns:
             Set of bato_chapter_id strings
-            
-        Example:
-            >>> comparator = ChapterComparator()
-            >>> existing = comparator.get_existing_chapter_ids(123456)
-            >>> '2068065' in existing
-            True
         """
         try:
             chapter_ids = self.repository.get_existing_chapter_ids(anilist_id)
@@ -176,7 +223,7 @@ class ChapterComparator:
         Returns:
             True if all required fields are present, False otherwise
         """
-        required_fields = ['bato_chapter_id', 'chapter_number', 'dname', 'full_url']
+        required_fields = ['bato_chapter_id', 'canonical_chapter_id', 'chapter_number', 'dname', 'full_url']
         
         for field in required_fields:
             if field not in chapter or chapter[field] is None:

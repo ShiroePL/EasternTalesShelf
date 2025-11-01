@@ -4,6 +4,7 @@ services:
     restart: always
     container_name: EasternTalesShelf-website  # Custom container name
     environment:
+      - TZ=Europe/Warsaw
       - FLASK_ENV=production
       - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}  # Use Doppler service token for secret injection
     command: >
@@ -32,6 +33,7 @@ services:
     restart: always
     container_name: EasternTalesShelf-mangaupdates-updater
     environment:
+      - TZ=Europe/Warsaw
       - FLASK_ENV=production
       - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}
     command: doppler run -- python -m app.services.mangaupdates_update_service
@@ -52,6 +54,7 @@ services:
     restart: always
     container_name: EasternTalesShelf-bato-scraper-notifications
     environment:
+      - TZ=Europe/Warsaw
       - FLASK_ENV=production
       - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}
     command: doppler run -- python -m app.services.bato.bato_service_runner

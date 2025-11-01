@@ -66,8 +66,10 @@ body::-webkit-scrollbar-thumb {
 }
 
 @keyframes shake {
-    0%, 100% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
+    0%, 100% { opacity: 1; }
+    25% { opacity: 0.7; }
+    50% { opacity: 1; }
+    75% { opacity: 0.8; }
 }
 
 @keyframes flip {
@@ -87,7 +89,7 @@ body::-webkit-scrollbar-thumb {
 .status-icon.pulse { animation: pulse 1.5s ease-in-out infinite; }
 .status-icon.vertical-move { animation: vertical-move 2s ease-in-out infinite; }
 .status-icon.fade { animation: fade 2s linear infinite; }
-.status-icon.shake { animation: shake 0.5s ease-in-out infinite; }
+.status-icon.shake { animation: shake 2s ease-in-out infinite; }
 .chapter-icon.flip { animation: flip 3s ease-in-out infinite; }
 .progress-icon.bounce { animation: bounce 2s ease-in-out infinite; }
 

@@ -202,10 +202,26 @@ class BatoChaptersListGraphQL:
             
             # Transform chapters with error handling
             chapters = []
+            seen_canonical_ids = set()  # Track canonical IDs to detect duplicates
+            skipped_duplicates = 0
+            
             for idx, chapter_node in enumerate(chapters_list):
                 try:
                     chapter_data = chapter_node.get('data', {})
                     transformed = self._transform_chapter_data(chapter_data, idx)
+                    
+                    # Check for duplicate canonical_chapter_id
+                    canonical_id = transformed.get('canonical_chapter_id')
+                    if canonical_id:
+                        if canonical_id in seen_canonical_ids:
+                            logger.warning(
+                                f"Duplicate canonical_chapter_id '{canonical_id}' detected in API response "
+                                f"for manga {manga_id}, skipping duplicate entry"
+                            )
+                            skipped_duplicates += 1
+                            continue
+                        seen_canonical_ids.add(canonical_id)
+                    
                     chapters.append(transformed)
                 except Exception as e:
                     logger.warning(
@@ -213,6 +229,12 @@ class BatoChaptersListGraphQL:
                         "Skipping chapter."
                     )
                     continue
+            
+            if skipped_duplicates > 0:
+                logger.info(
+                    f"Removed {skipped_duplicates} duplicate chapter(s) from API response "
+                    f"for manga {manga_id}"
+                )
             
             if not chapters:
                 logger.error(f"All chapters failed to transform for manga {manga_id}")
@@ -305,16 +327,40 @@ class BatoChaptersListGraphQL:
             if not bato_chapter_id:
                 raise ValueError("Missing chapter ID")
             
-            # Chapter number (1-indexed, computed from position)
-            chapter_number = index + 1
+            # URL path from API
+            url_path = data.get('urlPath', '')
+            full_url = f"https://batotwo.com{url_path}" if url_path else ''
+            
+            # Extract canonical chapter ID from URL path
+            # Format: /title/XXXXX-name/YYYYYY-ch_Z
+            # We want: ch_Z (this is the stable identifier, even when chapters are re-uploaded)
+            canonical_chapter_id = None
+            chapter_number = index + 1  # Fallback to position-based
+            
+            if url_path:
+                try:
+                    # Split by '/' and get last part: 'YYYYYY-ch_Z'
+                    url_parts = url_path.rstrip('/').split('/')
+                    if url_parts:
+                        last_part = url_parts[-1]  # e.g., '1302077-ch_0'
+                        # Split by '-' and find part starting with 'ch_'
+                        for part in last_part.split('-'):
+                            if part.startswith('ch_'):
+                                canonical_chapter_id = part  # e.g., 'ch_0'
+                                # Try to extract numeric chapter number from ch_X
+                                try:
+                                    ch_num = part[3:]  # Remove 'ch_' prefix
+                                    if ch_num.replace('.', '').isdigit():
+                                        chapter_number = float(ch_num)
+                                except:
+                                    pass
+                                break
+                except Exception as e:
+                    logger.debug(f"Failed to extract canonical_chapter_id from URL: {e}")
             
             # Display name and title from API
             dname = data.get('dname', '')
             title = data.get('title')  # Can be null
-            
-            # URL path from API
-            url_path = data.get('urlPath', '')
-            full_url = f"https://batotwo.com{url_path}" if url_path else ''
             
             # Dates (handle both Unix timestamps and ISO strings)
             date_create = None
@@ -324,9 +370,11 @@ class BatoChaptersListGraphQL:
                 try:
                     date_val = data['dateCreate']
                     if isinstance(date_val, int):
-                        # Unix timestamp (validate range: 1970-2100)
-                        if 0 <= date_val <= 4102444800:  # Jan 1, 2100
-                            dt = datetime.fromtimestamp(date_val)
+                        # Unix timestamp in milliseconds (13 digits) - convert to seconds
+                        timestamp_seconds = date_val / 1000
+                        # Validate range: 1970-2100 in seconds
+                        if 0 <= timestamp_seconds <= 4102444800:  # Jan 1, 2100
+                            dt = datetime.fromtimestamp(timestamp_seconds)
                             date_create = dt.strftime('%Y-%m-%d %H:%M:%S')
                     else:
                         # ISO string
@@ -340,9 +388,11 @@ class BatoChaptersListGraphQL:
                 try:
                     date_val = data['datePublic']
                     if isinstance(date_val, int):
-                        # Unix timestamp (validate range: 1970-2100)
-                        if 0 <= date_val <= 4102444800:  # Jan 1, 2100
-                            dt = datetime.fromtimestamp(date_val)
+                        # Unix timestamp in milliseconds (13 digits) - convert to seconds
+                        timestamp_seconds = date_val / 1000
+                        # Validate range: 1970-2100 in seconds
+                        if 0 <= timestamp_seconds <= 4102444800:  # Jan 1, 2100
+                            dt = datetime.fromtimestamp(timestamp_seconds)
                             date_public = dt.strftime('%Y-%m-%d %H:%M:%S')
                     else:
                         # ISO string
@@ -360,6 +410,7 @@ class BatoChaptersListGraphQL:
             
             return {
                 'bato_chapter_id': bato_chapter_id,
+                'canonical_chapter_id': canonical_chapter_id,
                 'chapter_number': chapter_number,
                 'dname': dname,
                 'title': title,

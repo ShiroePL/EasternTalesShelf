@@ -51,6 +51,7 @@ class MangaList(Base):
     genres = Column(Text, default='none genres provided')
     external_links = Column(Text, default='none links associated')
     bato_link = Column(Text, default='')
+    side_stories_status = Column(String(50), default='none')
 
     @classmethod
     def create_table_if_not_exists(cls, engine):

@@ -249,9 +249,41 @@ class BatoRepository:
             db_session.remove()
     
     @staticmethod
+    def get_existing_canonical_chapter_ids(anilist_id: int) -> Set[str]:
+        """
+        Get set of canonical_chapter_id already in database for efficient comparison.
+        
+        Uses canonical_chapter_id (e.g., 'ch_0', 'ch_112') extracted from URLs
+        for stable chapter identification across re-uploads.
+        
+        Args:
+            anilist_id: AniList manga ID
+            
+        Returns:
+            Set of canonical_chapter_id strings
+        """
+        try:
+            canonical_ids = db_session.query(BatoChapters.canonical_chapter_id).filter(
+                and_(
+                    BatoChapters.anilist_id == anilist_id,
+                    BatoChapters.canonical_chapter_id.isnot(None)
+                )
+            ).all()
+            return {canonical_id[0] for canonical_id in canonical_ids}
+        except Exception as e:
+            logger.error(f"Error fetching existing canonical chapter IDs for anilist_id {anilist_id}: {e}")
+            db_session.rollback()
+            return set()
+        finally:
+            db_session.remove()
+    
+    @staticmethod
     def get_existing_chapter_ids(anilist_id: int) -> Set[str]:
         """
         Get set of bato_chapter_id already in database for efficient comparison.
+        
+        DEPRECATED: Use get_existing_canonical_chapter_ids() instead for deduplication.
+        This method is kept for backward compatibility only.
         
         Args:
             anilist_id: AniList manga ID
@@ -277,14 +309,27 @@ class BatoRepository:
         Efficiently insert multiple chapters with comprehensive error handling.
         
         Handles:
+        - Duplicate canonical_chapter_id: replaces old entry with new one (chapter re-upload)
         - Duplicate key errors (expected for existing chapters)
         - Foreign key violations
         - Deadlocks with retry logic
         
+        When a chapter with the same canonical_chapter_id exists, the old entry is deleted
+        and replaced with the new one. This handles Bato re-uploads where the bato_chapter_id
+        changes but the canonical_chapter_id (from URL) stays the same.
+        
         Requirement 5.5: Database error handling
         
         Args:
-            chapters: List of chapter dictionaries
+            chapters: List of chapter dictionaries with required fields:
+                - bato_chapter_id
+                - canonical_chapter_id
+                - anilist_id
+                - bato_link
+                - chapter_number
+                - dname
+                - url_path
+                - full_url
             
         Returns:
             Number of chapters successfully inserted
@@ -293,59 +338,122 @@ class BatoRepository:
             logger.debug("No chapters to insert")
             return 0
         
+        # Deduplicate within the batch itself to prevent constraint violations
+        # Key: (bato_link, canonical_chapter_id)
+        seen_combinations = set()
+        deduplicated_chapters = []
+        
+        for chapter_data in chapters:
+            canonical_id = chapter_data.get('canonical_chapter_id')
+            bato_link = chapter_data.get('bato_link')
+            bato_chapter_id = chapter_data.get('bato_chapter_id')
+            
+            if canonical_id and bato_link:
+                combo_key = (bato_link, canonical_id)
+                if combo_key in seen_combinations:
+                    logger.warning(
+                        f"Duplicate canonical_chapter_id '{canonical_id}' found in batch for {bato_link}, "
+                        f"keeping first occurrence (bato_chapter_id may differ)"
+                    )
+                    continue
+                seen_combinations.add(combo_key)
+            
+            deduplicated_chapters.append(chapter_data)
+        
+        if len(deduplicated_chapters) < len(chapters):
+            logger.info(
+                f"Deduplicated batch: {len(chapters)} → {len(deduplicated_chapters)} chapters "
+                f"({len(chapters) - len(deduplicated_chapters)} duplicates removed)"
+            )
+        
         inserted_count = 0
         max_retries = 3
         
         for attempt in range(1, max_retries + 1):
             try:
-                for chapter_data in chapters:
+                for chapter_data in deduplicated_chapters:
                     try:
-                        # Check if chapter already exists
-                        existing = db_session.query(BatoChapters).filter(
-                            BatoChapters.bato_chapter_id == chapter_data['bato_chapter_id']
+                        canonical_id = chapter_data.get('canonical_chapter_id')
+                        bato_chapter_id = chapter_data.get('bato_chapter_id')
+                        bato_link = chapter_data.get('bato_link')
+                        
+                        if not canonical_id:
+                            logger.warning(
+                                f"Chapter {bato_chapter_id} missing canonical_chapter_id, "
+                                "using fallback behavior"
+                            )
+                        
+                        # Check for existing chapter by canonical_chapter_id (stable identifier)
+                        if canonical_id and bato_link:
+                            existing_by_canonical = db_session.query(BatoChapters).filter(
+                                and_(
+                                    BatoChapters.bato_link == bato_link,
+                                    BatoChapters.canonical_chapter_id == canonical_id
+                                )
+                            ).first()
+                            
+                            if existing_by_canonical:
+                                # Chapter re-upload detected: delete old entry, insert new one
+                                if existing_by_canonical.bato_chapter_id != bato_chapter_id:
+                                    logger.info(
+                                        f"Chapter re-upload detected for {canonical_id}: "
+                                        f"old ID {existing_by_canonical.bato_chapter_id} → "
+                                        f"new ID {bato_chapter_id}. Replacing old entry."
+                                    )
+                                    db_session.delete(existing_by_canonical)
+                                    db_session.flush()  # Ensure delete completes before insert
+                                else:
+                                    # Exact same chapter already exists
+                                    logger.debug(
+                                        f"Chapter {bato_chapter_id} ({canonical_id}) "
+                                        "already exists, skipping"
+                                    )
+                                    continue
+                        
+                        # Check if bato_chapter_id already exists (secondary check)
+                        existing_by_id = db_session.query(BatoChapters).filter(
+                            BatoChapters.bato_chapter_id == bato_chapter_id
                         ).first()
                         
-                        if not existing:
+                        if not existing_by_id:
                             chapter = BatoChapters(**chapter_data)
                             db_session.add(chapter)
                             inserted_count += 1
                         else:
                             logger.debug(
-                                f"Chapter {chapter_data.get('bato_chapter_id')} "
-                                "already exists, skipping"
+                                f"Chapter {bato_chapter_id} "
+                                "already exists by ID, skipping"
                             )
-                    
-                    except IntegrityError as e:
-                        # Requirement 5.5: Handle duplicate key errors
-                        error_msg = str(e).lower()
-                        if 'duplicate' in error_msg or 'unique constraint' in error_msg:
-                            logger.debug(
-                                f"Duplicate chapter {chapter_data.get('bato_chapter_id')}, "
-                                "skipping (expected)"
-                            )
-                            db_session.rollback()
-                            continue
-                        elif 'foreign key' in error_msg:
-                            logger.error(
-                                f"Foreign key violation for chapter "
-                                f"{chapter_data.get('bato_chapter_id')}: {e}"
-                            )
-                            db_session.rollback()
-                            continue
-                        else:
-                            raise
                     
                     except Exception as e:
                         logger.warning(
-                            f"Error inserting chapter {chapter_data.get('bato_chapter_id')}: {e}"
+                            f"Error preparing chapter {chapter_data.get('bato_chapter_id')}: {e}"
                         )
-                        db_session.rollback()
                         continue
                 
-                # Commit all inserts
-                db_session.commit()
-                logger.info(f"Successfully inserted {inserted_count} chapters")
-                return inserted_count
+                # Commit all inserts/updates with IntegrityError handling
+                try:
+                    db_session.commit()
+                    logger.info(f"Successfully inserted {inserted_count} chapters")
+                    return inserted_count
+                    
+                except IntegrityError as e:
+                    # Requirement 5.5: Handle duplicate key errors during commit
+                    error_msg = str(e).lower()
+                    if 'duplicate' in error_msg or 'unique constraint' in error_msg:
+                        logger.warning(
+                            f"Duplicate constraint violation during commit: {e}. "
+                            "Rolling back and continuing."
+                        )
+                        db_session.rollback()
+                        # Return count of what was attempted (some may have succeeded)
+                        return inserted_count
+                    elif 'foreign key' in error_msg:
+                        logger.error(f"Foreign key violation during commit: {e}")
+                        db_session.rollback()
+                        return inserted_count
+                    else:
+                        raise
                 
             except OperationalError as e:
                 # Requirement 5.5: Handle deadlocks
@@ -378,6 +486,33 @@ class BatoRepository:
                 db_session.remove()
         
         return inserted_count
+    
+    @staticmethod
+    def get_latest_chapter(anilist_id: int) -> Optional[BatoChapters]:
+        """
+        Get the most recent chapter by date_public for a manga.
+        This shows the actual latest chapter available, regardless of deleted chapters.
+        
+        Args:
+            anilist_id: AniList manga ID
+            
+        Returns:
+            BatoChapters object or None if no chapters found
+        """
+        try:
+            chapter = db_session.query(BatoChapters).filter(
+                and_(
+                    BatoChapters.anilist_id == anilist_id,
+                    BatoChapters.date_public.isnot(None)
+                )
+            ).order_by(desc(BatoChapters.date_public)).first()
+            return chapter
+        except Exception as e:
+            logger.error(f"Error fetching latest chapter for anilist_id {anilist_id}: {e}")
+            db_session.rollback()
+            return None
+        finally:
+            db_session.remove()
     
     @staticmethod
     def get_chapter_dates(anilist_id: int, limit: Optional[int] = None) -> List[datetime]:

@@ -36,6 +36,13 @@ function filterEntries() {
     const countryKorea = document.getElementById('countryKorea')?.checked || false;
     const isFavorite_checkbox = document.getElementById('isFavorite_checkbox')?.checked || false;
     const isRereaded_checkbox = document.getElementById('isRereaded_checkbox')?.checked || false;
+    
+    // Side stories filters
+    const sideStoriesReleased = document.getElementById('sideStories_released_checkbox')?.checked || false;
+    const sideStoriesReleasing = document.getElementById('sideStories_releasing_checkbox')?.checked || false;
+    const sideStoriesPlanned = document.getElementById('sideStories_planned_checkbox')?.checked || false;
+    const sideStoriesNone = document.getElementById('sideStories_none_checkbox')?.checked || false;
+    const sideStoriesUnknown = document.getElementById('sideStories_unknown_checkbox')?.checked || false;
 
     const items = document.querySelectorAll('.grid-item');
     let visibleCount = 0;
@@ -48,6 +55,7 @@ function filterEntries() {
         const itemReleasingStatus = (item.getAttribute('data-release-status') || '').toLowerCase();
         const isFavorite = item.getAttribute('data-is-favourite') === '1';
         const rereadTimes = parseInt(item.getAttribute('data-reread-times') || '0');
+        const sideStoriesStatus = item.getAttribute('data-side-stories-status') || 'none';
 
         // Match title (text search)
         const matchesTitle = titleFilter === '' || title.includes(titleFilter);
@@ -62,6 +70,15 @@ function filterEntries() {
         
         // Match reread filter
         const matchesRereaded = !isRereaded_checkbox || rereadTimes > 0;
+        
+        // Match side stories filter
+        const anySideStoriesFilterActive = sideStoriesReleased || sideStoriesReleasing || sideStoriesPlanned || sideStoriesNone || sideStoriesUnknown;
+        const matchesSideStories = !anySideStoriesFilterActive || 
+                                  (sideStoriesReleased && sideStoriesStatus === 'released') ||
+                                  (sideStoriesReleasing && sideStoriesStatus === 'releasing') ||
+                                  (sideStoriesPlanned && sideStoriesStatus === 'planned') ||
+                                  (sideStoriesNone && sideStoriesStatus === 'none') ||
+                                  (sideStoriesUnknown && sideStoriesStatus === 'unknown');
         
         // Match user status (COMPLETED, CURRENT, etc.)
         const matchesStatus = !window.currentStatusFilter || window.currentStatusFilter === '' || 
@@ -88,7 +105,7 @@ function filterEntries() {
 
         // All filters must match for the item to be visible
         if (matchesTitle && sidebarCountryFilter && matchesStatus && matchesFilterType && 
-            matchesReleasingStatus && matchesFavorite && matchesRereaded) {
+            matchesReleasingStatus && matchesFavorite && matchesRereaded && matchesSideStories) {
                 item.style.display = '';
             visibleCount++;
             } else {

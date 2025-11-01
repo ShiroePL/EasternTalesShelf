@@ -62,6 +62,46 @@
         </div>
     </div>
 
+    <h5>Side Stories</h5>
+    <div class="mb-3">
+        <div class="row" style="--bs-gutter-x: 1.0rem;">
+            <div class="col-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="released" id="sideStories_released_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="sideStories_released_checkbox">
+                        <i class="fas fa-book-medical" style="color: #28a745;"></i> Released
+                    </label>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="releasing" id="sideStories_releasing_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="sideStories_releasing_checkbox">
+                        <i class="fas fa-book-open" style="color: #007bff;"></i> Releasing
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-2" style="--bs-gutter-x: 1.0rem;">
+            <div class="col-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="planned" id="sideStories_planned_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="sideStories_planned_checkbox">
+                        <i class="fas fa-clock" style="color: #ffc107;"></i> Planned
+                    </label>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="none" id="sideStories_none_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="sideStories_none_checkbox">
+                        <i class="fas fa-question-circle" style="color: #6c757d;"></i> None
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <h5>Sort By</h5>
     <div class="dropdown mb-3">
         <button class="btn btn-secondary dropdown-toggle w-100" type="button" id="sortDropdown" data-bs-toggle="dropdown" aria-expanded="false">
