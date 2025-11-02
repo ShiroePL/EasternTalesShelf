@@ -171,10 +171,11 @@ def get_manga_chapters(anilist_id):
 
 
 @bato_notifications_bp.route('/api/bato/manga-info/<int:anilist_id>', methods=['GET'])
-@login_required
 def get_bato_manga_info(anilist_id):
     """
     Get Bato.to manga information (latest chapter and upload status).
+    
+    This is public read-only information that doesn't require authentication.
     
     Args:
         anilist_id (int): AniList manga ID

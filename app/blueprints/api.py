@@ -326,8 +326,9 @@ def get_manga_titles():
 
 @api_bp.route('/manga/<int:anilist_id>/side-stories', methods=['PUT'])
 @login_required
+@admin_required
 def update_side_stories_status(anilist_id):
-    """Update the side stories status for a manga"""
+    """Update the side stories status for a manga (Admin only)"""
     try:
         data = request.get_json()
         status = data.get('status')

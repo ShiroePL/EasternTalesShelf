@@ -109,11 +109,11 @@ export function updateSidebarInfo(data) {
         const batoStatusData = formatBatoUploadStatus(data.batoUploadStatus);
         if (batoStatusData) {
             sidebarInfoHTML += `
-        <p><i class="fas fa-cloud-upload-alt"></i> <span style="color: ${batoStatusData.color};">Batotwo Release: ${batoStatusData.statusCapitalized}</span></p>`;
+        <p><i class="fas fa-cloud-upload-alt"></i> <span style="color: ${batoStatusData.color};">Batotwo: ${batoStatusData.statusCapitalized}</span></p>`;
         }
     }
 
-    // Add Side Stories selector with custom dropdown design
+    // Add Side Stories selector with custom dropdown design (admin only) or read-only display
     const currentStatus = data.side_stories_status || 'none';
     const statusLabels = {
         'none': '❓ None',
@@ -124,49 +124,72 @@ export function updateSidebarInfo(data) {
     
     const isNone = currentStatus === 'none';
     
+    // Always show the compact display for everyone
     sidebarInfoHTML += `
-        <div class="side-stories-inline mt-2">
+        <div class="side-stories-inline mt-2" id="sideStoriesContainer">
             <div class="side-stories-header">
                 <span class="side-stories-label">
                     <i class="fas fa-book-medical"></i> Side Stories:
                 </span>
-                ${isNone ? `<button class="side-stories-reveal-btn" id="revealSideStoriesBtn"><i class="fas fa-eye"></i></button>` : ''}
-            </div>
-            <div class="custom-side-stories-dropdown ${isNone ? 'hidden' : ''}" id="sideStoriesDropdown">
-                <div class="custom-dropdown-selected" data-value="${currentStatus}">
-                    <span class="dropdown-text">${statusLabels[currentStatus]}</span>
-                    <span class="dropdown-arrow">▼</span>
-                </div>
-                <div class="custom-dropdown-options">
-                    <div class="custom-dropdown-option ${currentStatus === 'none' ? 'active' : ''}" data-value="none">❓ None</div>
-                    <div class="custom-dropdown-option ${currentStatus === 'released' ? 'active' : ''}" data-value="released">✓ Released</div>
-                    <div class="custom-dropdown-option ${currentStatus === 'releasing' ? 'active' : ''}" data-value="releasing">📖 Releasing</div>
-                    <div class="custom-dropdown-option ${currentStatus === 'planned' ? 'active' : ''}" data-value="planned">⏰ Planned</div>
-                </div>
+                <span class="side-stories-value" id="sideStoriesDisplay" data-current-status="${currentStatus}">${statusLabels[currentStatus]}</span>
             </div>
         </div>`;
 
     $('#sidebar-info').html(sidebarInfoHTML);
     
+    // Check if user is admin and make the value clickable for dropdown functionality
+    if (window.isUserAdmin && isLoggedIn) {
+        window.isUserAdmin().then(isAdmin => {
+            if (isAdmin) {
+                // Make the value clickable and add visual cue for admins
+                const $sideStoriesValue = $('#sideStoriesDisplay');
+                $sideStoriesValue.addClass('admin-clickable');
+                
+                // Add click handler to show dropdown
+                $sideStoriesValue.off('click').on('click', function(e) {
+                    e.stopPropagation();
+                    
+                    // Replace with dropdown on first click
+                    const currentStatus = $(this).attr('data-current-status');
+                    const dropdownHTML = `
+                        <div class="custom-side-stories-dropdown" id="sideStoriesDropdown">
+                            <div class="custom-dropdown-selected active" data-value="${currentStatus}">
+                                <span class="dropdown-text">${statusLabels[currentStatus]}</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </div>
+                            <div class="custom-dropdown-options show">
+                                <div class="custom-dropdown-option ${currentStatus === 'none' ? 'active' : ''}" data-value="none">❓ None</div>
+                                <div class="custom-dropdown-option ${currentStatus === 'released' ? 'active' : ''}" data-value="released">✓ Released</div>
+                                <div class="custom-dropdown-option ${currentStatus === 'releasing' ? 'active' : ''}" data-value="releasing">📖 Releasing</div>
+                                <div class="custom-dropdown-option ${currentStatus === 'planned' ? 'active' : ''}" data-value="planned">⏰ Planned</div>
+                            </div>
+                        </div>`;
+                    
+                    $('#sideStoriesContainer').html(`
+                        <div class="side-stories-header">
+                            <span class="side-stories-label">
+                                <i class="fas fa-book-medical"></i> Side Stories:
+                            </span>
+                        </div>
+                        ${dropdownHTML}
+                    `);
+                    
+                    initializeSideStoriesDropdown();
+                });
+            }
+        }).catch(err => {
+            console.log('Could not check admin status, keeping read-only display');
+        });
+    }
+}
+
+// Separate function to initialize side stories dropdown (for admin users only)
+function initializeSideStoriesDropdown() {
     // Initialize custom dropdown behavior
     const dropdown = $('#sideStoriesDropdown');
     const selected = dropdown.find('.custom-dropdown-selected');
     const options = dropdown.find('.custom-dropdown-options');
     const optionElements = dropdown.find('.custom-dropdown-option');
-    const revealBtn = $('#revealSideStoriesBtn');
-    
-    // Handle reveal button click (when status is none)
-    revealBtn.off('click').on('click', function(e) {
-        e.stopPropagation();
-        $(this).fadeOut(200, function() {
-            dropdown.removeClass('hidden').hide().slideDown(300);
-            // Auto-open the dropdown after revealing
-            setTimeout(() => {
-                selected.addClass('active');
-                options.addClass('show');
-            }, 100);
-        });
-    });
     
     // Toggle dropdown on click
     selected.off('click').on('click', function(e) {
