@@ -584,9 +584,6 @@ class SchedulingEngine:
                 logger.warning(
                     f"No chapters found for anilist_id {anilist_id} during pattern analysis update"
                 )
-                f"preferred_day={preferred_day}, "
-                f"confidence={confidence:.2f}"
-            )
             
         except Exception as e:
             logger.error(f"Error updating pattern analysis for anilist_id {anilist_id}: {e}")
