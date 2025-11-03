@@ -69,8 +69,11 @@ class BatoScrapingService:
     MAX_RETRY_DELAY = 60  # seconds
     
     # Rate limiting to mimic human behavior and respect Bato.to API
-    MIN_DELAY_BETWEEN_SCRAPES = 4.0  # Minimum 4 seconds between manga scrapes
-    MAX_DELAY_BETWEEN_SCRAPES = 7.0  # Maximum 7 seconds between manga scrapes
+    # CRITICAL: Batotwo's GraphQL API is undocumented/internal - we're impersonating browser
+    # Using ULTRA-SAFE delays to avoid detection (see STEALTH_AND_RATE_LIMITING.md)
+    MIN_DELAY_BETWEEN_SCRAPES = 6.0  # Minimum 6 seconds between manga scrapes
+    MAX_DELAY_BETWEEN_SCRAPES = 12.0  # Maximum 12 seconds between manga scrapes
+    # This gives ~2-8 requests/minute, well within safe limits
     
     def __init__(self, standalone_mode: bool = False):
         """
@@ -243,7 +246,7 @@ class BatoScrapingService:
         logger.info(
             f"Starting SEQUENTIAL scraping of {len(manga_list)} manga "
             f"with {self.MIN_DELAY_BETWEEN_SCRAPES}-{self.MAX_DELAY_BETWEEN_SCRAPES}s "
-            "delays between each"
+            "delays between each (ultra-safe mode for stealth)"
         )
         
         # Process manga one at a time with delays

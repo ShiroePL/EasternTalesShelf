@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from app.services.bato.pattern_analyzer import PatternAnalyzer
 from app.database_module.bato_repository import BatoRepository
 import logging
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +44,113 @@ class SchedulingEngine:
     INTERVAL_MULTIPLIER = 0.80  # Requirement 3.4: 80% of average
     MIN_RELEASES_FOR_PATTERN = 3  # Requirement 3.3
     
-    # Adjustment factors
+    # Adjustment factors for inactive manga
     NO_UPDATE_PENALTY_MULTIPLIER = 1.5  # Increase interval by 50% when no updates
     MAX_NO_UPDATE_INCREASES = 3  # Stop increasing after 3 consecutive no-updates
+    
+    # Time-based thresholds for inactive manga handling
+    DAYS_INACTIVE_SHORT = 30  # Less than 30 days = recently active
+    DAYS_INACTIVE_MEDIUM = 90  # 30-90 days = moderately inactive
+    DAYS_INACTIVE_LONG = 180  # 90-180 days = very inactive
+    # Over 180 days = likely abandoned, but keep checking occasionally
+    
+    # Max interval even with penalties (prevents extreme scheduling)
+    ABSOLUTE_MAX_INTERVAL_DAYS = 21  # Never schedule more than 3 weeks out
+    
+    # Jitter/randomization for schedule spreading (STEALTH FEATURE)
+    # Adds random time to schedules to prevent predictable patterns
+    # This spreads scraping across hours/days instead of clustering
+    JITTER_MIN_HOURS = -2  # Can schedule up to 2 hours earlier
+    JITTER_MAX_HOURS = 6   # Can schedule up to 6 hours later
+    # Result: Same manga scraped at different times each cycle
     
     def __init__(self):
         """Initialize the SchedulingEngine with dependencies."""
         self.pattern_analyzer = PatternAnalyzer()
         self.repository = BatoRepository()
+    
+    def _get_days_since_last_chapter(self, anilist_id: int) -> Optional[float]:
+        """
+        Calculate how many days since the last chapter was released.
+        
+        This helps determine if manga is still actively releasing or has gone inactive.
+        
+        Args:
+            anilist_id: AniList manga ID
+            
+        Returns:
+            Days since last chapter release, or None if no chapters found
+        """
+        try:
+            chapter_dates = self.repository.get_chapter_dates(anilist_id, limit=1)
+            
+            if not chapter_dates:
+                return None
+            
+            last_chapter_date = chapter_dates[0]
+            days_since = (datetime.now() - last_chapter_date).total_seconds() / 86400
+            
+            return days_since
+            
+        except Exception as e:
+            logger.error(f"Error calculating days since last chapter for anilist_id {anilist_id}: {e}")
+            return None
+    
+    def _apply_schedule_jitter(self, next_scrape_time: datetime, anilist_id: int) -> datetime:
+        """
+        Apply random jitter to schedule time for stealth and pattern breaking.
+        
+        This is a CRITICAL stealth feature that prevents predictable scraping patterns.
+        Without jitter, all manga get scraped at the same relative times, creating
+        obvious automated patterns. With jitter, scraping times drift and spread out,
+        looking like organic human browsing.
+        
+        Benefits:
+        - Prevents clustering (50 manga all scraped at 3pm every day)
+        - Makes detection nearly impossible (no predictable patterns)
+        - Spreads server load naturally over time
+        - Each manga drifts to different times over multiple cycles
+        
+        Example:
+        Without jitter: Manga scraped at 15:00, 15:02, 15:05 every day
+        With jitter: First cycle 15:00, 14:23, 16:45, next cycle 16:12, 13:58, 17:22
+        
+        Args:
+            next_scrape_time: Calculated next scrape time
+            anilist_id: Manga ID (used for logging)
+            
+        Returns:
+            Adjusted scrape time with random jitter applied
+        """
+        try:
+            # Generate random jitter in hours
+            jitter_hours = random.uniform(self.JITTER_MIN_HOURS, self.JITTER_MAX_HOURS)
+            
+            # Apply jitter
+            jittered_time = next_scrape_time + timedelta(hours=jitter_hours)
+            
+            # Ensure we don't schedule in the past
+            now = datetime.now()
+            if jittered_time < now:
+                # If jitter pushed it to the past, just use a small random delay from now
+                jittered_time = now + timedelta(minutes=random.randint(5, 30))
+                logger.debug(
+                    f"Jitter resulted in past time for anilist_id {anilist_id}, "
+                    f"rescheduling to {jittered_time.strftime('%Y-%m-%d %H:%M')}"
+                )
+            else:
+                logger.debug(
+                    f"Applied jitter for anilist_id {anilist_id}: "
+                    f"{jitter_hours:+.2f}h (original: {next_scrape_time.strftime('%H:%M')}, "
+                    f"jittered: {jittered_time.strftime('%H:%M')})"
+                )
+            
+            return jittered_time
+            
+        except Exception as e:
+            logger.error(f"Error applying jitter for anilist_id {anilist_id}: {e}")
+            # Return original time if jitter fails
+            return next_scrape_time
     
     def calculate_next_scrape_time(self, anilist_id: int, 
                                    current_time: Optional[datetime] = None) -> datetime:
@@ -100,6 +200,9 @@ class SchedulingEngine:
             # Get chapter dates for pattern analysis
             chapter_dates = self.repository.get_chapter_dates(anilist_id)
             
+            # Check how long since last chapter was released
+            days_since_last_chapter = self._get_days_since_last_chapter(anilist_id)
+            
             # If insufficient data, use default interval (Requirement 3.1)
             if not chapter_dates or len(chapter_dates) < self.MIN_RELEASES_FOR_PATTERN:
                 logger.info(
@@ -112,17 +215,47 @@ class SchedulingEngine:
             # Calculate interval based on patterns
             interval_hours = self._calculate_interval_from_pattern(chapter_dates, schedule)
             
+            # Adjust interval based on inactivity (smarter scheduling for abandoned manga)
+            if days_since_last_chapter is not None:
+                interval_hours = self._adjust_for_inactivity(
+                    interval_hours, 
+                    days_since_last_chapter,
+                    anilist_id
+                )
+            
             # Apply min/max constraints (Requirements 3.5, 3.6)
             interval_hours = self._enforce_interval_constraints(interval_hours)
+            
+            # Apply absolute maximum to prevent extreme scheduling
+            absolute_max_hours = self.ABSOLUTE_MAX_INTERVAL_DAYS * 24
+            if interval_hours > absolute_max_hours:
+                logger.warning(
+                    f"Interval {interval_hours:.1f}h exceeds absolute maximum, "
+                    f"capping at {absolute_max_hours}h ({self.ABSOLUTE_MAX_INTERVAL_DAYS} days) "
+                    f"for anilist_id {anilist_id}"
+                )
+                interval_hours = float(absolute_max_hours)
             
             # Calculate next scrape time
             next_scrape_time = current_time + timedelta(hours=interval_hours)
             
-            logger.info(
-                f"Calculated next scrape for anilist_id {anilist_id}: "
-                f"{next_scrape_time.strftime('%Y-%m-%d %H:%M')} "
-                f"(interval: {interval_hours:.1f}h)"
-            )
+            # Apply random jitter to prevent predictable patterns (STEALTH FEATURE)
+            next_scrape_time = self._apply_schedule_jitter(next_scrape_time, anilist_id)
+            
+            # Enhanced logging with context
+            log_parts = [
+                f"anilist_id {anilist_id}:",
+                f"next_scrape={next_scrape_time.strftime('%Y-%m-%d %H:%M')}",
+                f"interval={interval_hours:.1f}h ({interval_hours/24:.1f} days)"
+            ]
+            
+            if days_since_last_chapter is not None:
+                log_parts.append(f"days_since_last_chapter={days_since_last_chapter:.1f}")
+            
+            if schedule and schedule.consecutive_no_update_count > 0:
+                log_parts.append(f"no_updates={schedule.consecutive_no_update_count}")
+            
+            logger.info("Calculated next scrape (with jitter): " + ", ".join(log_parts))
             
             return next_scrape_time
             
@@ -168,9 +301,10 @@ class SchedulingEngine:
                 interval_days = avg_interval_days * self.INTERVAL_MULTIPLIER
                 interval_hours = interval_days * 24
                 
-                logger.debug(
+                logger.info(
                     f"Using average interval: {avg_interval_days:.1f} days "
-                    f"* {self.INTERVAL_MULTIPLIER} = {interval_hours:.1f}h"
+                    f"* {self.INTERVAL_MULTIPLIER} = {interval_hours:.1f}h "
+                    f"({interval_days:.1f} days)"
                 )
                 
                 # Apply no-update penalty if applicable
@@ -225,6 +359,66 @@ class SchedulingEngine:
         
         return interval_hours
     
+    def _adjust_for_inactivity(self, interval_hours: float, 
+                               days_since_last_chapter: float,
+                               anilist_id: int) -> float:
+        """
+        Adjust interval based on how long since last chapter was released.
+        
+        Strategy:
+        - Recently active (<30 days): Keep checking frequently, no penalty
+        - Moderately inactive (30-90 days): Slight increase, check weekly
+        - Very inactive (90-180 days): Check every 2 weeks
+        - Likely abandoned (>180 days): Check every 3 weeks, but don't give up
+        
+        This prevents the system from over-checking manga that haven't updated in months
+        while ensuring we don't completely abandon them.
+        
+        Args:
+            interval_hours: Base interval in hours
+            days_since_last_chapter: Days since last chapter release
+            anilist_id: Manga ID for logging
+            
+        Returns:
+            Adjusted interval in hours
+        """
+        if days_since_last_chapter <= self.DAYS_INACTIVE_SHORT:
+            # Recently active - no adjustment needed
+            logger.debug(
+                f"Manga {anilist_id} is recently active ({days_since_last_chapter:.1f} days), "
+                f"no inactivity adjustment"
+            )
+            return interval_hours
+        
+        elif days_since_last_chapter <= self.DAYS_INACTIVE_MEDIUM:
+            # Moderately inactive - check weekly
+            target_hours = 168.0  # 7 days
+            adjusted = max(interval_hours, target_hours)
+            logger.info(
+                f"Manga {anilist_id} moderately inactive ({days_since_last_chapter:.1f} days), "
+                f"adjusted interval to {adjusted:.1f}h (weekly checks)"
+            )
+            return adjusted
+        
+        elif days_since_last_chapter <= self.DAYS_INACTIVE_LONG:
+            # Very inactive - check every 2 weeks
+            target_hours = 336.0  # 14 days
+            adjusted = max(interval_hours, target_hours)
+            logger.info(
+                f"Manga {anilist_id} very inactive ({days_since_last_chapter:.1f} days), "
+                f"adjusted interval to {adjusted:.1f}h (bi-weekly checks)"
+            )
+            return adjusted
+        
+        else:
+            # Likely abandoned - check every 3 weeks, but don't give up entirely
+            target_hours = 504.0  # 21 days
+            logger.warning(
+                f"Manga {anilist_id} likely abandoned ({days_since_last_chapter:.1f} days since last chapter), "
+                f"setting interval to {target_hours:.1f}h (3-week checks)"
+            )
+            return target_hours
+    
     def _apply_no_update_penalty(self, interval_hours: float, 
                                 consecutive_no_updates: int) -> float:
         """
@@ -234,6 +428,11 @@ class SchedulingEngine:
         updated in a while. Increases by 50% per consecutive no-update,
         up to a maximum of 3 increases.
         
+        NOTE: This penalty is now LESS aggressive because the inactivity
+        adjustment already handles long-dormant manga. This penalty is for
+        manga that were recently active but haven't had updates in the
+        last few scrapes.
+        
         Args:
             interval_hours: Base interval in hours
             consecutive_no_updates: Number of consecutive scrapes with no updates
@@ -242,6 +441,15 @@ class SchedulingEngine:
             Adjusted interval in hours
         """
         if consecutive_no_updates <= 0:
+            return interval_hours
+        
+        # Only apply penalty for short-to-medium intervals
+        # If interval is already long (>7 days), don't penalize further
+        if interval_hours > 168:  # More than 7 days
+            logger.debug(
+                f"Interval already long ({interval_hours:.1f}h), "
+                f"skipping no-update penalty"
+            )
             return interval_hours
         
         # Cap at MAX_NO_UPDATE_INCREASES
