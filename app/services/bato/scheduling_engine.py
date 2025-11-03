@@ -502,9 +502,9 @@ class SchedulingEngine:
             )
             
             if success:
-                # Update pattern analysis if new chapters found
-                if new_chapters_found > 0:
-                    self._update_pattern_analysis(anilist_id)
+                # Update pattern analysis after every scrape
+                # This ensures last_chapter_date and other metrics are always current
+                self._update_pattern_analysis(anilist_id)
                 
                 logger.info(
                     f"Updated schedule for anilist_id {anilist_id}: "
@@ -534,43 +534,56 @@ class SchedulingEngine:
             # Get current chapter dates
             chapter_dates = self.repository.get_chapter_dates(anilist_id)
             
-            if not chapter_dates or len(chapter_dates) < self.MIN_RELEASES_FOR_PATTERN:
-                return
-            
-            # Calculate pattern metrics
-            avg_interval = self.pattern_analyzer.calculate_average_interval(chapter_dates)
-            preferred_day = self.pattern_analyzer.detect_weekly_pattern(chapter_dates)
-            confidence = self.pattern_analyzer.calculate_confidence_score(chapter_dates)
-            
             # Get current schedule
             schedule = self.repository.get_schedule(anilist_id)
             if not schedule:
                 return
             
-            # Calculate interval in hours for storage
-            if avg_interval:
-                interval_hours = int(avg_interval * 24 * self.INTERVAL_MULTIPLIER)
-                interval_hours = max(self.MIN_INTERVAL_HOURS, 
-                                   min(interval_hours, self.MAX_INTERVAL_DAYS * 24))
+            # Always update last_chapter_date if we have any chapters
+            if chapter_dates:
+                # Calculate pattern metrics only if we have enough data
+                if len(chapter_dates) >= self.MIN_RELEASES_FOR_PATTERN:
+                    avg_interval = self.pattern_analyzer.calculate_average_interval(chapter_dates)
+                    preferred_day = self.pattern_analyzer.detect_weekly_pattern(chapter_dates)
+                    confidence = self.pattern_analyzer.calculate_confidence_score(chapter_dates)
+                    
+                    # Calculate interval in hours for storage
+                    if avg_interval:
+                        interval_hours = int(avg_interval * 24 * self.INTERVAL_MULTIPLIER)
+                        interval_hours = max(self.MIN_INTERVAL_HOURS, 
+                                           min(interval_hours, self.MAX_INTERVAL_DAYS * 24))
+                    else:
+                        interval_hours = self.DEFAULT_INTERVAL_HOURS
+                    
+                    # Update schedule with full pattern data
+                    schedule_data = {
+                        'anilist_id': anilist_id,
+                        'bato_link': schedule.bato_link,
+                        'average_release_interval_days': avg_interval,
+                        'preferred_release_day': preferred_day,
+                        'release_pattern_confidence': confidence,
+                        'scraping_interval_hours': interval_hours,
+                        'last_chapter_date': chapter_dates[0]
+                    }
+                else:
+                    # Not enough data for pattern analysis, but update last_chapter_date
+                    schedule_data = {
+                        'anilist_id': anilist_id,
+                        'bato_link': schedule.bato_link,
+                        'last_chapter_date': chapter_dates[0]
+                    }
+                
+                self.repository.upsert_schedule(schedule_data)
+                
+                logger.debug(
+                    f"Updated pattern analysis for anilist_id {anilist_id}: "
+                    f"chapters={len(chapter_dates)}, last_chapter={chapter_dates[0].strftime('%Y-%m-%d') if chapter_dates else 'None'}"
+                )
             else:
-                interval_hours = self.DEFAULT_INTERVAL_HOURS
-            
-            # Update schedule with pattern data
-            schedule_data = {
-                'anilist_id': anilist_id,
-                'bato_link': schedule.bato_link,
-                'average_release_interval_days': avg_interval,
-                'preferred_release_day': preferred_day,
-                'release_pattern_confidence': confidence,
-                'scraping_interval_hours': interval_hours,
-                'last_chapter_date': chapter_dates[0] if chapter_dates else None
-            }
-            
-            self.repository.upsert_schedule(schedule_data)
-            
-            logger.debug(
-                f"Updated pattern analysis for anilist_id {anilist_id}: "
-                f"avg_interval={avg_interval:.1f}d, "
+                # No chapters at all - this is unusual, log it
+                logger.warning(
+                    f"No chapters found for anilist_id {anilist_id} during pattern analysis update"
+                )
                 f"preferred_day={preferred_day}, "
                 f"confidence={confidence:.2f}"
             )
