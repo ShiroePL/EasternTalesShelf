@@ -3,7 +3,7 @@ FROM alpine:3.17.3
 
 # Update package list and install dependencies (including cron for scheduled tasks)
 RUN apk update && \
-    apk add --no-cache bash python3 py3-pip curl iptables iproute2 openrc dcron && \
+    apk add --no-cache bash python3 py3-pip curl iptables iproute2 openrc dcron gnupg && \
     apk add build-base python3-dev libffi-dev
 
 # Install Doppler CLI for secrets management
