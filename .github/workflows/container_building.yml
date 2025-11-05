@@ -7,7 +7,7 @@ on:
     paths:
       - 'requirements.txt'
       - 'Dockerfile'
-      - 'app/**'  # Dodaj to żeby rebuildować gdy zmienia się kod!
+      - 'docker-compose.yml'
 
 jobs:
   build-and-push:

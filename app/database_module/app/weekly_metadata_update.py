@@ -76,6 +76,9 @@ def fetch_manga_metadata(anilist_ids: List[int]) -> Dict:
     Returns dict with manga data keyed by ID
     """
     # Build the query with multiple IDs
+    # Note: This query fetches MEDIA data, but we need mediaList data to get updatedAt
+    # We need to fetch from the user's list to get the updatedAt timestamp
+    # This requires a different query structure
     query = '''
     query ($ids: [Int]) {
         Page(perPage: 50) {
@@ -202,6 +205,9 @@ def update_manga_metadata(media_data: Dict) -> bool:
         mal_url = f"https://myanimelist.net/manga/{id_mal}" if id_mal else ''
         
         # Update query - only update metadata fields, not user progress
+        # IMPORTANT: We do NOT update last_updated_on_site here because that's used
+        # for sorting on the website (shows recently edited/added manga)
+        # The weekly metadata update should not affect the user's sort order
         update_query = f"""
             UPDATE {api_keys.table_name} SET
                 id_mal = %s,
@@ -217,8 +223,7 @@ def update_manga_metadata(media_data: Dict) -> bool:
                 media_start_date = %s,
                 media_end_date = %s,
                 genres = %s,
-                external_links = %s,
-                last_updated_on_site = NOW()
+                external_links = %s
             WHERE id_anilist = %s
         """
         

@@ -3,7 +3,7 @@ FROM alpine:3.17.3
 
 # Update package list and install dependencies (including cron for scheduled tasks)
 RUN apk update && \
-    apk add --no-cache bash python3 py3-pip curl iptables iproute2 openrc dcron gnupg && \
+    apk add --no-cache bash python3 py3-pip curl iptables iproute2 openrc dcron gnupg dos2unix && \
     apk add build-base python3-dev libffi-dev
 
 # Install Doppler CLI for secrets management
@@ -23,16 +23,9 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Make the cron setup script executable
-RUN chmod +x /app/setup_cron.sh
-
-# Create a startup script that runs both cron and the FastAPI app
-RUN echo '#!/bin/bash' > /app/start.sh && \
-    echo 'doppler run -- /app/setup_cron.sh' >> /app/start.sh && \
-    echo 'crond -b -l 2' >> /app/start.sh && \
-    echo 'echo "Cron daemon started in background"' >> /app/start.sh && \
-    echo 'exec doppler run -- uvicorn fastapi_for_library_website:app --host 0.0.0.0 --port 8057' >> /app/start.sh && \
-    chmod +x /app/start.sh
+# Fix line endings for shell scripts (Windows CRLF -> Linux LF) and make executable
+RUN dos2unix /app/setup_cron.sh /app/start.sh /app/run_weekly_update.sh && \
+    chmod +x /app/setup_cron.sh /app/start.sh /app/run_weekly_update.sh
 
 # Command to start both cron and FastAPI app with Doppler secrets injection
-CMD ["/app/start.sh"]
+CMD ["/bin/bash", "/app/start.sh"]
