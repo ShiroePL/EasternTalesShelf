@@ -1,5 +1,8 @@
 services:
   shiro-chan-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: easterntalesshelf:local  # Use local image tag instead of pulling from registry
     restart: always
     container_name: EasternTalesShelf-website  # Custom container name
