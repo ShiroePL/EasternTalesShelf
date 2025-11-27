@@ -63,6 +63,46 @@ def get_all_upload_statuses():
         }), 500
 
 
+@bato_notifications_bp.route('/api/bato/finished-count', methods=['GET'])
+def get_bato_finished_count():
+    """
+    Get count of manga that are both:
+    - Bato upload_status = 'completed'
+    - Release status = 'FINISHED'
+    
+    This is used for the sidebar filter count.
+    
+    Returns:
+        JSON response with count
+    """
+    try:
+        from app.models.bato_models import BatoMangaDetails
+        from app.functions.class_mangalist import db_session, MangaList
+        from sqlalchemy import func
+        
+        # Count manga where bato upload_status is 'completed' AND release status is 'FINISHED'
+        count = db_session.query(func.count(BatoMangaDetails.anilist_id)).join(
+            MangaList,
+            BatoMangaDetails.anilist_id == MangaList.id_anilist
+        ).filter(
+            func.lower(BatoMangaDetails.upload_status) == 'completed',
+            MangaList.status == 'FINISHED'
+        ).scalar() or 0
+        
+        return jsonify({
+            'success': True,
+            'count': count
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching bato finished count: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch count',
+            'count': 0
+        }), 500
+
+
 @bato_notifications_bp.route('/api/bato/notifications', methods=['GET'])
 @limiter.limit("30 per minute")  # Notification retrieval
 @login_required

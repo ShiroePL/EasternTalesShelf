@@ -91,9 +91,8 @@ async function fetchSidebarStats() {
             return null;
         }
 
-        // Count Bato finished from DOM since it's not in GraphQL
-        const gridItems = document.querySelectorAll('.grid-item');
-        const batoFinishedCount = countBatoCompleted(gridItems);
+        // Fetch Bato finished count from API (instant, doesn't need DOM)
+        const batoFinishedCount = await fetchBatoFinishedCount();
 
         // Extract counts from aggregated results
         return {
@@ -149,8 +148,11 @@ async function fetchSidebarStatsFallback() {
             return null;
         }
         
-        // Use DOM counting as a last resort
+        // Use DOM counting as a last resort for non-bato stats
         const gridItems = document.querySelectorAll('.grid-item');
+        
+        // Fetch Bato finished count from API (instant, doesn't need DOM)
+        const batoFinishedCount = await fetchBatoFinishedCount();
         
         // Default response with at least the total count
         return {
@@ -164,7 +166,7 @@ async function fetchSidebarStatsFallback() {
             releaseStatus: {
                 releasing: countItems(gridItems, 'data-release-status', 'RELEASING'),
                 finished: countItems(gridItems, 'data-release-status', 'FINISHED'),
-                batoFinished: countBatoCompleted(gridItems)
+                batoFinished: batoFinishedCount
             },
             special: {
                 favorites: countItems(gridItems, 'data-is-favourite', '1'),
@@ -217,6 +219,30 @@ function countBatoCompleted(items) {
         }
     });
     return count;
+}
+
+/**
+ * Fetch Bato finished count from API (manga with bato completed + release FINISHED)
+ */
+async function fetchBatoFinishedCount() {
+    try {
+        const response = await fetch('/api/bato/finished-count');
+        if (!response.ok) {
+            console.warn('Could not fetch Bato finished count');
+            return 0;
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            console.warn('Bato finished count request failed:', data.error);
+            return 0;
+        }
+        
+        return data.count || 0;
+    } catch (error) {
+        console.error('Error fetching Bato finished count:', error);
+        return 0;
+    }
 }
 
 /**
@@ -477,9 +503,8 @@ async function fetchIndividualStats() {
         }`;
         stats.special.reread = await fetchCount(rereadQuery);
         
-        // Count Bato finished from DOM since it's not in GraphQL
-        const gridItems = document.querySelectorAll('.grid-item');
-        stats.releaseStatus.batoFinished = countBatoCompleted(gridItems);
+        // Fetch Bato finished count from API (instant, doesn't need DOM)
+        stats.releaseStatus.batoFinished = await fetchBatoFinishedCount();
         
         return stats;
     } catch (error) {
