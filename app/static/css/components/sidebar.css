@@ -115,6 +115,45 @@
     background-color: #3e3e3e;
 }
 
+/* Bato Finished sub-option styling */
+.bato-finished-option {
+    padding: 0.35rem 0rem 0.35rem 0.3rem;
+    font-size: 0.9em;
+    border-left: 2px solid var(--primary-color);
+    margin-left: 1rem;
+    margin-top: 0.25rem;
+    border-radius: 0 5px 5px 0;
+    transition: background-color 0.3s;
+}
+
+.bato-finished-option:hover {
+    background-color: #3e3e3e;
+}
+
+.bato-finished-label {
+    cursor: pointer;
+    font-weight: normal;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--text-color);
+    width: 100%;
+}
+
+.bato-finished-label .status-count {
+    margin-left: 20px;
+    float: none;
+}
+
+.bato-finished-label .form-check-input {
+    margin: 0;
+}
+
+.bato-finished-label i {
+    color: #28a745;
+}
+
 .status-count {
     float: right;
     background-color: var(--primary-color);

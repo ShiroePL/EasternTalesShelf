@@ -54,6 +54,31 @@ def get_manga_details_alchemy():
         db_session.remove()  # Correct usage of remove()
 
 
+def get_manga_by_anilist_id(anilist_id):
+    """Fetch a single manga entry by anilist_id for Open Graph meta tags."""
+    try:
+        manga = db_session.query(MangaList).filter(MangaList.id_anilist == anilist_id).first()
+        if manga:
+            return {
+                'title_english': manga.title_english,
+                'title_romaji': manga.title_romaji,
+                'description': manga.description,
+                'cover_image': manga.cover_image,
+                'score': manga.score,
+                'chapters_progress': manga.chapters_progress,
+                'all_chapters': manga.all_chapters,
+                'on_list_status': manga.on_list_status,
+                'genres': manga.genres
+            }
+        return None
+    except Exception as e:
+        print(f"Error fetching manga by anilist_id {anilist_id}:", e)
+        db_session.rollback()
+        return None
+    finally:
+        db_session.remove()
+
+
 # Parse timestamps for manga entries
 def parse_timestamp(manga):
     """ Parse timestamps for manga entries. """

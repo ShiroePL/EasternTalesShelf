@@ -91,6 +91,10 @@ async function fetchSidebarStats() {
             return null;
         }
 
+        // Count Bato finished from DOM since it's not in GraphQL
+        const gridItems = document.querySelectorAll('.grid-item');
+        const batoFinishedCount = countBatoCompleted(gridItems);
+
         // Extract counts from aggregated results
         return {
             listStatus: {
@@ -102,7 +106,8 @@ async function fetchSidebarStats() {
             },
             releaseStatus: {
                 releasing: result.data.releasing[0]?.count?.id_anilist || 0,
-                finished: result.data.finished[0]?.count?.id_anilist || 0
+                finished: result.data.finished[0]?.count?.id_anilist || 0,
+                batoFinished: batoFinishedCount
             },
             special: {
                 favorites: result.data.favorites[0]?.count?.id_anilist || 0,
@@ -159,6 +164,7 @@ async function fetchSidebarStatsFallback() {
             releaseStatus: {
                 releasing: countItems(gridItems, 'data-release-status', 'RELEASING'),
                 finished: countItems(gridItems, 'data-release-status', 'FINISHED'),
+                batoFinished: countBatoCompleted(gridItems)
             },
             special: {
                 favorites: countItems(gridItems, 'data-is-favourite', '1'),
@@ -199,6 +205,21 @@ function countItemsWithGreaterValue(items, attribute, threshold) {
 }
 
 /**
+ * Helper function to count items with Batotwo status 'completed' AND release status 'FINISHED'
+ */
+function countBatoCompleted(items) {
+    let count = 0;
+    items.forEach(item => {
+        const batoStatus = (item.getAttribute('data-bato-upload-status') || '').toLowerCase();
+        const releaseStatus = (item.getAttribute('data-release-status') || '').toUpperCase();
+        if (batoStatus === 'completed' && releaseStatus === 'FINISHED') {
+            count++;
+        }
+    });
+    return count;
+}
+
+/**
  * Update the user list status counts in the sidebar
  */
 function updateStatusCounts(stats) {
@@ -220,6 +241,12 @@ function updateReleaseStatusCounts(stats) {
     document.getElementById('count-releasing').textContent = stats.releaseStatus.releasing;
     document.getElementById('count-finished').textContent = stats.releaseStatus.finished;
     document.getElementById('count-all-release-stats').textContent = stats.listStatus.total;
+    
+    // Update Bato finished count
+    const batoFinishedElement = document.getElementById('count-bato-finished');
+    if (batoFinishedElement) {
+        batoFinishedElement.textContent = stats.releaseStatus.batoFinished;
+    }
 }
 
 /**
@@ -339,7 +366,8 @@ async function fetchIndividualStats() {
             },
             releaseStatus: {
                 releasing: 0,
-                finished: 0
+                finished: 0,
+                batoFinished: 0
             },
             special: {
                 favorites: 0,
@@ -448,6 +476,10 @@ async function fetchIndividualStats() {
             }
         }`;
         stats.special.reread = await fetchCount(rereadQuery);
+        
+        // Count Bato finished from DOM since it's not in GraphQL
+        const gridItems = document.querySelectorAll('.grid-item');
+        stats.releaseStatus.batoFinished = countBatoCompleted(gridItems);
         
         return stats;
     } catch (error) {

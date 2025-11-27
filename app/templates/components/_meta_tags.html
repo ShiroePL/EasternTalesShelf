@@ -1,6 +1,29 @@
 <!-- Open Graph meta tags -->
-<meta property="og:title" content="Eastern Tales Shelf" />
-<meta property="og:description" content="A personal platform for organizing and tracking Eastern novels and manga. Easily link to reading sources, check release statuses, and manage your collection with seamless integration and backups from AniList. Open-source and customizable for your own use." />
-<meta property="og:image" content="https://easterntalesshelf.site/static/thumbnail_website.png" />
-<meta property="og:url" content="https://easterntalesshelf.site" />
-<meta property="og:type" content="website" /> 
+{% if og_data %}
+    <!-- Dynamic Open Graph tags for specific manhwa -->
+    <meta property="og:title" content="{{ og_data.title }}" />
+    <meta property="og:description" content="{{ og_data.description }}" />
+    <meta property="og:image" content="{{ og_data.image }}" />
+    <meta property="og:url" content="{{ og_data.url }}" />
+    <meta property="og:type" content="book" />
+    <meta property="og:site_name" content="Eastern Tales Shelf" />
+    
+    <!-- Additional book-specific meta tags -->
+    {% if og_data.score %}
+    <meta property="book:rating:value" content="{{ og_data.score }}" />
+    <meta property="book:rating:scale" content="10" />
+    {% endif %}
+    
+    <!-- Twitter Card meta tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ og_data.title }}" />
+    <meta name="twitter:description" content="{{ og_data.description }}" />
+    <meta name="twitter:image" content="{{ og_data.image }}" />
+{% else %}
+    <!-- Default Open Graph tags -->
+    <meta property="og:title" content="Eastern Tales Shelf" />
+    <meta property="og:description" content="A personal platform for organizing and tracking Eastern novels and manga. Easily link to reading sources, check release statuses, and manage your collection with seamless integration and backups from AniList. Open-source and customizable for your own use." />
+    <meta property="og:image" content="https://easterntalesshelf.site/static/thumbnail_website.png" />
+    <meta property="og:url" content="https://easterntalesshelf.site" />
+    <meta property="og:type" content="website" />
+{% endif %} 

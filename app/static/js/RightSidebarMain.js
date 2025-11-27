@@ -17,7 +17,7 @@ import {
 let localAnilistId;
 let localSeriesName;
 
-export async function showDetails(element) {
+export async function showDetails(element, skipUrlUpdate = false) {
     // First, immediately reset animations and clear existing timers
     resetAnimationsAndTimers();
 
@@ -43,6 +43,20 @@ export async function showDetails(element) {
     try {
         // Fetch data from GraphQL
         const data = await fetchMangaDetailsFromGraphQL(localAnilistId);
+        
+        // Update URL without reloading the page (unless skipUrlUpdate is true)
+        if (!skipUrlUpdate && localAnilistId && localSeriesName) {
+            const titleSlug = localSeriesName
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            const newUrl = `/manhwa/${localAnilistId}/${titleSlug}`;
+            window.history.pushState(
+                { anilistId: localAnilistId, title: localSeriesName }, 
+                '', 
+                newUrl
+            );
+        }
         
         if (!data) {
             console.error('Failed to fetch manga details');
@@ -243,6 +257,47 @@ export function openAniList(url) {
         window.open(url, '_blank');
     }
 }
+
+// Handle browser back/forward navigation
+window.addEventListener('popstate', function(event) {
+    if (event.state && event.state.anilistId) {
+        // Find the manga element and show its details
+        const element = document.querySelector(`[data-anilist-id="${event.state.anilistId}"]`);
+        if (element) {
+            showDetails(element, true); // Skip URL update since we're already navigating
+        }
+    } else {
+        // If no state, we're back at home - close the sidebar
+        $('#side-menu-right').removeClass('sidebar-visible').addClass('sidebar-hidden');
+    }
+});
+
+// On page load, check if we're viewing a specific manhwa
+document.addEventListener('DOMContentLoaded', function() {
+    const pathMatch = window.location.pathname.match(/^\/manhwa\/(\d+)\//);
+    if (pathMatch) {
+        const anilistId = pathMatch[1];
+        console.log(`Auto-opening manhwa with ID: ${anilistId}`);
+        
+        // Listen for the manga grid to finish loading
+        document.addEventListener('mangaGridLoaded', function() {
+            console.log('Manga grid loaded event received, searching for manhwa element');
+            
+            const element = document.querySelector(`[data-anilist-id="${anilistId}"]`);
+            
+            if (element) {
+                console.log(`Found manhwa element with ID ${anilistId}`);
+                // Small delay to ensure everything is rendered
+                setTimeout(() => {
+                    console.log('Calling showDetails for auto-open');
+                    showDetails(element, true); // Skip URL update on initial load
+                }, 300);
+            } else {
+                console.warn(`Manhwa with ID ${anilistId} not found in the grid`);
+            }
+        }, { once: true }); // Only listen once
+    }
+});
 
 export function openBatoFromCover(url) {
     if (url && url !== 'None') {

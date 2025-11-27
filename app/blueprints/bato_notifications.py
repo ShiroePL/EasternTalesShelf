@@ -9,17 +9,62 @@ Provides endpoints for:
 - Getting scraping schedules
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from app.database_module.bato_repository import BatoRepository
 import logging
+from app.limiter import limiter
 
 logger = logging.getLogger(__name__)
 
 bato_notifications_bp = Blueprint('bato_notifications', __name__)
 
 
+@bato_notifications_bp.route('/api/bato/upload-statuses', methods=['GET'])
+def get_all_upload_statuses():
+    """
+    Get Bato upload statuses for all manga.
+    
+    This is a public endpoint that returns upload_status for all manga with Bato data.
+    Used for efficient bulk loading on the main grid.
+    
+    Returns:
+        JSON response with list of {anilist_id, upload_status}
+    """
+    try:
+        from app.models.bato_models import BatoMangaDetails
+        from app.functions.class_mangalist import db_session
+        
+        # Query all manga details with just the fields we need
+        results = db_session.query(
+            BatoMangaDetails.anilist_id,
+            BatoMangaDetails.upload_status
+        ).filter(
+            BatoMangaDetails.upload_status.isnot(None)
+        ).all()
+        
+        # Convert to list of dicts
+        statuses = [
+            {'anilist_id': result.anilist_id, 'upload_status': result.upload_status}
+            for result in results
+        ]
+        
+        return jsonify({
+            'success': True,
+            'statuses': statuses,
+            'count': len(statuses)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching all Bato upload statuses: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch upload statuses'
+        }), 500
+
+
 @bato_notifications_bp.route('/api/bato/notifications', methods=['GET'])
+@limiter.limit("30 per minute")  # Notification retrieval
 @login_required
 def get_notifications():
     """
@@ -287,6 +332,7 @@ def get_scraping_schedule(anilist_id):
 
 
 @bato_notifications_bp.route('/api/bato/scrape/<int:anilist_id>', methods=['POST'])
+@limiter.limit("5 per minute")  # Very strict - triggers expensive scraping
 @login_required
 def trigger_manual_scrape(anilist_id):
     """

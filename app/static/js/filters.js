@@ -36,6 +36,7 @@ function filterEntries() {
     const countryKorea = document.getElementById('countryKorea')?.checked || false;
     const isFavorite_checkbox = document.getElementById('isFavorite_checkbox')?.checked || false;
     const isRereaded_checkbox = document.getElementById('isRereaded_checkbox')?.checked || false;
+    const batoCompleted_checkbox = document.getElementById('batoCompleted_checkbox')?.checked || false;
     
     // Side stories filters
     const sideStoriesReleased = document.getElementById('sideStories_released_checkbox')?.checked || false;
@@ -56,6 +57,7 @@ function filterEntries() {
         const isFavorite = item.getAttribute('data-is-favourite') === '1';
         const rereadTimes = parseInt(item.getAttribute('data-reread-times') || '0');
         const sideStoriesStatus = item.getAttribute('data-side-stories-status') || 'none';
+        const batoUploadStatus = (item.getAttribute('data-bato-upload-status') || '').toLowerCase();
 
         // Match title (text search)
         const matchesTitle = titleFilter === '' || title.includes(titleFilter);
@@ -70,6 +72,10 @@ function filterEntries() {
         
         // Match reread filter
         const matchesRereaded = !isRereaded_checkbox || rereadTimes > 0;
+        
+        // Match Batotwo completed filter - only applies when FINISHED status is also selected
+        const matchesBatoCompleted = !batoCompleted_checkbox || 
+                                    (batoUploadStatus === 'completed' && itemReleasingStatus === 'finished');
         
         // Match side stories filter
         const anySideStoriesFilterActive = sideStoriesReleased || sideStoriesReleasing || sideStoriesPlanned || sideStoriesNone || sideStoriesUnknown;
@@ -105,7 +111,7 @@ function filterEntries() {
 
         // All filters must match for the item to be visible
         if (matchesTitle && sidebarCountryFilter && matchesStatus && matchesFilterType && 
-            matchesReleasingStatus && matchesFavorite && matchesRereaded && matchesSideStories) {
+            matchesReleasingStatus && matchesFavorite && matchesRereaded && matchesSideStories && matchesBatoCompleted) {
                 item.style.display = '';
             visibleCount++;
             } else {

@@ -8,6 +8,7 @@ from app.functions import sqlalchemy_fns
 import app.download_covers as download_covers
 from threading import Thread
 from app.utils.token_encryption import encrypt_token
+from app.limiter import limiter
 
 main_bp = Blueprint('main', __name__)
 
@@ -80,6 +81,46 @@ def home():
     return render_template('pages/index.html', 
                            color_settings=color_settings, 
                            isDevelopment=is_development)
+
+
+@main_bp.route('/manhwa/<int:anilist_id>/<slug>')
+def manhwa_page(anilist_id, slug):
+    """Handle direct links to specific manhwa with dynamic Open Graph tags"""
+    # Fetch manhwa data for Open Graph meta tags
+    manhwa_data = sqlalchemy_fns.get_manga_by_anilist_id(anilist_id)
+    
+    # Load user-specific color settings
+    color_settings = load_color_settings()
+    is_development = os.getenv('FLASK_ENV') == 'development'
+    
+    # Prepare Open Graph data
+    og_data = None
+    if manhwa_data:
+        # Clean description - remove HTML tags if present
+        description = manhwa_data.get('description', 'A personal platform for organizing and tracking Eastern novels and manga.')
+        if description and len(description) > 200:
+            description = description[:200]
+        
+        og_data = {
+            'title': manhwa_data.get('title_english') or manhwa_data.get('title_romaji', 'Eastern Tales Shelf'),
+            'description': description,
+            'image': manhwa_data.get('cover_image', 'https://easterntalesshelf.site/static/thumbnail_website.png'),
+            'url': f"https://easterntalesshelf.site/manhwa/{anilist_id}/{slug}",
+            'score': manhwa_data.get('score'),
+            'chapters': f"{manhwa_data.get('chapters_progress', 0)}/{manhwa_data.get('all_chapters', '?')}",
+            'status': manhwa_data.get('on_list_status', 'Unknown'),
+            'genres': manhwa_data.get('genres', '[]')
+        }
+    else:
+        # If manhwa not found, still render the page but without specific OG data
+        # This allows the user to browse the site normally
+        logging.warning(f"Manhwa with anilist_id {anilist_id} not found in database")
+    
+    return render_template('pages/index.html', 
+                           color_settings=color_settings, 
+                           isDevelopment=is_development,
+                           og_data=og_data,
+                           anilist_id=anilist_id)
 
 
 @main_bp.route('/animelist')
@@ -173,6 +214,7 @@ def animelist():
         return render_template('animelist.html', anime_entries=[], error=str(e))
 
 @main_bp.route('/save_color_settings', methods=['POST'])
+@limiter.limit("20 per minute")  # User settings update
 @login_required
 def save_color_settings():
     try:
@@ -224,6 +266,7 @@ def dev_covers(filename):
             return jsonify({'error': str(e)}), 500
 
 @main_bp.route('/update_cover_status', methods=['POST'])
+@limiter.limit("30 per minute")  # Cover status update
 @login_required
 def update_cover_status():
     """Update the cover download status for a manga entry"""
