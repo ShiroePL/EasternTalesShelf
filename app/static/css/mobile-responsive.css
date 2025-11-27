@@ -1,0 +1,452 @@
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   ============================================ */
+
+/* Mobile breakpoints */
+@media (max-width: 768px) {
+
+    /* ============================================
+       MAIN GRID - 2 COLUMNS ON MOBILE
+       ============================================ */
+    #manga-grid-container {
+        grid-template-columns: repeat(2, 1fr) !important;
+        grid-gap: 0.5rem;
+        padding: 0 0.5rem;
+    }
+
+    /* Adjust grid items to fit mobile better */
+    .grid-item {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 184/257;
+        /* Maintain original aspect ratio */
+        margin: 0;
+    }
+
+    /* ============================================
+       MAIN CONTENT AREA
+       ============================================ */
+    #main {
+        padding-top: 60px;
+        padding-left: 0;
+        padding-right: 0;
+        padding-bottom: 60px;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    /* ============================================
+       LEFT SIDEBAR - SLIDE-IN OVERLAY
+       ============================================ */
+    #side-menu {
+        position: fixed;
+        left: -100%;
+        top: 55px;
+        width: 85%;
+        max-width: 320px;
+        height: calc(100% - 55px);
+        z-index: 1040;
+        transition: left 0.3s ease-in-out;
+        overflow-y: auto;
+        padding-top: 1rem;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    #side-menu.active {
+        left: 0;
+    }
+
+    /* Backdrop for left sidebar */
+    #left-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        top: 55px;
+        left: 0;
+        width: 100%;
+        height: calc(100% - 55px);
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1039;
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    #left-sidebar-backdrop.active {
+        display: block;
+        opacity: 1;
+    }
+
+    /* ============================================
+       RIGHT SIDEBAR - FULL SCREEN OVERLAY
+       ============================================ */
+    #side-menu-right {
+        position: fixed;
+        right: -100%;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        max-height: 100%;
+        z-index: 1050;
+        padding-top: 20px;
+        transition: right 0.3s ease-in-out;
+        overflow-y: auto;
+    }
+
+    #side-menu-right.active {
+        right: 0;
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* Close button should be more prominent on mobile */
+    #close-menu-icon {
+        top: 10px !important;
+        left: 10px !important;
+        font-size: 1.5rem;
+        padding: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1051;
+    }
+
+    /* ============================================
+       FILTER TOGGLE BUTTON (Mobile only)
+       ============================================ */
+    #mobile-filter-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        width: 56px;
+        height: 56px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        z-index: 1030;
+        transition: all 0.3s ease;
+    }
+
+    #mobile-filter-toggle:hover {
+        background-color: var(--hover-color);
+        transform: scale(1.1);
+    }
+
+    #mobile-filter-toggle i {
+        font-size: 1.5rem;
+    }
+
+    /* ============================================
+       GRID ITEM ADJUSTMENTS
+       ============================================ */
+
+    /* Smaller icons and text on mobile */
+    .grid-item-title {
+        font-size: 0.75rem;
+        padding: 3px 5px;
+        line-height: 1.1;
+    }
+
+    .grid-item .bato-icon,
+    .grid-item .anilist-icon {
+        width: 24px;
+        height: 24px;
+        top: 5px;
+    }
+
+    .grid-item .bato-icon {
+        right: 35px;
+    }
+
+    .grid-item .anilist-icon {
+        right: 5px;
+    }
+
+    .grid-item .score-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 0.8rem;
+        top: 5px;
+        left: 5px;
+    }
+
+    .grid-item .side-stories-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 0.75rem;
+        top: 5px;
+        left: 38px;
+    }
+
+    #heart-icon-grid {
+        width: 35px;
+        height: 35px;
+        font-size: 24px;
+        top: -15px;
+        left: -15px;
+    }
+
+    #reread-icon-grid {
+        font-size: 12px;
+        top: -10px;
+        right: -10px;
+        padding: 3px;
+    }
+
+    .download-status-btn {
+        width: 26px;
+        height: 26px;
+        padding: 6px;
+        bottom: -12px;
+        right: -12px;
+    }
+
+    .download-status-btn i {
+        font-size: 0.85rem;
+    }
+
+    /* Reduce hover effect on mobile */
+    .grid-item:hover {
+        transform: perspective(1000px) rotateY(0deg) scale(1.05);
+    }
+
+    /* Stats positioning */
+    .grid-item .stats {
+        font-size: 0.7rem;
+        padding: 3px 6px;
+    }
+
+    /* ============================================
+       SIDEBAR CONTENT ADJUSTMENTS
+       ============================================ */
+
+    /* Right sidebar adjustments for mobile */
+    #side-menu-right h5,
+    #sidebar-title {
+        font-size: 1.2rem;
+    }
+
+    #sidebar-info p {
+        font-size: 0.85rem;
+    }
+
+    #sidebar-description {
+        font-size: 0.85rem;
+    }
+
+    #sidebar-links {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    #sidebar-links .btn {
+        width: 100%;
+    }
+
+    /* Left sidebar adjustments */
+    #side-menu h5 {
+        font-size: 1rem;
+        margin-top: 0.75rem;
+    }
+
+    #side-menu .form-control,
+    #side-menu .form-select {
+        font-size: 0.875rem;
+    }
+
+    .status-option,
+    .statusReleasing-option {
+        font-size: 0.875rem;
+        padding: 0.4rem 0.8rem;
+    }
+
+    .status-count {
+        font-size: 0.75rem;
+    }
+
+    /* ============================================
+       NAVBAR ADJUSTMENTS
+       ============================================ */
+
+    .navbar .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    /* ============================================
+       ULTRA-WIDE OVERRIDES (disable on mobile)
+       ============================================ */
+
+    .ultra-wide-wrapper,
+    .main-content-container {
+        max-width: 100% !important;
+        min-width: unset !important;
+    }
+}
+
+/* ============================================
+   EXTRA SMALL DEVICES (< 576px)
+   ============================================ */
+@media (max-width: 576px) {
+
+    /* Even tighter spacing on very small screens */
+    #manga-grid-container {
+        grid-gap: 0.4rem;
+        padding: 0 0.4rem;
+    }
+
+    .grid-item-title {
+        font-size: 0.7rem;
+    }
+
+    #side-menu {
+        width: 90%;
+    }
+
+    #mobile-filter-toggle {
+        width: 50px;
+        height: 50px;
+        bottom: 15px;
+        left: 15px;
+    }
+
+    #mobile-filter-toggle i {
+        font-size: 1.3rem;
+    }
+}
+
+/* ============================================
+   TABLET LANDSCAPE (768px - 992px)
+   ============================================ */
+@media (min-width: 769px) and (max-width: 992px) {
+
+    /* 3 columns for tablets */
+    #manga-grid-container {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+
+    /* Show left sidebar on tablets */
+    #side-menu {
+        left: 0;
+        width: 200px;
+    }
+
+    #main {
+        padding-left: 16px;
+        max-width: calc(100% - 200px - 250px);
+        margin-left: 200px;
+    }
+
+    /* Hide mobile filter button on tablets */
+    #mobile-filter-toggle {
+        display: none !important;
+    }
+
+    #left-sidebar-backdrop {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   DESKTOP (> 992px)
+   ============================================ */
+@media (min-width: 993px) {
+
+    /* Hide mobile-specific elements on desktop */
+    #mobile-filter-toggle {
+        display: none !important;
+    }
+
+    #left-sidebar-backdrop {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   MOBILE BOTTOM NAVIGATION
+   ============================================ */
+@media (max-width: 992px) {
+
+    /* Auto-hiding navbar transition */
+    .navbar {
+        transition: transform 0.3s ease-in-out;
+    }
+
+    /* Bottom Navigation Bar */
+    #mobile-bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 60px;
+        background-color: #1a1a1a;
+        /* Dark background matching theme */
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1060;
+        /* Higher than sidebars */
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .mobile-nav-btn {
+        background: none;
+        border: none;
+        color: #888;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        padding: 8px 0;
+        flex: 1;
+        transition: color 0.2s ease;
+    }
+
+    .mobile-nav-btn i {
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+    }
+
+    .mobile-nav-btn.active {
+        color: var(--primary-color, #0fd3e1);
+    }
+
+    .mobile-nav-btn:active {
+        transform: scale(0.95);
+    }
+
+    /* Adjust main content to account for bottom nav */
+    #main {
+        padding-bottom: 70px !important;
+    }
+
+    /* Hide the old floating filter button */
+    #mobile-filter-toggle {
+        display: none !important;
+    }
+
+    /* Adjust sidebars to not be covered by bottom nav */
+    #side-menu,
+    #side-menu-right {
+        height: calc(100% - 60px) !important;
+        /* Subtract bottom nav height */
+        bottom: 60px;
+        top: 55px;
+        /* Keep top spacing for navbar */
+    }
+
+    #side-menu-right {
+        top: 0;
+        height: calc(100% - 60px) !important;
+    }
+}

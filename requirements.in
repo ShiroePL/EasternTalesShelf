@@ -26,6 +26,7 @@ exceptiongroup
 filelock
 Flask
 flask-cors
+Flask-Limiter
 Flask-Login
 Flask-SocketIO
 Flask-SQLAlchemy==2.5.1

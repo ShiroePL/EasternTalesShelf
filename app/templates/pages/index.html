@@ -17,14 +17,17 @@
 {% endblock %}
 
 {% block scripts %}
-    <script type="module" src="static/js/RightSidebarUtilities.js"></script>
-    <script type="module" src="static/js/RightSidebarDataHandlers.js"></script>
-    <script type="module" src="static/js/RightSidebarUIUpdaters.js"></script>
-    <script type="module" src="static/js/RightsidebarAnimations.js"></script>
-    <script type="module" src="static/js/RightSidebarEventListeners.js"></script>
-    <script type="module" src="static/js/RightSidebarMain.js"></script>
-    <script type="module" src="static/js/UIUpdaters.js"></script>
-    <script src="static/js/ChatBoxRelated.js"></script>
+    <!-- Mobile responsive handler - load early -->
+    <script src="{{ url_for('static', filename='js/mobile-responsive.js') }}"></script>
+    
+    <script type="module" src="{{ url_for('static', filename='js/RightSidebarUtilities.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/RightSidebarDataHandlers.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/RightSidebarUIUpdaters.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/RightsidebarAnimations.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/RightSidebarEventListeners.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/RightSidebarMain.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/UIUpdaters.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ChatBoxRelated.js') }}"></script>
     <script src="{{ url_for('static', filename='js/colorPicker.js') }}"></script>
     <script src="{{ url_for('static', filename='js/queueManager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/webhookStatus.js') }}"></script>
