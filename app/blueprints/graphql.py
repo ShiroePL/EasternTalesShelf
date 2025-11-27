@@ -112,7 +112,7 @@ def validate_graphql_key():
     return key_match
 
 @graphql_bp.route('/', methods=['POST', 'OPTIONS'])
-@limiter.limit("10 per minute")  # Strict limit for expensive GraphQL queries
+@limiter.limit("360 per minute")  # Allow ~2 requests per second for authenticated users
 @cross_origin(supports_credentials=True)
 @admin_required
 @login_required
@@ -220,7 +220,7 @@ def graphql_proxy_endpoint():
         return jsonify({'errors': ['An unexpected error occurred.']}), 500
 
 @graphql_bp.route('/public', methods=['POST', 'OPTIONS'])
-@limiter.limit("20 per minute")  # Public endpoint, slightly more generous but still protected
+@limiter.limit("120 per minute")  # Public endpoint, 1 request per second
 @cross_origin(supports_credentials=True)
 def public_graphql_endpoint():
     """Public GraphQL endpoint that serves demo data without authentication."""
