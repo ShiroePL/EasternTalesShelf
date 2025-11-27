@@ -9,7 +9,7 @@ Provides endpoints for:
 - Admin dashboard page
 """
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, current_app
 from flask_login import login_required, current_user
 from app.admin import admin_required
 from app.database_module.bato_repository import BatoRepository
@@ -17,11 +17,11 @@ from datetime import datetime, timedelta
 import logging
 import os
 import json
+from app.limiter import limiter
 
 logger = logging.getLogger(__name__)
 
 bato_admin_bp = Blueprint('bato_admin', __name__)
-
 
 def load_color_settings():
     """Load user-specific color settings"""
@@ -69,6 +69,7 @@ def bato_admin_dashboard():
 
 
 @bato_admin_bp.route('/api/bato/admin/stats', methods=['GET'])
+@limiter.limit("30 per minute")  # Admin monitoring - moderate limit
 @login_required
 @admin_required
 def get_scraping_stats():

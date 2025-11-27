@@ -1,11 +1,13 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required
 from app.admin import admin_required
 from app.functions.class_mangalist import db_session, MangaStatusNotification, AnilistNotification
+from app.limiter import limiter
 
 notifications_bp = Blueprint('notifications', __name__, url_prefix='/api/notifications')
 
 @notifications_bp.route('/')
+@limiter.limit("20 per minute")  # Expensive DB query
 @login_required
 @admin_required
 def get_notifications():
@@ -165,6 +167,7 @@ def count_notifications():
         return jsonify({'count': 0, 'error': str(e)}), 500
 
 @notifications_bp.route('/refresh', methods=['POST'])
+@limiter.limit("10 per minute")  # Very expensive operation
 @login_required
 @admin_required
 def refresh_notifications():

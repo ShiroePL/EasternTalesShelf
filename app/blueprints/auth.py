@@ -3,15 +3,35 @@ from flask_login import login_user, login_required, logout_user, current_user
 from app.functions.class_mangalist import Users, db_session
 from app.oauth_handler import AniListOAuth
 from app.oauth_config import ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI
+import re
+
+# Import limiter from separate module to avoid circular imports
+from app.limiter import limiter
 
 auth_bp = Blueprint('auth', __name__)
 
+# Helper function for input validation
+def validate_username(username):
+    """Validate username format to prevent injection attacks"""
+    if not username or len(username) > 50:
+        return False
+    # Allow alphanumeric, underscore, hyphen only
+    return bool(re.match(r'^[a-zA-Z0-9_-]+$', username))
+
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit("5 per minute")  # Strict limit to prevent brute force
 def login():
     try:
         if request.method == 'POST':
-            username = request.form['username']
-            password = request.form['password']
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            
+            # Input validation
+            if not validate_username(username):
+                return jsonify({'success': False, 'message': 'Invalid username format'}), 400
+            
+            if not password or len(password) > 100:
+                return jsonify({'success': False, 'message': 'Invalid password'}), 400
             user = Users.query.filter_by(username=username).first()
             
             if user and user.check_password(password):
@@ -50,6 +70,7 @@ def logout():
     return response
 
 @auth_bp.route('/auth/anilist')
+@limiter.limit("10 per minute")  # Prevent OAuth abuse
 def anilist_login():
     """Initiate AniList OAuth login flow"""
     # Check if user wants enhanced features
@@ -61,6 +82,7 @@ def anilist_login():
     return redirect(AniListOAuth.get_auth_url())
 
 @auth_bp.route('/auth/anilist/callback')
+@limiter.limit("10 per minute")  # Prevent OAuth callback abuse
 def anilist_callback():
     """Handle the callback from AniList OAuth"""
     try:

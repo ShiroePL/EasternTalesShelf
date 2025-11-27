@@ -17,6 +17,7 @@ from crochet import run_in_reactor
 from dataclasses import dataclass
 from typing import Optional
 from flask import current_app
+from app.limiter import limiter
 
 webhook_bp = Blueprint('webhook', __name__, url_prefix='/webhook')
 
@@ -104,6 +105,7 @@ def get_webhook_status():
         })
 
 @webhook_bp.route('/toggle', methods=['POST'])
+@limiter.limit("10 per minute")  # Admin control - moderate limit
 @login_required
 @admin_required
 def toggle_webhook():
@@ -165,6 +167,7 @@ def toggle_webhook():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @webhook_bp.route('/start_scraper', methods=['POST'])
+@limiter.limit("10 per minute")  # Admin control - moderate limit
 @login_required
 @admin_required
 def start_scraper_command():

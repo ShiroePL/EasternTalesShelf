@@ -10,10 +10,12 @@ import traceback
 from app.functions.class_mangalist import db_session, MangaUpdatesDetails
 from app.scraper.mangaupdates_api.mangaupdates_api_client import MangaUpdatesAPIClient
 from app.blueprints.webhook import webhook_status
+from app.limiter import limiter
 
 manga_bp = Blueprint('manga', __name__)
 
 @manga_bp.route('/add_bato', methods=['POST'])
+@limiter.limit("10 per minute")  # Strict limit - triggers expensive scraping
 @login_required
 @admin_required
 def add_bato_link_route():
@@ -402,6 +404,7 @@ def extract_links_from_bato(html_content):
     return extracted_links
 
 @manga_bp.route('/sync', methods=['POST'])
+@limiter.limit("5 per minute")  # Very strict - expensive sync operation
 @login_required
 @admin_required
 def sync_with_fastapi():

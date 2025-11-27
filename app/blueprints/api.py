@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from app.functions.class_mangalist import db_session, MangaList, MangaUpdatesDetails, MangaStatusNotification, AnilistNotification, Users
 from app.functions import sqlalchemy_fns
@@ -8,6 +8,7 @@ from app.admin import admin_required
 from functools import wraps
 import datetime
 from flask_cors import CORS, cross_origin
+from app.limiter import limiter
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 # Enable CORS for the entire blueprint
@@ -40,6 +41,7 @@ def get_mangaupdates_info(anilist_id):
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/notifications')
+@limiter.limit("20 per minute")  # Limit expensive DB queries
 @login_required
 @admin_required
 def get_notifications():
@@ -127,6 +129,7 @@ def get_notifications():
         return jsonify({'error': str(e), 'notifications': []}), 500
 
 @api_bp.route('/notifications/<string:source>/<int:notification_id>/read', methods=['POST'])
+@limiter.limit("30 per minute")  # Lighter operation, more generous limit
 @login_required
 @admin_required
 def mark_notification_read(source, notification_id):
@@ -153,6 +156,7 @@ def mark_notification_read(source, notification_id):
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/update_episodes', methods=['POST'])
+@limiter.limit("20 per minute")  # Database write operation
 @login_required
 @admin_required
 def update_episodes():

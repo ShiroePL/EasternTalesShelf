@@ -41,8 +41,10 @@ from app.oauth_handler import AniListOAuth
 from app.oauth_config import ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI
 from app.utils.token_encryption import encrypt_token
 from flask_cors import CORS
+# Import limiter from separate module to avoid circular imports
+from app.limiter import limiter
 
-# Import blueprints
+# Import blueprints (they import limiter from app.limiter)
 from app.blueprints.auth import auth_bp
 from app.blueprints.main import main_bp
 from app.blueprints.api import api_bp
@@ -74,6 +76,11 @@ def create_app():
     
     # Configure app
     app.secret_key = Config.flask_secret_key
+    
+    # Initialize Flask-Limiter with the app
+    limiter.init_app(app)
+    # Enable rate limit headers
+    app.config['RATELIMIT_HEADERS_ENABLED'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
