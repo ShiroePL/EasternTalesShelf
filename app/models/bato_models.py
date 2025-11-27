@@ -2,7 +2,7 @@
 Bato.to Database Models
 SQLAlchemy models for storing Bato manga data scraped from batotwo.com
 """
-from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, ForeignKey, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, ForeignKey, JSON, UniqueConstraint, inspect
 from sqlalchemy.sql import text
 from datetime import datetime
 
@@ -64,7 +64,7 @@ class BatoMangaDetails(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 
@@ -114,7 +114,7 @@ class BatoChapters(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 
@@ -158,7 +158,7 @@ class BatoNotifications(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 
@@ -193,7 +193,7 @@ class BatoScraperLog(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 
@@ -234,7 +234,7 @@ class BatoScrapingSchedule(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 

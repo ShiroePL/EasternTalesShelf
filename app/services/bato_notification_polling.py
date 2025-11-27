@@ -108,8 +108,7 @@ class BatoNotificationPoller:
                     self.socketio.emit(
                         'bato_notification',
                         notification_data,
-                        namespace='/',
-                        broadcast=True
+                        namespace='/'
                     )
                     
                     emitted_ids.append(notif.id)

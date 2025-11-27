@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, create_engine, ForeignKey, JSON, DateTime
+from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, create_engine, ForeignKey, JSON, DateTime, inspect
 from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker
 from werkzeug.security import check_password_hash
 from app.config import DATABASE_URI
@@ -56,7 +56,7 @@ class MangaList(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 class Users(Base):
@@ -105,7 +105,7 @@ class Users(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
         
     @classmethod
@@ -179,7 +179,7 @@ class MangaUpdatesDetails(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 class MangaStatusNotification(Base):
@@ -199,7 +199,7 @@ class MangaStatusNotification(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 class AnilistNotification(Base):
@@ -233,7 +233,7 @@ class AnilistNotification(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 class ReadingHistory(Base):
@@ -253,7 +253,7 @@ class ReadingHistory(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 def init_db():
