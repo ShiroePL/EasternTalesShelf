@@ -8,11 +8,13 @@ ENV PYTHONPATH=/app
 # Set working directory early (light operation)
 WORKDIR /app
 
-# Install system dependencies and Doppler CLI
+# Install system dependencies first
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libc6-dev ffmpeg curl gnupg && \
-    curl -Ls https://cli.doppler.com/install.sh | sh && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Doppler CLI (needs gnupg to be fully installed first)
+RUN curl -Ls https://cli.doppler.com/install.sh | sh
 
 # Copy and install Python dependencies separately
 COPY requirements.txt .
