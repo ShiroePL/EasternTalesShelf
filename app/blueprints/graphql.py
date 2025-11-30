@@ -3,12 +3,27 @@ import requests
 import json
 import time
 import re
+import socket
 from flask import Blueprint, request, jsonify, current_app, Response, session
 from flask_login import login_required, current_user
 from flask_cors import cross_origin
 from app.limiter import limiter
 
 from app.admin import admin_required
+
+# Force IPv4 to avoid IPv6 DNS resolution issues on some networks
+# This is a workaround for ISPs with broken IPv6 DNS servers
+_original_getaddrinfo = socket.getaddrinfo
+
+def _ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    """Force IPv4 resolution for external requests"""
+    # Only force IPv4 for external hosts (not localhost)
+    if host not in ('localhost', '127.0.0.1', '::1'):
+        family = socket.AF_INET
+    return _original_getaddrinfo(host, port, family, type, proto, flags)
+
+# Apply the monkey patch
+socket.getaddrinfo = _ipv4_getaddrinfo
 
 # Create Blueprint
 graphql_bp = Blueprint('graphql', __name__, url_prefix='/graphql')
