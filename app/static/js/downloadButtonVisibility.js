@@ -32,13 +32,10 @@ function initializeDownloadButtonVisibility() {
     gridItems.forEach(item => {
         visibilityObserver.observe(item);
     });
-
-    console.log(`Observing ${gridItems.length} grid items for download button visibility`);
 }
 
 // Initialize when manga grid is loaded
 document.addEventListener('mangaGridLoaded', () => {
-    console.log('Initializing download button visibility optimization');
     initializeDownloadButtonVisibility();
 });
 

@@ -6,6 +6,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
 
     function fetchAndApplySettings() {
+        // Only fetch color settings if user is logged in
+        if (typeof isLoggedIn === 'undefined' || !isLoggedIn) {
+            // Not logged in - apply defaults silently without console errors
+            applyDefaultColorSettings();
+            updateColorCircles();
+            document.body.style.visibility = 'visible';
+            return;
+        }
+        
         fetch('/get_color_settings')
             .then(response => {
                 if (!response.ok) {

@@ -42,8 +42,8 @@ export async function loadMangaGrid(sortBy = "-last_updated_on_site") {
         // Get collection counts to determine total pages
         const counts = await fetchCollectionCounts();
 
-        // Fetch download statuses once at the beginning
-        const downloadStatuses = await fetchDownloadStatuses();
+        // Fetch download statuses once at the beginning (admin only)
+        const downloadStatuses = isAdmin ? await fetchDownloadStatuses() : {};
         
         // Fetch Bato upload statuses once at the beginning
         const batoUploadStatuses = await fetchBatoUploadStatuses();
