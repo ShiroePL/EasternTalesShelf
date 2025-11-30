@@ -4,7 +4,8 @@
         <!-- Left side: Brand and navigation links -->
         <div class="d-flex align-items-center">
             <a class="navbar-brand me-4" href="#">Eastern Tales Shelf</a>
-            <ul class="navbar-nav me-auto">
+            <!-- Category filters - hidden on mobile -->
+            <ul class="navbar-nav me-auto d-none d-md-flex navbar-categories">
                 <li class="nav-item me-2">
                     <a class="nav-link active" onclick="filterByType('ALL')" href="#">All</a>
                 </li>
@@ -52,14 +53,14 @@
                 </div>
                 {% endif %}
             {% else %}
-                <!-- Render buttons with popovers for unauthenticated users -->
-                <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
+                <!-- Admin buttons - hidden on mobile for non-authenticated users -->
+                <span class="d-none d-md-inline-block me-2 navbar-admin-btn" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
                     <button id="syncButton" type="button" class="btn btn-primary" disabled>Sync List</button>
                 </span>
-                <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
+                <span class="d-none d-md-inline-block me-2 navbar-admin-btn" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
                     <button id="addBatoLinkButton" type="button" class="btn btn-primary" disabled>Add Bato Link</button>
                 </span>
-                <span class="d-inline-block me-2" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
+                <span class="d-none d-md-inline-block me-2 navbar-admin-btn" tabindex="0" data-bs-toggle="popover" data-bs-title="Only for admin" data-bs-placement="bottom" data-bs-trigger="hover focus" data-bs-content="Not available in demo.">
                     <button class="btn btn-outline-light" disabled>
                         <i class="fas fa-bell"></i>
                     </button>
