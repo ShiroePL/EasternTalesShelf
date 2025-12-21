@@ -153,6 +153,9 @@ def create_app():
                 callback=handle_new_notifications
             )
             
+            # Start the sync task (every 15 minutes)
+            app.background_manager.start_sync_task(interval=300)
+            
             # Run the event loop
             loop.run_forever()
         

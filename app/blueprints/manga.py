@@ -408,32 +408,18 @@ def extract_links_from_bato(html_content):
 @login_required
 @admin_required
 def sync_with_fastapi():
-    try:
-        from app.config import fastapi_updater_server_IP
-        # Replace the URL with your actual FastAPI server address
-        url = f"http://{fastapi_updater_server_IP}:8057/sync"
-        print(f"Connecting to FastAPI at: {url}")
-        response = requests.post(url, timeout=10)
-
-        if response.status_code == 200:
-            # Assuming the FastAPI response is JSON and includes a status
-            return jsonify({
-                "status": "success",
-                "message": "Synced successfully with FastAPI",
-                "fastapi_response": response.json()  # Include FastAPI response if needed
-            }), 200
-        else:
-            return jsonify({
-                "status": "error",
-                "message": "Failed to sync with FastAPI"
-            }), 500
-    except requests.exceptions.RequestException as e:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": f"An error occurred while connecting to FastAPI: {str(e)}",
-                }
-            ),
-            500,
-        ) 
+    from app.services.sync_service import perform_sync_with_fastapi
+    
+    success, data = perform_sync_with_fastapi()
+    
+    if success:
+        return jsonify({
+            "status": "success",
+            "message": "Synced successfully with FastAPI",
+            "fastapi_response": data
+        }), 200
+    else:
+        return jsonify({
+            "status": "error",
+            "message": "Failed to sync with FastAPI"
+        }), 500 
