@@ -15,7 +15,17 @@
     <div id="release-status-filter" class="status-filter">
         <div class="statusReleasing-option" data-value=""><i class="fas fa-stream"></i> All Statuses <span class="status-count" id="count-all-release-stats">0</span></div>
         <div class="statusReleasing-option" data-value="RELEASING"><i class="fas fa-play-circle"></i> Releasing <span class="status-count" id="count-releasing">0</span></div>
-        <div class="statusReleasing-option" data-value="FINISHED"><i class="fas fa-flag-checkered"></i> Finished <span class="status-count" id="count-finished">0</span></div>
+        <div class="statusReleasing-option" data-value="FINISHED">
+            <i class="fas fa-flag-checkered"></i> Finished <span class="status-count" id="count-finished">0</span>
+        </div>
+        <div class="bato-finished-option">
+            <label class="bato-finished-label">
+                <input class="form-check-input" type="checkbox" id="batoCompleted_checkbox" onchange="filterEntries()">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Batotwo</span>
+                <span class="status-count" id="count-bato-finished">0</span>
+            </label>
+        </div>
     </div>
 
     <h5>Country</h5>
@@ -56,6 +66,46 @@
                     <input class="form-check-input" type="checkbox" value="" id="isRereaded_checkbox" onchange="filterEntries()">
                     <label class="form-check-label" for="isRereaded_checkbox">
                         <i class="fas fa-book-reader" style="color: #007bff;"></i>Reread
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h5>Side Stories</h5>
+    <div class="mb-3">
+        <div class="row" style="--bs-gutter-x: 1.0rem;">
+            <div class="col-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="released" id="sideStories_released_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="sideStories_released_checkbox">
+                        <i class="fas fa-book-medical" style="color: #28a745;"></i> Released
+                    </label>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="releasing" id="sideStories_releasing_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="sideStories_releasing_checkbox">
+                        <i class="fas fa-book-open" style="color: #007bff;"></i> Releasing
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-2" style="--bs-gutter-x: 1.0rem;">
+            <div class="col-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="planned" id="sideStories_planned_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="sideStories_planned_checkbox">
+                        <i class="fas fa-clock" style="color: #ffc107;"></i> Planned
+                    </label>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="none" id="sideStories_none_checkbox" onchange="filterEntries()">
+                    <label class="form-check-label" for="sideStories_none_checkbox">
+                        <i class="fas fa-question-circle" style="color: #6c757d;"></i> None
                     </label>
                 </div>
             </div>

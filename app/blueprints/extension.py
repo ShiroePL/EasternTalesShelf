@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from app.functions.class_mangalist import db_session, ReadingHistory, MangaList, Users
 from app.admin import admin_required
@@ -6,10 +6,13 @@ import logging
 import datetime
 from flask_cors import cross_origin
 import requests
+from app.limiter import limiter
 
 extension_bp = Blueprint('extension', __name__, url_prefix='/extension')
 
+
 @extension_bp.route('/reading-time', methods=['POST', 'OPTIONS'])
+@limiter.limit("30 per minute")  # Extension usage - moderate limit
 @cross_origin(supports_credentials=True)
 def receive_reading_time():
     """Endpoint for Chrome extension to submit reading time data"""
@@ -206,6 +209,7 @@ def receive_reading_time():
         return response
 
 @extension_bp.route('/reading-time-batch', methods=['POST', 'OPTIONS'])
+@limiter.limit("10 per minute")  # Batch operations - stricter limit
 @cross_origin(supports_credentials=True)
 def receive_reading_time_batch():
     """Endpoint for Chrome extension to submit multiple reading time entries in one request"""

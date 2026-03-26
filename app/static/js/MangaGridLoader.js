@@ -42,8 +42,11 @@ export async function loadMangaGrid(sortBy = "-last_updated_on_site") {
         // Get collection counts to determine total pages
         const counts = await fetchCollectionCounts();
 
-        // Fetch download statuses once at the beginning
-        const downloadStatuses = await fetchDownloadStatuses();
+        // Fetch download statuses once at the beginning (admin only)
+        const downloadStatuses = isAdmin ? await fetchDownloadStatuses() : {};
+        
+        // Fetch Bato upload statuses once at the beginning
+        const batoUploadStatuses = await fetchBatoUploadStatuses();
 
         // Clear the loading container before rendering the first batch
         container.innerHTML = '';
@@ -62,7 +65,8 @@ export async function loadMangaGrid(sortBy = "-last_updated_on_site") {
             const mergedDataPage = pageData.mangaList.map(manga => ({
                 ...manga,
                 download_status: downloadStatuses[manga.id_anilist] || 'not_downloaded',
-                mangaupdates_details: pageData.detailsMap[manga.id_anilist] || null
+                mangaupdates_details: pageData.detailsMap[manga.id_anilist] || null,
+                bato_upload_status: batoUploadStatuses[manga.id_anilist] || null
             }));
 
             // Load the current page of manga entries progressively
@@ -179,6 +183,13 @@ function createGridItem(entry, isDevelopment, isAdmin) {
     // Add score as data attribute for sorting
     gridItem.setAttribute('data-score', entry.score || 0);
     
+    // Add side stories status as data attribute for filtering
+    gridItem.setAttribute('data-side-stories-status', entry.side_stories_status || 'none');
+    
+    // Add Batotwo upload status as data attribute for filtering
+    const batoUploadStatus = entry.bato_upload_status || '';
+    gridItem.setAttribute('data-bato-upload-status', batoUploadStatus);
+    
     // Pre-calculate CSS order values for instant sorting
     const score = parseFloat(entry.score) || 0;
     const hasScore = entry.score && score > 0;
@@ -239,6 +250,12 @@ function createGridItem(entry, isDevelopment, isAdmin) {
     rereadIcon.className = 'reread-cover-icon';
     rereadIcon.setAttribute('data-reread-times', entry.reread_times);
     gridItem.appendChild(rereadIcon);
+    
+    // Add side stories icon
+    const sideStoriesIcon = document.createElement('div');
+    sideStoriesIcon.className = 'side-stories-icon';
+    sideStoriesIcon.setAttribute('data-side-stories-status', entry.side_stories_status || 'none');
+    gridItem.appendChild(sideStoriesIcon);
     
     // Add bato icon
     const batoIcon = document.createElement('div');
@@ -381,6 +398,7 @@ async function fetchMangaGridFromGraphQL(page, limit, sortBy = "-last_updated_on
             last_updated_on_site
             country_of_origin
             media_format
+            side_stories_status
         }
         mangaupdates_details {
             anilist_id
@@ -419,6 +437,34 @@ async function fetchMangaGridFromGraphQL(page, limit, sortBy = "-last_updated_on
     } catch (error) {
         console.error(`Error fetching manga grid data for page ${page}:`, error);
         return { mangaList: [], detailsMap: {} };
+    }
+}
+
+// Fetch Bato upload statuses for all manga with bato_link
+async function fetchBatoUploadStatuses() {
+    try {
+        const response = await fetch('/api/bato/upload-statuses');
+        if (!response.ok) {
+            console.warn('Could not fetch Bato upload statuses');
+            return {};
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            console.warn('Bato upload statuses request failed:', data.error);
+            return {};
+        }
+        
+        // Convert to a lookup object where keys are anilist_ids and values are upload_status
+        const statusMap = {};
+        data.statuses.forEach(item => {
+            statusMap[item.anilist_id] = item.upload_status;
+        });
+        
+        return statusMap;
+    } catch (error) {
+        console.error('Error fetching Bato upload statuses:', error);
+        return {};
     }
 }
 

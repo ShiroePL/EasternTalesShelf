@@ -1,5 +1,5 @@
 import { formatDates, adjustButtonSpacing } from './RightSidebarUtilities.js';
-import { processExternalLinks, processGenres, capitalizeFirstLetter } from './RightSidebarDataHandlers.js';
+import { processExternalLinks, processGenres, capitalizeFirstLetter, formatBatoUploadStatus } from './RightSidebarDataHandlers.js';
 import { animateHeartBurstWithParticles, startHeartsFlowingEffect, animateRereadIcon } from './RightsidebarAnimations.js';
 
 export function updateSidebarCover(data) {
@@ -78,7 +78,15 @@ export function updateSidebarTitle(data) {
 
 export function updateSidebarInfo(data) {
     let sidebarInfoHTML = `
-        <p><i class="fas fa-book-open chapter-icon flip"></i> Chapters: ${data.chapters_progress} / ${data.chapters_total === 0 ? '?' : data.chapters_total}</p>
+        <p><i class="fas fa-book-open chapter-icon flip"></i> Chapters: ${data.chapters_progress} / ${data.chapters_total === 0 ? '?' : data.chapters_total}</p>`;
+    
+    // Add Bato.to latest chapter if available
+    if (data.batoLatestChapter && data.batoLatestChapter.dname) {
+        sidebarInfoHTML += `
+        <p><i class="fas fa-book"></i> Batotwo: ${data.batoLatestChapter.dname}</p>`;
+    }
+    
+    sidebarInfoHTML += `
         <p><i class="fas fa-layer-group progress-icon bounce"></i> Volumes: ${data.volumes_progress} / ${data.volumes_total === 0 ? '?' : data.volumes_total}</p>`;
 
     let statusIcon = getStatusIcon(data.user_status);
@@ -95,8 +103,197 @@ export function updateSidebarInfo(data) {
         ${userDatesHTML}
         <p>${releaseStatusIcon} OG Release: ${formattedReleaseStatus}</p>
         ${mediaDatesHTML}`;
+    
+    // Add Bato.to upload status if available
+    if (data.batoUploadStatus) {
+        const batoStatusData = formatBatoUploadStatus(data.batoUploadStatus);
+        if (batoStatusData) {
+            sidebarInfoHTML += `
+        <p><i class="fas fa-cloud-upload-alt"></i> <span style="color: ${batoStatusData.color};">Batotwo: ${batoStatusData.statusCapitalized}</span></p>`;
+        }
+    }
+
+    // Add Side Stories selector with custom dropdown design (admin only) or read-only display
+    const currentStatus = data.side_stories_status || 'none';
+    const statusLabels = {
+        'none': '❓ None',
+        'released': '✓ Released',
+        'releasing': '📖 Releasing',
+        'planned': '⏰ Planned'
+    };
+    
+    const isNone = currentStatus === 'none';
+    
+    // Always show the compact display for everyone
+    sidebarInfoHTML += `
+        <div class="side-stories-inline mt-2" id="sideStoriesContainer">
+            <div class="side-stories-header">
+                <span class="side-stories-label">
+                    <i class="fas fa-book-medical"></i> Side Stories:
+                </span>
+                <span class="side-stories-value" id="sideStoriesDisplay" data-current-status="${currentStatus}">${statusLabels[currentStatus]}</span>
+            </div>
+        </div>`;
 
     $('#sidebar-info').html(sidebarInfoHTML);
+    
+    // Check if user is admin and make the value clickable for dropdown functionality
+    if (window.isUserAdmin && isLoggedIn) {
+        window.isUserAdmin().then(isAdmin => {
+            if (isAdmin) {
+                // Make the value clickable and add visual cue for admins
+                const $sideStoriesValue = $('#sideStoriesDisplay');
+                $sideStoriesValue.addClass('admin-clickable');
+                
+                // Add click handler to show dropdown
+                $sideStoriesValue.off('click').on('click', function(e) {
+                    e.stopPropagation();
+                    
+                    // Replace with dropdown on first click
+                    const currentStatus = $(this).attr('data-current-status');
+                    const dropdownHTML = `
+                        <div class="custom-side-stories-dropdown" id="sideStoriesDropdown">
+                            <div class="custom-dropdown-selected active" data-value="${currentStatus}">
+                                <span class="dropdown-text">${statusLabels[currentStatus]}</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </div>
+                            <div class="custom-dropdown-options show">
+                                <div class="custom-dropdown-option ${currentStatus === 'none' ? 'active' : ''}" data-value="none">❓ None</div>
+                                <div class="custom-dropdown-option ${currentStatus === 'released' ? 'active' : ''}" data-value="released">✓ Released</div>
+                                <div class="custom-dropdown-option ${currentStatus === 'releasing' ? 'active' : ''}" data-value="releasing">📖 Releasing</div>
+                                <div class="custom-dropdown-option ${currentStatus === 'planned' ? 'active' : ''}" data-value="planned">⏰ Planned</div>
+                            </div>
+                        </div>`;
+                    
+                    $('#sideStoriesContainer').html(`
+                        <div class="side-stories-header">
+                            <span class="side-stories-label">
+                                <i class="fas fa-book-medical"></i> Side Stories:
+                            </span>
+                        </div>
+                        ${dropdownHTML}
+                    `);
+                    
+                    initializeSideStoriesDropdown();
+                });
+            }
+        }).catch(err => {
+            console.log('Could not check admin status, keeping read-only display');
+        });
+    }
+}
+
+// Separate function to initialize side stories dropdown (for admin users only)
+function initializeSideStoriesDropdown() {
+    // Initialize custom dropdown behavior
+    const dropdown = $('#sideStoriesDropdown');
+    const selected = dropdown.find('.custom-dropdown-selected');
+    const options = dropdown.find('.custom-dropdown-options');
+    const optionElements = dropdown.find('.custom-dropdown-option');
+    
+    // Toggle dropdown on click
+    selected.off('click').on('click', function(e) {
+        e.stopPropagation();
+        selected.toggleClass('active');
+        options.toggleClass('show');
+    });
+    
+    // Handle option selection
+    optionElements.off('click').on('click', async function(e) {
+        e.stopPropagation();
+        const newStatus = $(this).attr('data-value');
+        const anilistId = window.currentAnilistId;
+        
+        if (!anilistId) {
+            console.error('No anilist ID available');
+            return;
+        }
+        
+        // Add loading state
+        dropdown.addClass('loading');
+        
+        try {
+            const response = await fetch(`/api/manga/${anilistId}/side-stories`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to update side stories status');
+            }
+            
+            // Update the data attribute on the grid item
+            const gridItem = document.querySelector(`[data-anilist-id="${anilistId}"]`);
+            if (gridItem) {
+                gridItem.setAttribute('data-side-stories-status', newStatus);
+                
+                // Update the side stories icon on the cover
+                const sideStoriesIcon = gridItem.querySelector('.side-stories-icon');
+                if (sideStoriesIcon) {
+                    sideStoriesIcon.setAttribute('data-side-stories-status', newStatus);
+                }
+            }
+            
+            // Update UI
+            optionElements.removeClass('active');
+            $(this).addClass('active');
+            selected.find('.dropdown-text').text($(this).text());
+            selected.attr('data-value', newStatus);
+            
+            // Close dropdown
+            selected.removeClass('active');
+            options.removeClass('show');
+            
+            // Success feedback
+            selected.addClass('success');
+            setTimeout(() => {
+                selected.removeClass('success');
+                
+                // If changed back to 'none', hide dropdown and show reveal button again
+                if (newStatus === 'none') {
+                    setTimeout(() => {
+                        dropdown.slideUp(300, function() {
+                            dropdown.addClass('hidden');
+                            $('.side-stories-header').append(`<button class="side-stories-reveal-btn" id="revealSideStoriesBtn"><i class="fas fa-eye"></i></button>`);
+                            
+                            // Re-attach click handler for the new button
+                            $('#revealSideStoriesBtn').off('click').on('click', function(e) {
+                                e.stopPropagation();
+                                $(this).fadeOut(200, function() {
+                                    $(this).remove();
+                                    dropdown.removeClass('hidden').hide().slideDown(300);
+                                    setTimeout(() => {
+                                        selected.addClass('active');
+                                        options.addClass('show');
+                                    }, 100);
+                                });
+                            });
+                        });
+                    }, 500);
+                }
+            }, 600);
+            
+        } catch (error) {
+            console.error('Error updating side stories status:', error);
+            
+            // Error feedback
+            selected.addClass('error');
+            setTimeout(() => selected.removeClass('error'), 600);
+        } finally {
+            selected.removeClass('loading');
+        }
+    });
+    
+    // Close dropdown when clicking outside
+    $(document).off('click.sideStoriesDropdown').on('click.sideStoriesDropdown', function(e) {
+        if (!$(e.target).closest('#sideStoriesDropdown').length) {
+            selected.removeClass('active');
+            options.removeClass('show');
+        }
+    });
 }
 
 
@@ -167,7 +364,7 @@ export function updateSidebarNotes(data) {
 
 export function updateExternalLinks(data) {
     let linksContainer = document.getElementById('sidebar-external-links');
-    let processedLinks = processExternalLinks(data.externalLinksData);
+    let processedLinks = processExternalLinks(data.externalLinksData, data.mangaupdates_url);
     
     while (linksContainer.firstChild) {
         linksContainer.removeChild(linksContainer.firstChild);

@@ -115,6 +115,45 @@
     background-color: #3e3e3e;
 }
 
+/* Bato Finished sub-option styling */
+.bato-finished-option {
+    padding: 0.35rem 0rem 0.35rem 0.3rem;
+    font-size: 0.9em;
+    border-left: 2px solid var(--primary-color);
+    margin-left: 1rem;
+    margin-top: 0.25rem;
+    border-radius: 0 5px 5px 0;
+    transition: background-color 0.3s;
+}
+
+.bato-finished-option:hover {
+    background-color: #3e3e3e;
+}
+
+.bato-finished-label {
+    cursor: pointer;
+    font-weight: normal;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--text-color);
+    width: 100%;
+}
+
+.bato-finished-label .status-count {
+    margin-left: 20px;
+    float: none;
+}
+
+.bato-finished-label .form-check-input {
+    margin: 0;
+}
+
+.bato-finished-label i {
+    color: #28a745;
+}
+
 .status-count {
     float: right;
     background-color: var(--primary-color);
@@ -337,6 +376,287 @@
     margin-right: 5px;
 }
 
+/* Side Stories Section */
+#side-stories-section {
+    font-family: 'Roboto', sans-serif;
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+#side-stories-section h6 {
+    font-size: 1.0rem;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+}
+
+#side-stories-select {
+    background-color: #2b2b2b;
+    border: 1px solid var(--border-color);
+    color: white;
+    transition: all 0.3s ease;
+}
+
+#side-stories-select:focus {
+    background-color: #333;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 5px rgba(var(--primary-color-rgb), 0.5);
+}
+
+#side-stories-select:hover {
+    border-color: var(--hover-color);
+}
+
+/* Inline Side Stories Custom Dropdown */
+.side-stories-inline {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.side-stories-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    gap: 4px;
+}
+
+.side-stories-label {
+    font-size: 0.8rem;
+    color: #ccc;
+    font-weight: 500;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.side-stories-value {
+    font-size: 0.75rem;
+    color: var(--text-color);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 3px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: left;
+    width: fit-content;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+}
+
+.side-stories-value.admin-clickable {
+    cursor: pointer;
+    border: 1px solid rgba(47, 175, 175, 0.3);
+}
+
+.side-stories-value.admin-clickable:hover {
+    background: rgba(47, 175, 175, 0.15);
+    border-color: rgba(47, 175, 175, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(47, 175, 175, 0.2);
+}
+
+.side-stories-reveal-btn {
+    background: rgba(47, 175, 175, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--primary-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.side-stories-reveal-btn:hover {
+    background: rgba(47, 175, 175, 0.25);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 12px rgba(47, 175, 175, 0.3);
+}
+
+.side-stories-reveal-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.side-stories-reveal-btn i {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* Custom dropdown container */
+.custom-side-stories-dropdown {
+    position: relative;
+    width: 100%;
+    z-index: 10;
+    margin-top: 4px;
+}
+
+.custom-side-stories-dropdown.hidden {
+    display: none;
+}
+
+/* Selected/visible part of dropdown */
+.custom-dropdown-selected {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+}
+
+.custom-dropdown-selected:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(47, 175, 175, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.custom-dropdown-selected.active {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(47, 175, 175, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+.dropdown-text {
+    flex: 1;
+    text-align: left;
+}
+
+.dropdown-arrow {
+    font-size: 10px;
+    color: var(--primary-color);
+    transition: transform 0.3s ease;
+    margin-left: 8px;
+}
+
+.custom-dropdown-selected.active .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+/* Options container (dropdown menu) */
+.custom-dropdown-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 9999;
+    margin-top: 4px;
+    overflow: visible;
+}
+
+.custom-dropdown-options.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Individual option */
+.custom-dropdown-option {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    border-radius: 6px;
+    margin: 2px 4px;
+}
+
+.custom-dropdown-option:hover {
+    background: rgba(47, 175, 175, 0.2);
+    color: var(--primary-color);
+    transform: translateX(2px);
+}
+
+.custom-dropdown-option.active {
+    background: rgba(47, 175, 175, 0.15);
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.custom-dropdown-option.active::before {
+    content: '✓';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary-color);
+    font-size: 11px;
+}
+
+/* Loading state */
+.custom-dropdown-selected.loading {
+    opacity: 0.6;
+    pointer-events: none;
+    animation: pulse-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-loading {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 0.8; }
+}
+
+/* Success feedback */
+.custom-dropdown-selected.success {
+    border-color: #28a745;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
+    animation: success-pulse 0.6s ease-out;
+}
+
+@keyframes success-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* Error feedback */
+.custom-dropdown-selected.error {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
+    animation: shake 0.6s ease-out;
+}
+
+@keyframes shake {
+    0%, 100% { opacity: 1; }
+    25% { opacity: 0.7; }
+    50% { opacity: 1; }
+    75% { opacity: 0.8; }
+}
+
 /* Toggle link and notes styles */
 .toggle-link {
     color: var(--primary-color);
@@ -483,6 +803,8 @@
     margin-bottom: 0.5rem;
     line-height: 1.5;
     color: var(--text-color);
+    display: flex;
+    align-items: flex-start;
 }
 
 #sidebar-info i {
@@ -490,6 +812,13 @@
     margin-right: 0.5rem;
     width: 1.5em;
     text-align: center;
+    flex-shrink: 0;
+}
+
+/* Exclude button icons from sidebar-info icon styles */
+#sidebar-info .side-stories-reveal-btn i {
+    margin-right: 0;
+    width: auto;
 }
 
 #sidebar-info p.date-info {
@@ -502,7 +831,8 @@
 
 .icon-placeholder {
     display: inline-block;
-    width: calc(24px + 1em);
+    /* Use rem for consistent sizing, matching the icon's width (1.5rem) and margin (0.5rem) */
+    width: calc(1.5rem + 0.5rem);
     visibility: hidden;
 }
 

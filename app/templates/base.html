@@ -1,6 +1,7 @@
 <!-- base.html -->
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,7 +11,7 @@
         // Provide the GraphQL safety key for client-side validation
         const GRAPHQL_SAFETY_KEY = "{{ graphql_safety_key }}";
     </script>
-    
+
     <!-- Common meta tags -->
     {% include 'components/_meta_tags.html' %}
 
@@ -20,10 +21,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" />
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css" />
-    
+
     <!-- Critical JS first - this handles GraphQL requests based on login status -->
     <script src="{{ url_for('static', filename='js/admin-access-handler.js') }}"></script>
-    
+
     <!-- JS Imports (core) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.0.0/dist/gsap.min.js"></script>
@@ -31,7 +32,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3"></script>
     <script src="https://cdn.jsdelivr.net/npm/element-plus"></script>
     <script src="https://cdn.jsdelivr.net/npm/@element-plus/icons-vue"></script>
-    
+
     <script>
         if (typeof io !== 'undefined' && isLoggedIn) {
             const socket = io({
@@ -43,9 +44,9 @@
             });
         }
     </script>
-    
+
     <title>{% block title %}Eastern Tales Shelf{% endblock %}</title>
-    
+
     {% block head_extras %}{% endblock %}
 </head>
 
@@ -57,30 +58,33 @@
     <div class="ultra-wide-wrapper">
         <!-- Navigation (extends full width) -->
         {% include 'components/_navbar.html' %}
-        
+
         <!-- Main content container (constrained to 16:9) -->
         <div class="main-content-container">
             <!-- Main content -->
             {% block content %}{% endblock %}
-            
+
             <!-- Common modals -->
             {% include 'components/_login_modal.html' %}
             {% include 'components/_color_picker_modal.html' %}
-            
+
             <!-- Chatbot -->
             {% include 'components/_chatbot.html' %}
         </div>
-        
+
         <!-- Footer (extends full width) -->
         {% include 'components/_footer.html' %}
+
+        <!-- Mobile Bottom Navigation -->
+        {% include 'components/_mobile_nav.html' %}
     </div>
-    
+
     <!-- Hidden elements -->
     <div id="colorSettings" data-color-settings="{{ color_settings | tojson }}"></div>
-    
+
     <!-- Vue app containers -->
     {% include 'components/_notifications_app.html' %}
-    
+
     <!-- Common scripts -->
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
@@ -89,8 +93,10 @@
     <script src="{{ url_for('static', filename='js/filters.js') }}"></script>
     <script src="{{ url_for('static', filename='js/eventListeners.js') }}"></script>
     <script src="{{ url_for('static', filename='js/downloadButtonVisibility.js') }}"></script>
-    
+    <script src="{{ url_for('static', filename='js/mobile-ui.js') }}"></script>
+
     <!-- Page-specific scripts -->
     {% block scripts %}{% endblock %}
 </body>
+
 </html>

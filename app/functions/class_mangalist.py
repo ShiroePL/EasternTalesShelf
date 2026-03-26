@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, create_engine, ForeignKey, JSON, DateTime
+from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, Text, Boolean, create_engine, ForeignKey, JSON, DateTime, inspect
 from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker
 from werkzeug.security import check_password_hash
 from app.config import DATABASE_URI
@@ -51,11 +51,12 @@ class MangaList(Base):
     genres = Column(Text, default='none genres provided')
     external_links = Column(Text, default='none links associated')
     bato_link = Column(Text, default='')
+    side_stories_status = Column(String(50), default='none')
 
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 class Users(Base):
@@ -104,7 +105,7 @@ class Users(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
         
     @classmethod
@@ -157,11 +158,28 @@ class MangaUpdatesDetails(Base):
     completed = Column(Boolean, nullable=True)
     last_updated_timestamp = Column(Text, nullable=True)
     mangaupdates_url = Column(String(255), nullable=True)
+    
+    # Additional API fields
+    title = Column(String(500), nullable=True)
+    description = Column(Text, nullable=True)
+    type = Column(String(50), nullable=True)
+    year = Column(String(20), nullable=True)
+    bayesian_rating = Column(Float, nullable=True)
+    rating_votes = Column(Integer, nullable=True)
+    latest_chapter = Column(Integer, nullable=True)
+    cover_image_url = Column(String(500), nullable=True)
+    cover_thumbnail_url = Column(String(500), nullable=True)
+    genres = Column(JSON, nullable=True)
+    categories = Column(JSON, nullable=True)
+    authors = Column(JSON, nullable=True)
+    publishers = Column(JSON, nullable=True)
+    series_id = Column(String(50), nullable=True)
+    last_api_sync = Column(DateTime, nullable=True)
 
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 class MangaStatusNotification(Base):
@@ -181,7 +199,7 @@ class MangaStatusNotification(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 class AnilistNotification(Base):
@@ -215,7 +233,7 @@ class AnilistNotification(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 class ReadingHistory(Base):
@@ -235,7 +253,7 @@ class ReadingHistory(Base):
     @classmethod
     def create_table_if_not_exists(cls, engine):
         """Create the table if it doesn't exist"""
-        if not engine.dialect.has_table(engine, cls.__tablename__):
+        if not inspect(engine).has_table(cls.__tablename__):
             cls.__table__.create(engine)
 
 def init_db():

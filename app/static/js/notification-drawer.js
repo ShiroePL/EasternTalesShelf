@@ -37,25 +37,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 const includeRead = 'true'
                 console.log("Fetching notifications, includeRead:", includeRead);
                 
-                fetch(`/api/notifications?include_read=${includeRead}`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! Status: ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log("Received notifications data:", data);
-                        if (data.notifications) {
-                            this.notifications = data.notifications;
-                            console.log("Updated notifications:", this.notifications.length);
-                        } else {
-                            console.warn("No notifications found in response");
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching notifications:', error);
+                // Fetch both regular notifications and Bato notifications
+                Promise.all([
+                    fetch(`/api/notifications?include_read=${includeRead}`).then(r => r.json()),
+                    fetch(`/api/bato/notifications`).then(r => r.json())
+                ])
+                .then(([regularData, batoData]) => {
+                    console.log("Received regular notifications:", regularData);
+                    console.log("Received Bato notifications:", batoData);
+                    
+                    let allNotifications = [];
+                    
+                    // Add regular notifications
+                    if (regularData.notifications) {
+                        allNotifications = allNotifications.concat(regularData.notifications);
+                    }
+                    
+                    // Add Bato notifications with source identifier
+                    if (batoData.success && batoData.notifications) {
+                        const batoNotifications = batoData.notifications.map(n => ({
+                            ...n,
+                            source: 'bato',
+                            title: n.manga_name,
+                            read: n.is_read
+                        }));
+                        allNotifications = allNotifications.concat(batoNotifications);
+                    }
+                    
+                    // Sort by created_at only (newer first) for chronological timeline
+                    allNotifications.sort((a, b) => {
+                        const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+                        const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+                        return dateB - dateA;
                     });
+                    
+                    this.notifications = allNotifications;
+                    console.log("Updated notifications:", this.notifications.length);
+                })
+                .catch(error => {
+                    console.error('Error fetching notifications:', error);
+                });
             },
             
             // Format date for display
@@ -77,7 +98,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Mark a notification as read
             markAsRead(source, id, index) {
                 console.log(`Marking as read: ${source} ${id}`);
-                fetch(`/api/notifications/${source}/${id}/read`, {
+                
+                // Use different endpoint for Bato notifications
+                const endpoint = source === 'bato' 
+                    ? `/api/bato/notifications/${id}/read`
+                    : `/api/notifications/${source}/${id}/read`;
+                
+                fetch(endpoint, {
                     method: 'POST'
                 })
                 .then(response => response.json())
@@ -96,27 +123,45 @@ document.addEventListener('DOMContentLoaded', function() {
             // Mark all notifications as read
             markAllAsRead() {
                 console.log("Marking all as read");
-                fetch('/api/notifications/read-all', {
+                
+                // Mark all regular notifications as read
+                const regularPromise = fetch('/api/notifications/read-all', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Clear notifications and update badge
-                        this.notifications = [];
+                }).then(r => r.json());
+                
+                // Mark all Bato notifications as read
+                const batoPromises = this.notifications
+                    .filter(n => n.source === 'bato' && !n.read)
+                    .map(n => fetch(`/api/bato/notifications/${n.id}/read`, {
+                        method: 'POST'
+                    }).then(r => r.json()));
+                
+                Promise.all([regularPromise, ...batoPromises])
+                    .then(() => {
+                        // Mark all as read in local data
+                        this.notifications.forEach(n => n.read = true);
                         this.updateNotificationCount();
-                    }
-                })
-                .catch(error => console.error('Error marking all notifications as read:', error));
+                    })
+                    .catch(error => console.error('Error marking all notifications as read:', error));
             },
             
             // Handle notification click
-            handleNotificationClick(notification) {
+            handleNotificationClick(notification, index) {
                 console.log("Notification clicked:", notification.title);
-                if (notification.url) {
+                
+                // Handle Bato notifications with chapter_full_url
+                if (notification.source === 'bato' && notification.chapter_full_url) {
+                    // Open the chapter URL
+                    window.open(notification.chapter_full_url, '_blank');
+                    
+                    // Mark as read
+                    if (!notification.read) {
+                        this.markAsRead(notification.source, notification.id, index);
+                    }
+                } else if (notification.url) {
                     window.open(notification.url, '_blank');
                 } else if (notification.anilist_id) {
                     // Find the manga element and show details
@@ -139,24 +184,36 @@ document.addEventListener('DOMContentLoaded', function() {
                         return;
                     }
                     
-                    fetch('/api/notifications/count')
-                        .then(response => response.json())
-                        .then(data => {
-                            const badge = document.getElementById('notification-count');
-                            if (!badge) return;
-                            
-                            if (data.count > 0) {
-                                badge.textContent = data.count > 99 ? '99+' : data.count;
-                                badge.classList.add('has-notifications');
-                            } else {
-                                badge.textContent = '';
-                                badge.classList.remove('has-notifications');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error getting notification count:', error);
-                            // Don't show error UI for background operations
-                        });
+                    // Fetch counts from both sources
+                    Promise.all([
+                        fetch('/api/notifications/count').then(r => r.json()),
+                        fetch('/api/bato/notifications').then(r => r.json())
+                    ])
+                    .then(([regularData, batoData]) => {
+                        const badge = document.getElementById('notification-count');
+                        if (!badge) return;
+                        
+                        // Calculate total count
+                        let totalCount = regularData.count || 0;
+                        
+                        // Add Bato unread count
+                        if (batoData.success && batoData.notifications) {
+                            const batoUnreadCount = batoData.notifications.filter(n => !n.is_read).length;
+                            totalCount += batoUnreadCount;
+                        }
+                        
+                        if (totalCount > 0) {
+                            badge.textContent = totalCount > 99 ? '99+' : totalCount;
+                            badge.classList.add('has-notifications');
+                        } else {
+                            badge.textContent = '';
+                            badge.classList.remove('has-notifications');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error getting notification count:', error);
+                        // Don't show error UI for background operations
+                    });
                 }).catch(() => {/* Silently ignore errors */});
             }
         },

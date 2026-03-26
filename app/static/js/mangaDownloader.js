@@ -484,7 +484,5 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 1000);
         }
-    } else {
-        console.log('User not logged in, not initializing MangaDownloader');
     }
 }); 

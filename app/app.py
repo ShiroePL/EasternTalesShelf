@@ -41,8 +41,10 @@ from app.oauth_handler import AniListOAuth
 from app.oauth_config import ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, ANILIST_REDIRECT_URI
 from app.utils.token_encryption import encrypt_token
 from flask_cors import CORS
+# Import limiter from separate module to avoid circular imports
+from app.limiter import limiter
 
-# Import blueprints
+# Import blueprints (they import limiter from app.limiter)
 from app.blueprints.auth import auth_bp
 from app.blueprints.main import main_bp
 from app.blueprints.api import api_bp
@@ -52,7 +54,12 @@ from app.blueprints.notifications import notifications_bp
 from app.blueprints.manga import manga_bp
 from app.blueprints.graphql import graphql_bp
 from app.blueprints.extension import extension_bp
+from app.blueprints.bato_notifications import bato_notifications_bp
+from app.blueprints.bato_admin import bato_admin_bp
 
+# Import Bato database initialization and notification polling
+from app.models.bato_models import init_bato_db
+from app.services.bato_notification_polling import init_bato_notification_poller, stop_bato_notification_poller
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -69,6 +76,11 @@ def create_app():
     
     # Configure app
     app.secret_key = Config.flask_secret_key
+    
+    # Initialize Flask-Limiter with the app
+    limiter.init_app(app)
+    # Enable rate limit headers
+    app.config['RATELIMIT_HEADERS_ENABLED'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -110,11 +122,24 @@ def create_app():
     app.register_blueprint(manga_bp)
     app.register_blueprint(graphql_bp)
     app.register_blueprint(extension_bp)
+    app.register_blueprint(bato_notifications_bp)
+    app.register_blueprint(bato_admin_bp)
 
     with app.app_context():
+        # Initialize database tables for Bato
+        try:
+            from app.functions.class_mangalist import engine
+            init_bato_db(engine)
+            logging.info("Bato database tables initialized successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize Bato database tables: {e}")
+        
         # Initialize notification manager and background tasks
         app.notification_manager = AnilistNotificationManager()
         app.background_manager = BackgroundTaskManager()
+        
+        # Note: BatoScrapingService now runs in a separate container
+        # See docker-compose.yml for bato-scraping-service configuration
         
         # Create a thread to run the background tasks
         def run_background_tasks():
@@ -127,6 +152,9 @@ def create_app():
                 interval=3600,  # Check every hour
                 callback=handle_new_notifications
             )
+            
+            # Start the sync task (every 15 minutes)
+            app.background_manager.start_sync_task(interval=300)
             
             # Run the event loop
             loop.run_forever()
@@ -192,7 +220,7 @@ def set_security_headers(response):
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https://*.anilist.co; "
         "font-src 'self' https://cdnjs.cloudflare.com; "
-        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.easterntalesshelf.site wss://*.easterntalesshelf.site chrome-extension://* http://localhost:* https://localhost:*;"
+        "connect-src 'self' ws://localhost:* wss://localhost:* ws://*.easterntalesshelf.site wss://*.easterntalesshelf.site chrome-extension://* http://localhost:* https://localhost:* https://cdn.jsdelivr.net;"
     )
 
     # Add CORS headers for API requests
@@ -218,6 +246,26 @@ def cleanup(resp_or_exc):
     except Exception as e:
         print(f"Error during database cleanup: {e}")
 
+def shutdown_services():
+    """Gracefully shutdown all background services"""
+    logging.info("Shutting down background services...")
+    
+    # Stop Bato notification poller
+    try:
+        stop_bato_notification_poller()
+        logging.info("Bato notification poller stopped")
+    except Exception as e:
+        logging.error(f"Error stopping Bato notification poller: {e}")
+    
+    # Note: BatoScrapingService runs in a separate container and is managed independently
+    # No need to stop it from the main web application
+    
+    logging.info("All background services shut down")
+
+# Register shutdown handler
+import atexit
+atexit.register(shutdown_services)
+
 def start_background_services():
     """Start background services in separate threads"""
     update_service_thread = Thread(target=start_update_service, daemon=True)
@@ -231,6 +279,17 @@ socketio = SocketIO(
     logger=True,
     engineio_logger=True
 )
+
+# Attach socketio to app for access via current_app.socketio
+app.socketio = socketio
+
+# Initialize Bato notification poller (polls every 60 seconds)
+# This bridges the standalone Bato scraping container with the web app's real-time notifications
+try:
+    init_bato_notification_poller(socketio, poll_interval=60)
+    logging.info("Bato notification poller initialized successfully")
+except Exception as e:
+    logging.error(f"Failed to initialize Bato notification poller: {e}")
 
 if __name__ == '__main__':
     # For local development

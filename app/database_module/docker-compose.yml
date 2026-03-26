@@ -11,6 +11,7 @@ services:
     devices:
       - /dev/net/tun
     environment:
+      - TZ=Europe/Warsaw
       - DOPPLER_TOKEN=${DOPPLER_TOKEN_EASTERN_SHELF}  # Doppler token for secret injection
       - FLASK_ENV  
     networks:

@@ -3,11 +3,27 @@ import requests
 import json
 import time
 import re
+import socket
 from flask import Blueprint, request, jsonify, current_app, Response, session
 from flask_login import login_required, current_user
 from flask_cors import cross_origin
+from app.limiter import limiter
 
 from app.admin import admin_required
+
+# Force IPv4 to avoid IPv6 DNS resolution issues on some networks
+# This is a workaround for ISPs with broken IPv6 DNS servers
+_original_getaddrinfo = socket.getaddrinfo
+
+def _ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    """Force IPv4 resolution for external requests"""
+    # Only force IPv4 for external hosts (not localhost)
+    if host not in ('localhost', '127.0.0.1', '::1'):
+        family = socket.AF_INET
+    return _original_getaddrinfo(host, port, family, type, proto, flags)
+
+# Apply the monkey patch
+socket.getaddrinfo = _ipv4_getaddrinfo
 
 # Create Blueprint
 graphql_bp = Blueprint('graphql', __name__, url_prefix='/graphql')
@@ -55,13 +71,22 @@ def validate_request_origin():
         if not url:
             return False
             
-        # Clean up the URL for matching - remove protocol and trailing slash
-        cleaned_url = re.sub(r'^https?://', '', url).rstrip('/')
+        # Parse the URL to get just the domain/host
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        
+        # Get the netloc (domain:port part)
+        netloc = parsed.netloc if parsed.netloc else url
+        
+        # Remove trailing slash and protocol
+        cleaned_url = re.sub(r'^https?://', '', netloc).rstrip('/')
         
         for domain in allowed_domains:
-            # Create a pattern that matches the domain exactly or as a subdomain
-            pattern = r'^{0}$|^[^/]+\.{0}$|^{0}:[0-9]+$'.format(re.escape(domain))
-            if re.search(pattern, cleaned_url):
+            # Match exact domain or with port
+            if cleaned_url == domain or cleaned_url.startswith(domain + '/'):
+                return True
+            # Match domain with port
+            if ':' in cleaned_url and cleaned_url.split(':')[0] == domain.split(':')[0]:
                 return True
         return False
     
@@ -102,6 +127,7 @@ def validate_graphql_key():
     return key_match
 
 @graphql_bp.route('/', methods=['POST', 'OPTIONS'])
+@limiter.limit("360 per minute")  # Allow ~2 requests per second for authenticated users
 @cross_origin(supports_credentials=True)
 @admin_required
 @login_required
@@ -209,6 +235,7 @@ def graphql_proxy_endpoint():
         return jsonify({'errors': ['An unexpected error occurred.']}), 500
 
 @graphql_bp.route('/public', methods=['POST', 'OPTIONS'])
+@limiter.limit("120 per minute")  # Public endpoint, 1 request per second
 @cross_origin(supports_credentials=True)
 def public_graphql_endpoint():
     """Public GraphQL endpoint that serves demo data without authentication."""

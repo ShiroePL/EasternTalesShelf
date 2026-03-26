@@ -52,3 +52,24 @@ class BackgroundTaskManager:
         """Default callback just prints notifications"""
         for notification in notifications:
             print(f"New notification:\n{notification}")
+
+    async def poll_sync(self, interval: int):
+        """
+        Poll for sync with FastAPI at specified interval
+        """
+        from app.services.sync_service import perform_sync_with_fastapi
+        while True:
+            # Run the synchronous function in a separate thread to avoid blocking the event loop
+            try:
+                await self.loop.run_in_executor(None, perform_sync_with_fastapi)
+            except Exception as e:
+                print(f"Error in sync task: {e}")
+            await asyncio.sleep(interval)
+
+    def start_sync_task(self, interval: int = 900):
+        """Start sync task"""
+        self._ensure_loop()
+        
+        # Create and run the polling coroutine
+        sync_coro = self.poll_sync(interval)
+        self.tasks['sync_polling'] = self.loop.create_task(sync_coro)

@@ -8,6 +8,7 @@ from app.models.scraper_models import ScrapeQueue
 import requests
 from bs4 import BeautifulSoup
 import re
+from app.limiter import limiter
 
 download_bp = Blueprint('download', __name__, url_prefix='/api')
 
@@ -53,6 +54,7 @@ def update_download_status():
 
 # Queue management routes
 @download_bp.route('/queue/add', methods=['POST'])
+@limiter.limit("20 per minute")  # Prevent queue spam
 @login_required
 @admin_required
 def add_to_queue_route():

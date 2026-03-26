@@ -1,9 +1,9 @@
 # Use Alpine as the base image
 FROM alpine:3.17.3
 
-# Update package list and install dependencies
+# Update package list and install dependencies (including cron for scheduled tasks)
 RUN apk update && \
-    apk add --no-cache bash python3 py3-pip curl iptables iproute2 openrc && \
+    apk add --no-cache bash python3 py3-pip curl iptables iproute2 openrc dcron gnupg dos2unix && \
     apk add build-base python3-dev libffi-dev
 
 # Install Doppler CLI for secrets management
@@ -23,5 +23,9 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Command to start your FastAPI app with Doppler secrets injection
-CMD ["doppler", "run", "--", "uvicorn", "fastapi_for_library_website:app", "--host", "0.0.0.0", "--port", "8057"]
+# Fix line endings for shell scripts (Windows CRLF -> Linux LF) and make executable
+RUN dos2unix /app/setup_cron.sh /app/start.sh /app/run_weekly_update.sh && \
+    chmod +x /app/setup_cron.sh /app/start.sh /app/run_weekly_update.sh
+
+# Command to start both cron and FastAPI app with Doppler secrets injection
+CMD ["/bin/bash", "/app/start.sh"]

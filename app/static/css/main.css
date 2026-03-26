@@ -15,4 +15,7 @@
 @import './login_modal.css';
 @import './notifications.css';
 @import './queue_manager.css';
-@import './animelist.css'; 
+/* @import './animelist.css'; - Disabled until animelist feature is implemented */
+
+/* Import mobile responsive styles - must be last to override other styles */
+@import './mobile-responsive.css'; 

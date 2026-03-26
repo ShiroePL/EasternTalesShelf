@@ -91,6 +91,9 @@ async function fetchSidebarStats() {
             return null;
         }
 
+        // Fetch Bato finished count from API (instant, doesn't need DOM)
+        const batoFinishedCount = await fetchBatoFinishedCount();
+
         // Extract counts from aggregated results
         return {
             listStatus: {
@@ -102,7 +105,8 @@ async function fetchSidebarStats() {
             },
             releaseStatus: {
                 releasing: result.data.releasing[0]?.count?.id_anilist || 0,
-                finished: result.data.finished[0]?.count?.id_anilist || 0
+                finished: result.data.finished[0]?.count?.id_anilist || 0,
+                batoFinished: batoFinishedCount
             },
             special: {
                 favorites: result.data.favorites[0]?.count?.id_anilist || 0,
@@ -144,8 +148,11 @@ async function fetchSidebarStatsFallback() {
             return null;
         }
         
-        // Use DOM counting as a last resort
+        // Use DOM counting as a last resort for non-bato stats
         const gridItems = document.querySelectorAll('.grid-item');
+        
+        // Fetch Bato finished count from API (instant, doesn't need DOM)
+        const batoFinishedCount = await fetchBatoFinishedCount();
         
         // Default response with at least the total count
         return {
@@ -159,6 +166,7 @@ async function fetchSidebarStatsFallback() {
             releaseStatus: {
                 releasing: countItems(gridItems, 'data-release-status', 'RELEASING'),
                 finished: countItems(gridItems, 'data-release-status', 'FINISHED'),
+                batoFinished: batoFinishedCount
             },
             special: {
                 favorites: countItems(gridItems, 'data-is-favourite', '1'),
@@ -199,6 +207,45 @@ function countItemsWithGreaterValue(items, attribute, threshold) {
 }
 
 /**
+ * Helper function to count items with Batotwo status 'completed' AND release status 'FINISHED'
+ */
+function countBatoCompleted(items) {
+    let count = 0;
+    items.forEach(item => {
+        const batoStatus = (item.getAttribute('data-bato-upload-status') || '').toLowerCase();
+        const releaseStatus = (item.getAttribute('data-release-status') || '').toUpperCase();
+        if (batoStatus === 'completed' && releaseStatus === 'FINISHED') {
+            count++;
+        }
+    });
+    return count;
+}
+
+/**
+ * Fetch Bato finished count from API (manga with bato completed + release FINISHED)
+ */
+async function fetchBatoFinishedCount() {
+    try {
+        const response = await fetch('/api/bato/finished-count');
+        if (!response.ok) {
+            console.warn('Could not fetch Bato finished count');
+            return 0;
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            console.warn('Bato finished count request failed:', data.error);
+            return 0;
+        }
+        
+        return data.count || 0;
+    } catch (error) {
+        console.error('Error fetching Bato finished count:', error);
+        return 0;
+    }
+}
+
+/**
  * Update the user list status counts in the sidebar
  */
 function updateStatusCounts(stats) {
@@ -220,6 +267,12 @@ function updateReleaseStatusCounts(stats) {
     document.getElementById('count-releasing').textContent = stats.releaseStatus.releasing;
     document.getElementById('count-finished').textContent = stats.releaseStatus.finished;
     document.getElementById('count-all-release-stats').textContent = stats.listStatus.total;
+    
+    // Update Bato finished count
+    const batoFinishedElement = document.getElementById('count-bato-finished');
+    if (batoFinishedElement) {
+        batoFinishedElement.textContent = stats.releaseStatus.batoFinished;
+    }
 }
 
 /**
@@ -339,7 +392,8 @@ async function fetchIndividualStats() {
             },
             releaseStatus: {
                 releasing: 0,
-                finished: 0
+                finished: 0,
+                batoFinished: 0
             },
             special: {
                 favorites: 0,
@@ -448,6 +502,9 @@ async function fetchIndividualStats() {
             }
         }`;
         stats.special.reread = await fetchCount(rereadQuery);
+        
+        // Fetch Bato finished count from API (instant, doesn't need DOM)
+        stats.releaseStatus.batoFinished = await fetchBatoFinishedCount();
         
         return stats;
     } catch (error) {
