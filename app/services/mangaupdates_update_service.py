@@ -458,7 +458,7 @@ class MangaUpdatesUpdateService:
             "analysis_started",
             {
                 "total_updates": len(self.status_updates),
-                "model": "meta-llama/llama-4-maverick-17b-128e-instruct"
+                "model": "openai/gpt-oss-120b"
             }
         )
         
