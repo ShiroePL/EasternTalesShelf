@@ -61,9 +61,8 @@ class MangaUpdatesAPIClient:
         """
         Convert a MangaUpdates slug to numeric series ID.
         
-        The API requires numeric IDs, but URLs can use either:
-        - Slugs (e.g., 'm9j8pqm') -> need to fetch the page to get numeric ID
-        - Old numeric IDs (e.g., '150952') -> can use directly
+        MangaUpdates slugs are base36-encoded numeric IDs.
+        e.g., 'm9j8pqm' -> int('m9j8pqm', 36) -> 48465726286
         
         Args:
             slug_or_id: The series slug (e.g., 'm9j8pqm') or old numeric ID (e.g., '150952')
@@ -74,32 +73,16 @@ class MangaUpdatesAPIClient:
         try:
             # Check if it's already a numeric ID (old format)
             if slug_or_id.isdigit():
-                logger.info(f"'{slug_or_id}' is already a numeric ID (old format), using directly")
-                # Old IDs need to be converted to new IDs via the page
-                url = f"{self.web_base_url}/series.html?id={slug_or_id}"
-                logger.info(f"Fetching page to convert old ID '{slug_or_id}' to new ID: {url}")
-            else:
-                # It's a slug, need to fetch the page
-                url = f"{self.web_base_url}/series/{slug_or_id}"
-                logger.info(f"Fetching page to convert slug '{slug_or_id}' to ID: {url}")
+                logger.info(f"'{slug_or_id}' is already a numeric ID, using directly")
+                return slug_or_id
             
-            response = requests.get(url, headers=self.headers, timeout=10)
-            response.raise_for_status()
-            
-            # Look for the RSS feed URL which contains the numeric ID
-            # Example: https://api.mangaupdates.com/v1/series/48465726286/rss
-            match = re.search(r'https://api\.mangaupdates\.com/v1/series/(\d+)/rss', response.text)
-            
-            if match:
-                series_id = match.group(1)
-                logger.info(f"Successfully converted '{slug_or_id}' to ID: {series_id}")
-                return series_id
-            else:
-                logger.warning(f"Could not find numeric ID for '{slug_or_id}' in page HTML")
-                return None
+            # Slugs are base36-encoded numeric IDs - decode directly
+            series_id = str(int(slug_or_id, 36))
+            logger.info(f"Decoded slug '{slug_or_id}' to numeric ID: {series_id} (base36)")
+            return series_id
                 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error converting '{slug_or_id}' to ID: {e}")
+        except ValueError as e:
+            logger.error(f"Failed to decode slug '{slug_or_id}' as base36: {e}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error converting '{slug_or_id}' to ID: {e}")
